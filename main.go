@@ -282,14 +282,146 @@ func applyMapReplacementsFromPejelagarto(input string) string {
 	return string(result)
 }
 
+// applyNumbersFromBase10ToBase7 converts all base-10 numbers in the input to base-7
+func applyNumbersFromBase10ToBase7(input string) string {
+	runes := []rune(input)
+	result := []rune{}
+	
+	for i := 0; i < len(runes); {
+		// Check if current character is a digit
+		if unicode.IsDigit(runes[i]) {
+			// Collect all consecutive digits
+			numStr := ""
+			for i < len(runes) && unicode.IsDigit(runes[i]) {
+				numStr += string(runes[i])
+				i++
+			}
+			
+			// Convert base-10 to base-7
+			var base10Num int
+			if _, err := fmt.Sscanf(numStr, "%d", &base10Num); err == nil {
+				base7Str := convertToBase7(base10Num)
+				result = append(result, []rune(base7Str)...)
+			} else {
+				// If parsing fails, keep original
+				result = append(result, []rune(numStr)...)
+			}
+		} else {
+			result = append(result, runes[i])
+			i++
+		}
+	}
+	
+	return string(result)
+}
+
+// applyNumbersFromBase7ToBase10 converts all base-7 numbers in the input to base-10
+func applyNumbersFromBase7ToBase10(input string) string {
+	runes := []rune(input)
+	result := []rune{}
+	
+	for i := 0; i < len(runes); {
+		// Check if current character is a base-7 digit (0-6)
+		if unicode.IsDigit(runes[i]) {
+			// Collect all consecutive base-7 digits
+			numStart := i
+			numStr := ""
+			isValidBase7 := true
+			for i < len(runes) && unicode.IsDigit(runes[i]) {
+				digit := runes[i]
+				if digit >= '0' && digit <= '6' {
+					numStr += string(digit)
+				} else {
+					// Not a valid base-7 number
+					isValidBase7 = false
+					break
+				}
+				i++
+			}
+			
+			// Convert base-7 to base-10
+			if isValidBase7 && numStr != "" {
+				base10Num := convertFromBase7(numStr)
+				result = append(result, []rune(fmt.Sprintf("%d", base10Num))...)
+			} else {
+				// If not valid base-7, keep original characters
+				for j := numStart; j < i; j++ {
+					result = append(result, runes[j])
+				}
+				if i < len(runes) {
+					result = append(result, runes[i])
+					i++
+				}
+			}
+		} else {
+			result = append(result, runes[i])
+			i++
+		}
+	}
+	
+	return string(result)
+}
+
+// convertToBase7 converts a base-10 integer to base-7 string
+func convertToBase7(num int) string {
+	if num == 0 {
+		return "0"
+	}
+	
+	isNegative := num < 0
+	if isNegative {
+		num = -num
+	}
+	
+	result := ""
+	for num > 0 {
+		digit := num % 7
+		result = string(rune('0'+digit)) + result
+		num = num / 7
+	}
+	
+	if isNegative {
+		result = "-" + result
+	}
+	
+	return result
+}
+
+// convertFromBase7 converts a base-7 string to base-10 integer
+func convertFromBase7(base7Str string) int {
+	isNegative := false
+	if len(base7Str) > 0 && base7Str[0] == '-' {
+		isNegative = true
+		base7Str = base7Str[1:]
+	}
+	
+	result := 0
+	multiplier := 1
+	
+	// Process from right to left
+	for i := len(base7Str) - 1; i >= 0; i-- {
+		digit := int(base7Str[i] - '0')
+		result += digit * multiplier
+		multiplier *= 7
+	}
+	
+	if isNegative {
+		result = -result
+	}
+	
+	return result
+}
+
 // TranslateToPejelagarto translates Human text to Pejelagarto
 func TranslateToPejelagarto(input string) string {
+	input = applyNumbersFromBase10ToBase7(input)
 	return applyMapReplacementsToPejelagarto(input)
 }
 
 // TranslateFromPejelagarto translates Pejelagarto text back to Human
 func TranslateFromPejelagarto(input string) string {
-	return applyMapReplacementsFromPejelagarto(input)
+	input = applyMapReplacementsFromPejelagarto(input)
+	return applyNumbersFromBase7ToBase10(input)
 }
 
 // HTML template for the web interface
