@@ -20,9 +20,9 @@ import (
 
 var primaryCharMap = map[string]string{
 	"\n\n": "\n\n₪", "oro": "🖸", "nn": "𝇚", "ch": "gl", "ll": "jh", "oy": "oý", "rr": "j", "cu": "q⏝", "qu": "kð", "ss": "₷", "ah": "⍺", "a": "o", "b": "v",
-	"c": "k", "d": "t", "e": "u", "f": "∫", "g": "j", "h": "p", "i": "a",
+	"c": "k", "d": "t", "e": "u", "f": "∫", "g": "j", "h": "p", "i": "a", "í": "⟑",
 	"j": "y", "k": "s", "l": "r", "m": "n", "n": "m", "ñ": "⠈ny", "o": "i",
-	"p": "b", "q": "k⏝", "r": "f", "s": "z", "t": "d", "u": "õ", "ú": "µ", "ü": "⟑", "v": "w",
+	"p": "b", "q": "k⏝", "r": "s", "s": "z", "t": "d", "u": "õ", "ú": "µ", "v": "w",
 	"w": "­", "x": "☈", "y": "ý", "z": "x",
 }
 
@@ -303,8 +303,8 @@ func TranslateToPejelagarto(text string) (string, error) {
 )\s*p`)
 	text = phraseRegex.ReplaceAllString(text, "${1}`p")
 
-	text = applyPrimeProperty(text, 'a', 'â', false)
-	text = applyPrimeProperty(text, 'e', 'ê', true)
+	text = applyPrimeProperty(text, 'o', 'â', false)
+	text = applyPrimeProperty(text, 'u', 'ê', true)
 
 	text = applyIndexedModification(text, 'n', "nh", encoding.TimeIsRAK)
 	switch encoding.TempIncreased {
@@ -382,7 +382,7 @@ var newlineRegex = regexp.MustCompile(`\r?\n`)
 func TranslateFromPejelagarto(pejelagartoText string) (string, error) {
 	parts := newlineRegex.Split(pejelagartoText, 2)
 	if len(parts) < 2 {
-		return "", fmt.Errorf("invalid format: missing pejelagarto mark")
+		return "", fmt.Errorf("invalid format: missing encoding mark")
 	}
 	encodingMark, text := parts[0], parts[1]
 
@@ -391,28 +391,19 @@ func TranslateFromPejelagarto(pejelagartoText string) (string, error) {
 		return "", fmt.Errorf("could not parse encoding mark: %v", err)
 	}
 
-	text = strings.NewReplacer(
-		"..", ".", ",,", ",", "’", ",", "‘", ",", "×", "!", "{", "(", "}", ")", "⎝", "[", "⎞", "]", "`p", "p", "`P", "p",
-		"â", "a", "ê", "e",
-		"á", "a", "é", "e", "í", "i", "ó", "o", "ú", "u", "ý", "y",
-		"Á", "á", "É", "é", "Í", "í", "Ó", "ó", "Ú", "ú", "Ý", "ý",
-		"aa", "a", "ee", "e", "ii", "i", "oo", "o", "uu", "u",
-		"nn", "n", "mm", "m",
-	).Replace(text)
-
 	// *** FIX: Apply reverse mapping BEFORE emoji removal ***
 	reversePrimaryMap := getReverseMultiMap(primaryCharMap)
 	text = applyReverseMapWithTagging(text, reversePrimaryMap)
 
 	reEmoji := regexp.MustCompile(`[\p{So}]`)
 	text = reEmoji.ReplaceAllString(text, "")
-
 	text = strings.NewReplacer(
-		"â", "a", "ê", "e", "á", "a", "é", "e", "í", "i", "ó", "o", "ú", "u",
+		"..", ".", ",,", ",", "’", ",", "‘", ",", "×", "!", "{", "(", "}", ")", "⎝", "[", "⎞", "]", "`p", "p",
+		"â", "o", "ê", "u", "á", "a", "é", "e", "í", "i", "ó", "o", "ú", "u", "õ", "u",
 		"Á", "A", "É", "E", "Í", "I", "Ó", "O", "Ú", "U",
-		"aa", "a", "ee", "e", "ii", "i", "oo", "o", "uu", "u",
-		"nn", "n", "mm", "m",
 	).Replace(text)
+	//text = strings.ReplaceAll(text, "[", "⎝")
+	//text = strings.ReplaceAll(text, "]", "⎞")
 
 	switch encoding.BitcoinIncreased {
 	case "BIT":
