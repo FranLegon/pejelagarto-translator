@@ -15,7 +15,32 @@ import (
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
 )
+
+// Accent wheel for vowel modifications
+// The wheel loops around when moving forward or backward
+// Each level maps base vowel (lowercase) to its accented form
+var accentWheel = []map[rune]string{
+	// No accent (base vowels)
+	{'a': "a", 'e': "e", 'i': "i", 'o': "o", 'u': "u"},
+	// Grave accent
+	{'a': "à", 'e': "è", 'i': "ì", 'o': "ò", 'u': "ù"},
+	// Acute accent
+	{'a': "á", 'e': "é", 'i': "í", 'o': "ó", 'u': "ú"},
+	// Circumflex accent
+	{'a': "â", 'e': "ê", 'i': "î", 'o': "ô", 'u': "û"},
+	// Tilde accent
+	{'a': "ã", 'e': "ẽ", 'i': "ĩ", 'o': "õ", 'u': "ũ"},
+	// Ring above
+	{'a': "å", 'e': "e̊", 'i': "i̊", 'o': "o̊", 'u': "ů"},
+	// Diaeresis
+	{'a': "ä", 'e': "ë", 'i': "ï", 'o': "ö", 'u': "ü"},
+	// Macron
+	{'a': "ā", 'e': "ē", 'i': "ī", 'o': "ō", 'u': "ū"},
+	// Breve
+	{'a': "ă", 'e': "ĕ", 'i': "ĭ", 'o': "ŏ", 'u': "ŭ"},
+}
 
 // Translation maps for the Pejelagarto language
 var (
@@ -286,7 +311,7 @@ func applyMapReplacementsFromPejelagarto(input string) string {
 func applyNumbersFromBase10ToBase7(input string) string {
 	runes := []rune(input)
 	result := []rune{}
-	
+
 	for i := 0; i < len(runes); {
 		// Check if current character is a digit
 		if unicode.IsDigit(runes[i]) {
@@ -296,7 +321,7 @@ func applyNumbersFromBase10ToBase7(input string) string {
 				numStr += string(runes[i])
 				i++
 			}
-			
+
 			// Convert base-10 to base-7
 			var base10Num int
 			if _, err := fmt.Sscanf(numStr, "%d", &base10Num); err == nil {
@@ -311,7 +336,7 @@ func applyNumbersFromBase10ToBase7(input string) string {
 			i++
 		}
 	}
-	
+
 	return string(result)
 }
 
@@ -319,7 +344,7 @@ func applyNumbersFromBase10ToBase7(input string) string {
 func applyNumbersFromBase7ToBase10(input string) string {
 	runes := []rune(input)
 	result := []rune{}
-	
+
 	for i := 0; i < len(runes); {
 		// Check if current character is a base-7 digit (0-6)
 		if unicode.IsDigit(runes[i]) {
@@ -338,7 +363,7 @@ func applyNumbersFromBase7ToBase10(input string) string {
 				}
 				i++
 			}
-			
+
 			// Convert base-7 to base-10
 			if isValidBase7 && numStr != "" {
 				base10Num := convertFromBase7(numStr)
@@ -358,7 +383,7 @@ func applyNumbersFromBase7ToBase10(input string) string {
 			i++
 		}
 	}
-	
+
 	return string(result)
 }
 
@@ -367,23 +392,23 @@ func convertToBase7(num int) string {
 	if num == 0 {
 		return "0"
 	}
-	
+
 	isNegative := num < 0
 	if isNegative {
 		num = -num
 	}
-	
+
 	result := ""
 	for num > 0 {
 		digit := num % 7
 		result = string(rune('0'+digit)) + result
 		num = num / 7
 	}
-	
+
 	if isNegative {
 		result = "-" + result
 	}
-	
+
 	return result
 }
 
@@ -394,32 +419,262 @@ func convertFromBase7(base7Str string) int {
 		isNegative = true
 		base7Str = base7Str[1:]
 	}
-	
+
 	result := 0
 	multiplier := 1
-	
+
 	// Process from right to left
 	for i := len(base7Str) - 1; i >= 0; i-- {
 		digit := int(base7Str[i] - '0')
 		result += digit * multiplier
 		multiplier *= 7
 	}
-	
+
 	if isNegative {
 		result = -result
 	}
-	
+
 	return result
+}
+
+// primeFactorize returns the prime factorization of n as a map of prime -> power
+func primeFactorize(n int) map[int]int {
+	if n <= 1 {
+		return map[int]int{}
+	}
+
+	factors := make(map[int]int)
+
+	// Handle factor of 2
+	for n%2 == 0 {
+		factors[2]++
+		n = n / 2
+	}
+
+	// Handle odd factors from 3 onwards
+	for i := 3; i*i <= n; i += 2 {
+		for n%i == 0 {
+			factors[i]++
+			n = n / i
+		}
+	}
+
+	// If n is still greater than 1, then it's a prime factor
+	if n > 1 {
+		factors[n]++
+	}
+
+	return factors
+}
+
+// isVowel checks if a string (potentially multi-byte char) is a vowel (accented or not)
+func isVowel(s string) bool {
+	// Check base vowels (case-insensitive)
+	baseVowels := "aeiou"
+	lowerS := strings.ToLower(s)
+	if len(lowerS) == 1 && strings.ContainsRune(baseVowels, rune(lowerS[0])) {
+		return true
+	}
+
+	// Check if the string appears in any accent wheel level (checking both cases)
+	for _, accentMap := range accentWheel {
+		for _, accentedVowel := range accentMap {
+			if s == accentedVowel || lowerS == accentedVowel {
+				return true
+			}
+			// Also check if uppercase version matches
+			if s == strings.ToUpper(accentedVowel) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// findVowelInWheel returns the wheel index and base vowel for a given string
+// Returns (-1, 0) if not found
+func findVowelInWheel(s string) (wheelIndex int, baseVowel rune) {
+	// Normalize to lowercase for comparison
+	lowerS := strings.ToLower(s)
+
+	for idx, accentMap := range accentWheel {
+		for base, accented := range accentMap {
+			// Compare lowercase versions
+			if lowerS == accented || lowerS == strings.ToLower(accented) {
+				return idx, base
+			}
+			// Also check uppercase version of accented vowel
+			upperAccented := strings.ToUpper(accented)
+			if s == upperAccented {
+				return idx, base
+			}
+		}
+	}
+	return -1, 0
+}
+
+// applyAccentReplacementLogicToPejelagarto applies accent modifications based on prime factorization
+// Uses the character count of the input (post-translation text)
+func applyAccentReplacementLogicToPejelagarto(input string) string {
+	// Count total characters (runes) - this is the POST-TRANSLATION count
+	runeCount := utf8.RuneCountInString(input)
+
+	if runeCount <= 1 {
+		return input
+	}
+
+	// Get prime factorization of the total count
+	factors := primeFactorize(runeCount)
+
+	if len(factors) == 0 {
+		return input
+	}
+
+	// Convert to slice of strings (each character as a string to handle multi-byte)
+	chars := []string{}
+	for _, r := range input {
+		chars = append(chars, string(r))
+	}
+
+	// Find all vowel positions
+	vowelPositions := []int{}
+	for i, char := range chars {
+		if isVowel(char) {
+			vowelPositions = append(vowelPositions, i)
+		}
+	}
+
+	if len(vowelPositions) == 0 {
+		return input
+	}
+
+	// Apply accent changes for each prime factor
+	for prime, power := range factors {
+		// Calculate which vowel to modify (prime-th vowel, 1-indexed)
+		vowelIndex := (prime - 1) % len(vowelPositions)
+		charIndex := vowelPositions[vowelIndex]
+
+		currentChar := chars[charIndex]
+		wheelIndex, baseVowel := findVowelInWheel(currentChar)
+
+		if wheelIndex == -1 {
+			continue // Not a vowel we can modify
+		}
+
+		// Check if original was uppercase
+		wasUpper := unicode.IsUpper([]rune(currentChar)[0])
+
+		// Move forward in the wheel by 'power' positions
+		newWheelIndex := (wheelIndex + power) % len(accentWheel)
+		newChar := accentWheel[newWheelIndex][baseVowel]
+
+		// Preserve case - convert to uppercase if needed
+		if wasUpper {
+			// Convert first rune to uppercase
+			runes := []rune(newChar)
+			if len(runes) > 0 {
+				runes[0] = unicode.ToUpper(runes[0])
+				newChar = string(runes)
+			}
+		}
+
+		chars[charIndex] = newChar
+	}
+
+	return strings.Join(chars, "")
+}
+
+// applyAccentReplacementLogicFromPejelagarto reverses accent modifications
+// Uses the character count of the input (pre-reverse-translation text, which is the Pejelagarto text)
+func applyAccentReplacementLogicFromPejelagarto(input string) string {
+	// Count total characters (runes) - this is the PRE-REVERSE-TRANSLATION count (same as POST-TRANSLATION from encoding)
+	runeCount := utf8.RuneCountInString(input)
+
+	if runeCount <= 1 {
+		return input
+	}
+
+	// Get prime factorization of the total count
+	factors := primeFactorize(runeCount)
+
+	if len(factors) == 0 {
+		return input
+	}
+
+	// Convert to slice of strings (each character as a string to handle multi-byte)
+	chars := []string{}
+	for _, r := range input {
+		chars = append(chars, string(r))
+	}
+
+	// Find all vowel positions
+	vowelPositions := []int{}
+	for i, char := range chars {
+		if isVowel(char) {
+			vowelPositions = append(vowelPositions, i)
+		}
+	}
+
+	if len(vowelPositions) == 0 {
+		return input
+	}
+
+	// Apply accent changes for each prime factor (moving backward)
+	for prime, power := range factors {
+		// Calculate which vowel to modify (prime-th vowel, 1-indexed)
+		vowelIndex := (prime - 1) % len(vowelPositions)
+		charIndex := vowelPositions[vowelIndex]
+
+		currentChar := chars[charIndex]
+		wheelIndex, baseVowel := findVowelInWheel(currentChar)
+
+		if wheelIndex == -1 {
+			continue // Not a vowel we can modify
+		}
+
+		// Check if original was uppercase
+		wasUpper := unicode.IsUpper([]rune(currentChar)[0])
+
+		// Move backward in the wheel by 'power' positions
+		newWheelIndex := (wheelIndex - power) % len(accentWheel)
+		if newWheelIndex < 0 {
+			newWheelIndex += len(accentWheel)
+		}
+
+		// Look up the new character
+		newChar, exists := accentWheel[newWheelIndex][baseVowel]
+		if !exists {
+			// If baseVowel not found, continue (shouldn't happen)
+			continue
+		}
+
+		// Preserve case - convert to uppercase if needed
+		if wasUpper {
+			// Convert first rune to uppercase
+			runes := []rune(newChar)
+			if len(runes) > 0 {
+				runes[0] = unicode.ToUpper(runes[0])
+				newChar = string(runes)
+			}
+		}
+
+		chars[charIndex] = newChar
+	}
+
+	return strings.Join(chars, "")
 }
 
 // TranslateToPejelagarto translates Human text to Pejelagarto
 func TranslateToPejelagarto(input string) string {
 	input = applyNumbersFromBase10ToBase7(input)
-	return applyMapReplacementsToPejelagarto(input)
+	input = applyMapReplacementsToPejelagarto(input)
+	return applyAccentReplacementLogicToPejelagarto(input)
 }
 
 // TranslateFromPejelagarto translates Pejelagarto text back to Human
 func TranslateFromPejelagarto(input string) string {
+	input = applyAccentReplacementLogicFromPejelagarto(input)
 	input = applyMapReplacementsFromPejelagarto(input)
 	return applyNumbersFromBase7ToBase10(input)
 }
