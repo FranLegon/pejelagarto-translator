@@ -88,9 +88,30 @@ func invertMap(m map[string]string) map[string]string {
 	return inverted
 }
 
+// makeBidirectionalMap creates a bidirectional map by adding inverse mappings
+// This prevents Pejelagarto sequences in the input from being mis-translated
+func makeBidirectionalMap(m map[string]string) map[string]string {
+	bidirectional := make(map[string]string)
+	// Add original mappings
+	for k, v := range m {
+		bidirectional[k] = v
+	}
+	// Add inverse mappings (value maps to itself to prevent re-translation)
+	for _, v := range m {
+		if _, exists := bidirectional[v]; !exists {
+			bidirectional[v] = v // Identity mapping
+		}
+	}
+	return bidirectional
+}
+
 // applyMapReplacementsToPejelagarto applies the translation maps in order: word, conjunction, letter
 // Uses a greedy approach: at each position, tries to match the longest pattern first
 func applyMapReplacementsToPejelagarto(input string) string {
+	// Make maps bidirectional to prevent Pejelagarto sequences in input from being mis-translated
+	bidirectionalWordMap := makeBidirectionalMap(wordMap)
+	bidirectionalConjunctionMap := makeBidirectionalMap(conjunctionMap)
+
 	runes := []rune(input)
 	result := []rune{}
 
@@ -98,7 +119,7 @@ func applyMapReplacementsToPejelagarto(input string) string {
 		// Try wordMap first (case-insensitive) - find longest match
 		longestWordValue := ""
 		longestWordLen := 0
-		for key, value := range wordMap {
+		for key, value := range bidirectionalWordMap {
 			keyRunes := []rune(strings.ToLower(key))
 			if len(keyRunes) > longestWordLen && i+len(keyRunes) <= len(runes) {
 				// Check if we have a match (case-insensitive)
@@ -129,7 +150,7 @@ func applyMapReplacementsToPejelagarto(input string) string {
 		// Try conjunctionMap - find longest match
 		longestConjValue := ""
 		longestConjLen := 0
-		for key, value := range conjunctionMap {
+		for key, value := range bidirectionalConjunctionMap {
 			keyRunes := []rune(key)
 			if len(keyRunes) > longestConjLen && i+len(keyRunes) <= len(runes) {
 				match := true
