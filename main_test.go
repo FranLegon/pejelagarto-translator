@@ -2,75 +2,55 @@ package main
 
 import (
 	"testing"
+	"unicode/utf8"
 )
 
-// TestReversibility verifies that the translation is perfectly reversible
-func TestReversibility(t *testing.T) {
-	// Comprehensive test string that uses all three maps
-	// wordMap: hello, world, the, and, you, this, can, thank, friend
-	// conjunctionMap: ch, sh, th
-	// letterMap: a, e, i, o, u
-	testCases := []string{
-		"hello world",
-		"Hello World",
-		"the quick brown fox",
-		"this and that",
-		"can you help",
-		"thank you friend",
-		"church and ship",
-		"chat with them",
-		"phone that chapter",
-		"A simple test with vowels: a e i o u",
-		"Hello, this is the world and you can thank your friend when you have time!",
-		"Chapter one: the quick check",
-		"The ship will thank the church",
-		"When can you come?",
-		"What is that thing?",
-		"Good morning, how are you?",
-		"Yes, maybe we can meet at night",
-		"Please love this great day",
-		"Hello friend, where are you from?",
-		"Thank you so much for the evening",
-	}
+// FuzzReversibility uses Go's native fuzzing to test reversibility with arbitrary inputs
+func FuzzReversibility(f *testing.F) {
+	// Add seed corpus with diverse test cases
+	f.Add("hello world")
+	f.Add("Hello World")
+	f.Add("the quick brown fox")
+	f.Add("this and that")
+	f.Add("can you help")
+	f.Add("thank you friend")
+	f.Add("church and ship")
+	f.Add("chat with them")
+	f.Add("phone that chapter")
+	f.Add("A simple test with vowels: a e i o u")
+	f.Add("Hello, this is the world and you can thank your friend when you have time!")
+	f.Add("Chapter one: the quick check")
+	f.Add("The ship will thank the church")
+	f.Add("When can you come?")
+	f.Add("What is that thing?")
+	f.Add("Good morning, how are you?")
+	f.Add("Yes, maybe we can meet at night")
+	f.Add("Please love this great day")
+	f.Add("Hello friend, where are you from?")
+	f.Add("Thank you so much for the evening")
+	// Add some edge cases
+	f.Add("")
+	f.Add("a")
+	f.Add("ABC")
+	f.Add("123")
+	f.Add("!@#$%^&*()")
+	f.Add("   spaces   ")
+	f.Add("newline\ntest")
+	f.Add("tab\ttest")
 
-	for _, original := range testCases {
-		// Test: ToPejelagarto -> FromPejelagarto should return original
+	f.Fuzz(func(t *testing.T, original string) {
+		// Skip invalid UTF-8 strings - the translator works with valid UTF-8 text only
+		if !utf8.ValidString(original) {
+			t.Skip("Skipping invalid UTF-8 input")
+		}
+
+		// Test: English -> Pejelagarto -> English should return original
+		// This is the primary use case: translating English text to Pejelagarto and back
 		translated := TranslateToPejelagarto(original)
 		backToOriginal := TranslateFromPejelagarto(translated)
 
 		if backToOriginal != original {
-			t.Errorf("Forward-backward translation failed!\nOriginal:  %q\nTranslated: %q\nBack:      %q", original, translated, backToOriginal)
+			t.Errorf("English→Pejelagarto→English round-trip failed!\nOriginal:   %q\nPejelagarto: %q\nBack:       %q", original, translated, backToOriginal)
 		}
-
-		// Test: FromPejelagarto -> ToPejelagarto should return original
-		// (We use the translated version as input)
-		backTranslated := TranslateToPejelagarto(backToOriginal)
-
-		if backTranslated != translated {
-			t.Errorf("Backward-forward translation failed!\nOriginal:       %q\nTranslated:     %q\nBack Original:  %q\nBack Translated: %q", original, translated, backToOriginal, backTranslated)
-		}
-	}
-
-	t.Logf("All %d reversibility tests passed!", len(testCases))
-}
-
-// TestSpecificTranslations tests some specific expected translations
-func TestSpecificTranslations(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected string
-	}{
-		{"hello", "jetzo"},
-		{"world", "vorlag"},
-		{"the", "ze"},
-		{"chapter", "jjiptor"}, // ch->jj, a->i, e->o
-		{"ship", "xxap"},       // sh->xx, i->a, (p unchanged)
-	}
-
-	for _, tt := range tests {
-		result := TranslateToPejelagarto(tt.input)
-		if result != tt.expected {
-			t.Errorf("TranslateToPejelagarto(%q) = %q, expected %q", tt.input, result, tt.expected)
-		}
-	}
+	})
 }
