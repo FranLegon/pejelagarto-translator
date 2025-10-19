@@ -10,7 +10,10 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os/exec"
+	"runtime"
 	"strings"
+	"time"
 	"unicode"
 )
 
@@ -418,10 +421,7 @@ const htmlTemplate = `<!DOCTYPE html>
         <div class="controls">
             <button 
                 id="translate-btn"
-                hx-post="/to"
-                hx-trigger="click"
-                hx-target="#output-text"
-                hx-include="#input-text"
+                onclick="translateText(); return false;"
             >
                 Translate to Pejelagarto
             </button>
@@ -506,12 +506,25 @@ const htmlTemplate = `<!DOCTYPE html>
             });
         }
 
-        // Custom HTMX event to handle response
-        document.body.addEventListener('htmx:afterRequest', (event) => {
-            if (event.detail.successful) {
-                outputText.value = event.detail.xhr.responseText;
-            }
-        });
+        // Manual translate function for button
+        function translateText() {
+            const endpoint = isInverted ? '/from' : '/to';
+            
+            fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain',
+                },
+                body: inputText.value
+            })
+            .then(response => response.text())
+            .then(data => {
+                outputText.value = data;
+            })
+            .catch(error => {
+                console.error('Translation error:', error);
+            });
+        }
     </script>
 </body>
 </html>`
@@ -552,6 +565,26 @@ func handleTranslateFrom(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, translated)
 }
 
+// openBrowser opens the specified URL in the default browser
+func openBrowser(url string) {
+	var err error
+
+	switch runtime.GOOS {
+	case "linux":
+		err = exec.Command("xdg-open", url).Start()
+	case "windows":
+		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	case "darwin":
+		err = exec.Command("open", url).Start()
+	default:
+		err = fmt.Errorf("unsupported platform")
+	}
+
+	if err != nil {
+		log.Printf("Failed to open browser: %v\n", err)
+	}
+}
+
 func main() {
 	// Set up routes
 	http.HandleFunc("/", handleRoot)
@@ -560,8 +593,17 @@ func main() {
 
 	// Start server
 	addr := ":8080"
-	fmt.Printf("Starting Pejelagarto Translator server on http://localhost%s\n", addr)
+	url := fmt.Sprintf("http://localhost%s", addr)
+
+	fmt.Printf("Starting Pejelagarto Translator server on %s\n", url)
 	fmt.Println("Press Ctrl+C to stop the server")
+
+	// Open browser after a short delay to ensure server is ready
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		fmt.Printf("Opening %s in your browser...\n", url)
+		openBrowser(url)
+	}()
 
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.Fatal("Server error:", err)

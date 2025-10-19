@@ -5,6 +5,7 @@ A complete, locally runnable web application that functions as a translator for 
 ## Features
 
 - **Go Backend**: Single `main.go` file with local web server
+- **Auto-Open Browser**: Automatically opens http://localhost:8080 in your default browser
 - **HTMX Frontend**: Dynamic, interactive UI without external dependencies
 - **Reversible Translation**: Perfectly bidirectional translation between Human and Pejelagarto
 - **Live Translation**: Real-time translation as you type
@@ -22,7 +23,7 @@ go build -o pejelagarto-translator main.go
 go run main.go
 ```
 
-The server will start on `http://localhost:8080`
+The server will start on `http://localhost:8080` and automatically open in your default browser.
 
 ### Test
 ```bash
