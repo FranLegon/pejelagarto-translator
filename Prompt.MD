@@ -21,9 +21,9 @@ applyMapReplacementsFromPejelagarto(input string):
     does exactly the same as applyMapReplacementsToPejelagarto but replacements must be applied using bijectiveMap in order by index asc.
 
 applyNumbersFromBase10ToBase7(input string):
-    Converts all numbers in string from base 10 to base 7. doesnt remove trailing zeros (example: 007 becomes 0010, 00 becomes 00).
+    Converts all numbers in string from base 10 to base 7. doesnt remove front-trailing zeros (example: 007 becomes 0010, 00 becomes 00).
 applyNumbersFromBase7ToBase10(input string):
-    Converts all numbers in string from base 7 to base 10. doesnt remove trailing zeros (example: 0011 becomes 008, 000 becomes 000).
+    Converts all numbers in string from base 7 to base 10. doesnt remove front-trailing zeros (example: 0011 becomes 008, 000 becomes 000).
 
 
 applyAccentReplacementLogicToPejelagarto(input string):

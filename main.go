@@ -6,6 +6,7 @@ package main
 
 import (
 	"fmt"
+	"math/big"
 	"sort"
 	"strings"
 	"unicode"
@@ -254,14 +255,23 @@ func applyReplacements(input string, bijectiveMap map[int32]map[string]string, i
 			resultRunes := []rune(result)
 			keyRunes := []rune(key)
 
-			for pos < len(resultRunes) {
-				// Check if we're inside markers
-				beforePos := string(resultRunes[:pos])
-				openMarkers := strings.Count(beforePos, startMarker)
-				closeMarkers := strings.Count(beforePos, endMarker)
-				insideMarkers := openMarkers > closeMarkers
+			// Pre-calculate marker positions for O(n) performance instead of O(n²)
+			markerMap := make(map[int]int) // pos -> marker depth at that position
+			depth := 0
+			startMarkerRune := []rune(startMarker)[0]
+			endMarkerRune := []rune(endMarker)[0]
+			for i := 0; i < len(resultRunes); i++ {
+				markerMap[i] = depth
+				if resultRunes[i] == startMarkerRune {
+					depth++
+				} else if resultRunes[i] == endMarkerRune {
+					depth--
+				}
+			}
 
-				if insideMarkers {
+			for pos < len(resultRunes) {
+				// Check if we're inside markers using pre-calculated map
+				if markerMap[pos] > 0 {
 					// Skip characters inside markers
 					newResult.WriteRune(resultRunes[pos])
 					pos++
@@ -274,18 +284,26 @@ func applyReplacements(input string, bijectiveMap map[int32]map[string]string, i
 				if len(keyRunes) > 0 && keyRunes[0] != '\'' {
 					inQuotedWord := false
 					// Look backwards in the current word for an unprocessed quote
-					for i := pos - 1; i >= 0; i-- {
-						// Stop if we hit a marker - quotes inside markers don't count
-						beforeI := string(resultRunes[:i])
-						if strings.Count(beforeI, startMarker) > strings.Count(beforeI, endMarker) {
+					// Optimized: limit backward scan to word boundary
+					wordStart := pos
+					for i := pos - 1; i >= 0 && i >= pos-50; i-- { // limit backward scan
+						if !unicode.IsLetter(resultRunes[i]) && resultRunes[i] != '\'' {
+							wordStart = i + 1
 							break
 						}
+						if i == 0 {
+							wordStart = 0
+						}
+					}
 
+					for i := pos - 1; i >= wordStart; i-- {
 						if resultRunes[i] == '\'' {
-							inQuotedWord = true
+							// Check if this quote is inside markers using pre-calculated map
+							if markerMap[i] == 0 {
+								inQuotedWord = true
+							}
 							break
 						}
-						// Stop at word boundaries
 						if !unicode.IsLetter(resultRunes[i]) {
 							break
 						}
@@ -315,12 +333,10 @@ func applyReplacements(input string, bijectiveMap map[int32]map[string]string, i
 					}
 
 					// Check if any part of the potential match is inside markers
+					// Use pre-calculated marker map
 					if matched {
 						for i := pos; i < matchEndPos; i++ {
-							beforeI := string(resultRunes[:i])
-							openI := strings.Count(beforeI, startMarker)
-							closeI := strings.Count(beforeI, endMarker)
-							if openI > closeI {
+							if markerMap[i] > 0 {
 								matched = false
 								break
 							}
@@ -373,9 +389,18 @@ func applyMapReplacementsToPejelagarto(input string) string {
 	if !utf8.ValidString(input) {
 		return input
 	}
+	// Use a special marker for literal quotes in input to avoid ambiguity
+	// with quote prefixes used in Pejelagarto output
+	const quoteMarker = "\uFFF2"
+	input = strings.ReplaceAll(input, "'", quoteMarker)
+
 	bijectiveMap := createBijectiveMap()
 	indices := getSortedIndices(bijectiveMap, true) // to Pejelagarto
-	return applyReplacements(input, bijectiveMap, indices)
+	result := applyReplacements(input, bijectiveMap, indices)
+
+	// Restore literal quotes as doubled quotes in the output
+	result = strings.ReplaceAll(result, quoteMarker, "''")
+	return result
 }
 
 // applyMapReplacementsFromPejelagarto translates text from Pejelagarto using map replacements
@@ -384,9 +409,223 @@ func applyMapReplacementsFromPejelagarto(input string) string {
 	if !utf8.ValidString(input) {
 		return input
 	}
+	// Convert doubled quotes (escaped literals) to temporary marker
+	const quoteMarker = "\uFFF2"
+	input = strings.ReplaceAll(input, "''", quoteMarker)
+
 	bijectiveMap := createBijectiveMap()
 	indices := getSortedIndices(bijectiveMap, false) // from Pejelagarto
-	return applyReplacements(input, bijectiveMap, indices)
+	result := applyReplacements(input, bijectiveMap, indices)
+
+	// Restore literal quotes from marker
+	result = strings.ReplaceAll(result, quoteMarker, "'")
+	return result
+}
+
+// applyNumbersLogicToPejelagarto applies number transformation for Pejelagarto encoding
+// Adds offset (5699447592686571) to all base-10 numbers and converts to base-7
+// Preserves leading zeros and handles signs separately
+// Uses arbitrary-precision arithmetic to handle any size number
+func applyNumbersLogicToPejelagarto(input string) string {
+	// If input is not valid UTF-8, return it unchanged
+	if !utf8.ValidString(input) {
+		return input
+	}
+	var result strings.Builder
+	runes := []rune(input)
+	i := 0
+
+	for i < len(runes) {
+		// Check if we're at the start of a number (including negative)
+		// Only process ASCII digits 0-9, not Unicode digits
+		if (runes[i] >= '0' && runes[i] <= '9') || (runes[i] == '-' && i+1 < len(runes) && runes[i+1] >= '0' && runes[i+1] <= '9') {
+			// Extract sign
+			isNegative := false
+			if runes[i] == '-' {
+				isNegative = true
+				i++
+			}
+
+			// Count leading zeros
+			leadingZeros := 0
+			for i < len(runes) && runes[i] == '0' {
+				leadingZeros++
+				i++
+			}
+
+			// Get the rest of the digits
+			digitStart := i
+			for i < len(runes) && runes[i] >= '0' && runes[i] <= '9' {
+				i++
+			}
+
+			numberStr := string(runes[digitStart:i])
+
+			// If only zeros, handle specially
+			if numberStr == "" {
+				// Only zeros (e.g., "00", "000", "-0")
+				if isNegative {
+					result.WriteRune('-')
+				}
+				for j := 0; j < leadingZeros; j++ {
+					result.WriteRune('0')
+				}
+			} else {
+				// Parse as big.Int
+				absValue := new(big.Int)
+				_, ok := absValue.SetString(numberStr, 10)
+				if !ok {
+					// Parse failed, preserve as-is
+					if isNegative {
+						result.WriteRune('-')
+					}
+					for j := 0; j < leadingZeros; j++ {
+						result.WriteRune('0')
+					}
+					result.WriteString(numberStr)
+					continue
+				}
+
+				// Add offset and convert to base-7
+				offset := big.NewInt(5699447592686571)
+				offsetValue := new(big.Int).Add(absValue, offset)
+				base7 := offsetValue.Text(7)
+
+				// Write sign if negative
+				if isNegative {
+					result.WriteRune('-')
+				}
+				// Preserve leading zeros
+				for j := 0; j < leadingZeros; j++ {
+					result.WriteRune('0')
+				}
+				result.WriteString(base7)
+			}
+		} else {
+			result.WriteRune(runes[i])
+			i++
+		}
+	}
+
+	return result.String()
+}
+
+// applyNumbersLogicFromPejelagarto applies number transformation from Pejelagarto encoding
+// Converts all base-7 numbers to base-10 and subtracts offset (5699447592686571)
+// Preserves leading zeros and handles signs separately
+// Uses arbitrary-precision arithmetic to handle any size number
+func applyNumbersLogicFromPejelagarto(input string) string {
+	// If input is not valid UTF-8, return it unchanged
+	if !utf8.ValidString(input) {
+		return input
+	}
+	var result strings.Builder
+	runes := []rune(input)
+	i := 0
+
+	for i < len(runes) {
+		// Check if we're at the start of a base 7 number (including negative)
+		if isBase7Digit(runes[i]) || (runes[i] == '-' && i+1 < len(runes) && isBase7Digit(runes[i+1])) {
+			// Extract sign
+			isNegative := false
+			if runes[i] == '-' {
+				isNegative = true
+				i++
+			}
+
+			// Count leading zeros
+			leadingZeros := 0
+			for i < len(runes) && runes[i] == '0' {
+				leadingZeros++
+				i++
+			}
+
+			// Get the rest of the digits (must be base 7)
+			digitStart := i
+			for i < len(runes) && isBase7Digit(runes[i]) {
+				i++
+			}
+
+			// Check if followed by digits 7-9 (which means it's actually a base-10 number, not base-7)
+			// If so, we need to consume those digits and skip transformation
+			hasHighDigits := false
+			highDigitEnd := i
+			if i < len(runes) && runes[i] >= '7' && runes[i] <= '9' {
+				hasHighDigits = true
+				// Consume remaining base-10 digits
+				for i < len(runes) && runes[i] >= '0' && runes[i] <= '9' {
+					i++
+				}
+				highDigitEnd = i
+			}
+
+			// If we found digits 7-9, this is a base-10 number, not base-7 - preserve as-is
+			if hasHighDigits {
+				numberStr := string(runes[digitStart:highDigitEnd])
+				if isNegative {
+					result.WriteRune('-')
+				}
+				for j := 0; j < leadingZeros; j++ {
+					result.WriteRune('0')
+				}
+				result.WriteString(numberStr)
+				continue
+			}
+
+			numberStr := string(runes[digitStart:i])
+
+			// If only zeros, handle specially
+			if numberStr == "" {
+				// Only zeros (e.g., "00", "000", "-0")
+				if isNegative {
+					result.WriteRune('-')
+				}
+				for j := 0; j < leadingZeros; j++ {
+					result.WriteRune('0')
+				}
+			} else {
+				// Parse as big.Int from base-7
+				base7Value := new(big.Int)
+				_, ok := base7Value.SetString(numberStr, 7)
+				if !ok {
+					// Parse failed, preserve as-is
+					if isNegative {
+						result.WriteRune('-')
+					}
+					for j := 0; j < leadingZeros; j++ {
+						result.WriteRune('0')
+					}
+					result.WriteString(numberStr)
+					continue
+				}
+
+				// Convert from base-7 and subtract offset
+				offset := big.NewInt(5699447592686571)
+				resultValue := new(big.Int).Sub(base7Value, offset)
+				base10Str := resultValue.Text(10)
+
+				// Write sign if negative
+				if isNegative {
+					result.WriteRune('-')
+				}
+				// Preserve leading zeros
+				for j := 0; j < leadingZeros; j++ {
+					result.WriteRune('0')
+				}
+				result.WriteString(base10Str)
+			}
+		} else {
+			result.WriteRune(runes[i])
+			i++
+		}
+	}
+
+	return result.String()
+}
+
+// isBase7Digit checks if a rune is a valid base 7 digit (0-6)
+func isBase7Digit(r rune) bool {
+	return r >= '0' && r <= '6'
 }
 
 func main() {
