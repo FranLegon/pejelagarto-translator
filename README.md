@@ -6,7 +6,7 @@ A complete, locally runnable web application that functions as a translator for 
 
 - **Go Backend**: Single `main.go` file with local web server
 - **HTMX Frontend**: Dynamic, interactive UI without external dependencies
-- **Reversible Translation**: Perfectly bidirectional translation between English and Pejelagarto
+- **Reversible Translation**: Perfectly bidirectional translation between Human and Pejelagarto
 - **Live Translation**: Real-time translation as you type
 - **Invert Function**: Swap input/output languages with one click
 
@@ -63,7 +63,7 @@ The translator uses three replacement maps applied in order:
 
 ## Example Translations
 
-| English | Pejelagarto |
+| Human | Pejelagarto |
 |---------|-------------|
 | hello world | jetzo vorlag |
 | thank you | zink yux |

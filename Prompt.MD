@@ -23,7 +23,7 @@ Frontend Requirements (HTML/JS/HTMX):
 Single File UI: The complete HTML, CSS, and JavaScript must be stored in a Go string constant and served by the web server.
 UI Elements:
 A main title: "Pejelagarto Translator".
-An input textarea with a label (e.g., "English").
+An input textarea with a label (e.g., "Human").
 An output textarea (read-only) with a label (e.g., "Pejelagarto").
 A single main translation button (e.g., "Translate to Pejelagarto").
 An "Invert" button (e.g., with "⇅" or similar icon).

@@ -258,12 +258,12 @@ func applyMapReplacementsFromPejelagarto(input string) string {
 	return string(result)
 }
 
-// TranslateToPejelagarto translates English text to Pejelagarto
+// TranslateToPejelagarto translates Human text to Pejelagarto
 func TranslateToPejelagarto(input string) string {
 	return applyMapReplacementsToPejelagarto(input)
 }
 
-// TranslateFromPejelagarto translates Pejelagarto text back to English
+// TranslateFromPejelagarto translates Pejelagarto text back to Human
 func TranslateFromPejelagarto(input string) string {
 	return applyMapReplacementsFromPejelagarto(input)
 }
@@ -407,7 +407,7 @@ const htmlTemplate = `<!DOCTYPE html>
         <h1>Pejelagarto Translator</h1>
         <div class="translator-box">
             <div class="text-group">
-                <label id="input-label">English</label>
+                <label id="input-label">Human</label>
                 <textarea id="input-text" placeholder="Type here..."></textarea>
             </div>
             <div class="text-group">
