@@ -281,7 +281,23 @@ To extend the translator with new rules:
 
 Always ensure your changes maintain 100% reversibility.
 
+## Implementation Details
+
 ### Project Structure
+
+```
+pejelagarto-translator/
+├── main.go           # Core translator + web server (2006 lines)
+├── main_test.go      # Comprehensive test suite with fuzz testing
+├── README.md         # This file
+├── go.mod            # Go module definition
+├── bin/              # Compiled executables
+└── testdata/         # Fuzz test corpus
+    └── fuzz/
+        ├── FuzzMapReplacements/
+        ├── FuzzNumberConversion/
+        └── FuzzReversibility/
+```
 
 ### Unicode Markers (Private Use Area)
 - `\uFFF0`: Start replacement marker
@@ -301,38 +317,6 @@ Always ensure your changes maintain 100% reversibility.
 - Extract uppercase positions from original
 - Apply to replacement maintaining pattern
 - Handle non-reversible case characters (Turkish İ, German ß, Greek Σ)
-
-## Implementation Details
-
-### Unicode Markers (Private Use Area)
-- `\uFFF0`: Start replacement marker
-- `\uFFF1`: End replacement marker
-- `\uFFF2`: Internal quote marker
-- `\u00AD`: Soft hyphen (invisible UTF-8 sanitization marker)
-- `\uE000-\uE0FF`: Private use characters for byte encoding
-
-### Bijective Map Construction
-1. Combine all maps into unified structure
-2. Index by key length (descending)
-3. Prefix multi-rune values with `'` marker
-4. Create inverse map with negative indices
-5. Process in deterministic order
-
-## Project Structure
-
-```
-pejelagarto-translator/
-├── main.go           # Core translator + web server (2006 lines)
-├── main_test.go      # Comprehensive test suite with fuzz testing
-├── README.md         # This file
-├── go.mod            # Go module definition
-├── bin/              # Compiled executables
-└── testdata/         # Fuzz test corpus
-    └── fuzz/
-        ├── FuzzMapReplacements/
-        ├── FuzzNumberConversion/
-        └── FuzzReversibility/
-```
 
 ## Examples
 
