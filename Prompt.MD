@@ -64,7 +64,7 @@ removeISO8601timestamp(input string):
     if an ISO 8601 timestamp is found in the last line (using regex), remove the line.
 
 addISO8601timestamp(input string, timestamp string):
-    adds timestamp as new last string to input
+    adds timestamp as new last string to input. If timestamp is empty string, return original input with no modifications.
 
 addEmojiDatetimeEncoding(input string):
     Using 5 maps dayEmojiIndex (indexes 0 to 30), monthEmojiIndex (indexes 0 to 11), yearEmojiIndex (indexes 0 to 98), hourEmojiIndex (indexes 0 to 23), minuteEmojiIndex(indexes 0 to 59) and current UTC datetime, choose corresponding emoji from each map and insert them into input string in random places next to a space or a linebreak.
@@ -73,7 +73,7 @@ removeAllEmojies(input strings):
     removes emojies
 
 readTimestampUsingEmojiEncoding(input string):
-    Using the same 5 maps, locate all emojis and returns ISO 8601 timestamp as string. Remove the emojies.
+    Using the same 5 maps, locate all emojis and returns ISO 8601 timestamp as string. If datetime cannot be determines, returns empty string.
 
 applyPuntuationReplacementsToPejelagarto(input string):
     just like applyMapReplacementsToPejelagarto, but uses it's own map[int32]map[string] punctuationReplacementsMap. Must also be made bijective.
