@@ -739,7 +739,7 @@ func validateAccentWheels() error {
 } // isVowel checks if a rune is a vowel (including y and accented forms)
 func isVowel(r rune) bool {
 	lower := unicode.ToLower(r)
-	
+
 	// Verify case conversion is reversible if character is uppercase
 	// This prevents issues with characters like İ (Turkish I with dot, U+0130)
 	// which lowercase to 'i' but ToUpper('i') != 'İ'
@@ -748,7 +748,7 @@ func isVowel(r rune) bool {
 			return false // Not reversible, don't treat as vowel
 		}
 	}
-	
+
 	lowerStr := string(lower)
 
 	// Check oneRuneAccentsWheel
