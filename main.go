@@ -1530,13 +1530,14 @@ func addEmojiDatetimeEncoding(input string) string {
 	return result
 }
 
-// sanitizeInvalidUTF8 replaces invalid UTF-8 bytes with visually appealing Unicode characters
+// sanitizeInvalidUTF8 replaces invalid UTF-8 bytes with soft hyphens + Private Use Area characters
 // Uses a bijective mapping to maintain reversibility
-// Uses Unicode Private Use Area (U+E000 to U+E0FF) to avoid conflicts with translation logic
+// Soft hyphens (U+00AD) are invisible in most contexts, making the output cleaner
 func sanitizeInvalidUTF8(input string) string {
 	// Use Private Use Area characters - they won't be affected by any translation logic
 	// Map each of 256 possible bytes to a unique character in range U+E000-U+E0FF
 	const privateUseStart = 0xE000
+	const softHyphen = '\u00AD' // Soft hyphen - invisible in most contexts
 
 	var result strings.Builder
 	result.Grow(len(input) * 2) // Reserve extra space
@@ -1544,10 +1545,9 @@ func sanitizeInvalidUTF8(input string) string {
 	for i := 0; i < len(input); {
 		r, size := utf8.DecodeRuneInString(input[i:])
 		if r == utf8.RuneError && size == 1 {
-			// Invalid UTF-8 byte - map it to a private use character
+			// Invalid UTF-8 byte - encode it invisibly using soft hyphen + private use character
 			invalidByte := input[i]
-			// Add a visible prefix character to make it look nice
-			result.WriteRune('⌘') // Command symbol as marker
+			result.WriteRune(softHyphen) // Invisible marker
 			result.WriteRune(rune(privateUseStart + int(invalidByte)))
 			i++
 		} else {
@@ -1562,13 +1562,14 @@ func sanitizeInvalidUTF8(input string) string {
 // unsanitizeInvalidUTF8 is the reverse of sanitizeInvalidUTF8
 func unsanitizeInvalidUTF8(input string) string {
 	const privateUseStart = 0xE000
+	const softHyphen = '\u00AD'
 
 	var result []byte
 	runes := []rune(input)
 
 	for i := 0; i < len(runes); i++ {
 		r := runes[i]
-		if r == '⌘' && i+1 < len(runes) {
+		if r == softHyphen && i+1 < len(runes) {
 			// Check if next character is in our private use range
 			nextRune := runes[i+1]
 			if nextRune >= privateUseStart && nextRune < privateUseStart+256 {
@@ -1806,12 +1807,7 @@ const htmlUI = `<!DOCTYPE html>
         <div class="controls">
             <button 
                 id="translate-btn"
-                hx-post="/to"
-                hx-trigger="click"
-                hx-include="#input-text"
-                hx-target="#output-text"
-                hx-swap="innerHTML"
-                hx-indicator="#loading-indicator">
+                onclick="handleTranslateClick()">
                 Translate to Pejelagarto
             </button>
             
@@ -1829,6 +1825,11 @@ const htmlUI = `<!DOCTYPE html>
     <script>
         let isInverted = false;
         let liveTranslateEnabled = false;
+        
+        // Handle translate button click
+        function handleTranslateClick() {
+            handleLiveTranslation();
+        }
         
         // Invert button functionality
         function invertTranslation() {
@@ -1852,14 +1853,9 @@ const htmlUI = `<!DOCTYPE html>
             isInverted = !isInverted;
             if (isInverted) {
                 translateBtn.textContent = 'Translate from Pejelagarto';
-                translateBtn.setAttribute('hx-post', '/from');
             } else {
                 translateBtn.textContent = 'Translate to Pejelagarto';
-                translateBtn.setAttribute('hx-post', '/to');
             }
-            
-            // Re-initialize HTMX on the button
-            htmx.process(translateBtn);
         }
         
         // Live translation functionality
@@ -1909,14 +1905,6 @@ const htmlUI = `<!DOCTYPE html>
                 console.error('Translation error:', error);
             });
         }
-        
-        // Custom HTMX response handler to update textarea value
-        document.body.addEventListener('htmx:afterSwap', function(evt) {
-            if (evt.detail.target.id === 'output-text') {
-                const outputText = document.getElementById('output-text');
-                outputText.value = evt.detail.xhr.responseText;
-            }
-        });
     </script>
 </body>
 </html>`
