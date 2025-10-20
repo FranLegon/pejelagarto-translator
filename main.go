@@ -1530,8 +1530,65 @@ func addEmojiDatetimeEncoding(input string) string {
 	return result
 }
 
+// sanitizeInvalidUTF8 replaces invalid UTF-8 bytes with visually appealing Unicode characters
+// Uses a bijective mapping to maintain reversibility
+// Uses Unicode Private Use Area (U+E000 to U+E0FF) to avoid conflicts with translation logic
+func sanitizeInvalidUTF8(input string) string {
+	// Use Private Use Area characters - they won't be affected by any translation logic
+	// Map each of 256 possible bytes to a unique character in range U+E000-U+E0FF
+	const privateUseStart = 0xE000
+
+	var result strings.Builder
+	result.Grow(len(input) * 2) // Reserve extra space
+
+	for i := 0; i < len(input); {
+		r, size := utf8.DecodeRuneInString(input[i:])
+		if r == utf8.RuneError && size == 1 {
+			// Invalid UTF-8 byte - map it to a private use character
+			invalidByte := input[i]
+			// Add a visible prefix character to make it look nice
+			result.WriteRune('⌘') // Command symbol as marker
+			result.WriteRune(rune(privateUseStart + int(invalidByte)))
+			i++
+		} else {
+			result.WriteRune(r)
+			i += size
+		}
+	}
+
+	return result.String()
+}
+
+// unsanitizeInvalidUTF8 is the reverse of sanitizeInvalidUTF8
+func unsanitizeInvalidUTF8(input string) string {
+	const privateUseStart = 0xE000
+
+	var result []byte
+	runes := []rune(input)
+
+	for i := 0; i < len(runes); i++ {
+		r := runes[i]
+		if r == '⌘' && i+1 < len(runes) {
+			// Check if next character is in our private use range
+			nextRune := runes[i+1]
+			if nextRune >= privateUseStart && nextRune < privateUseStart+256 {
+				// This is an encoded invalid byte
+				byteVal := byte(nextRune - privateUseStart)
+				result = append(result, byteVal)
+				i++ // Skip the next rune as we've processed it
+				continue
+			}
+		}
+		// Normal character
+		result = append(result, []byte(string(r))...)
+	}
+
+	return string(result)
+}
+
 // TranslateToPejelagarto translates Human text to Pejelagarto
 func TranslateToPejelagarto(input string) string {
+	input = sanitizeInvalidUTF8(input)
 	input = removeAllEmojies(input)
 	input = removeISO8601timestamp(input)
 	input = applyNumbersLogicToPejelagarto(input)
@@ -1553,6 +1610,7 @@ func TranslateFromPejelagarto(input string) string {
 	input = applyPunctuationReplacementsFromPejelagarto(input)
 	input = applyNumbersLogicFromPejelagarto(input)
 	input = addISO8601timestamp(input, timestamp)
+	input = unsanitizeInvalidUTF8(input)
 	return input
 }
 

@@ -231,15 +231,15 @@ func FuzzEmojiDateTimeEncoding(f *testing.F) {
 		if !utf8.ValidString(input) {
 			return
 		}
-		
+
 		// Emoji datetime logic isn't fully reversible because:
 		// 1. Emojis encode current time, which changes
 		// 2. Random placement of emojis
 		// But we can verify correct behavior by comparing after removing emojis and timestamps
-		
+
 		translated := TranslateToPejelagarto(input)
 		restored := TranslateFromPejelagarto(translated)
-		
+
 		// Clean both for comparison (remove emojis and timestamps)
 		inputCleaned := removeAllEmojies(removeISO8601timestamp(input))
 		restoredCleaned := removeAllEmojies(removeISO8601timestamp(restored))
@@ -274,7 +274,7 @@ func FuzzTranslatePejelagarto(f *testing.F) {
 		if !utf8.ValidString(input) {
 			return
 		}
-		
+
 		// Test: TranslateToPejelagarto -> TranslateFromPejelagarto
 		pejelagarto := TranslateToPejelagarto(input)
 		reversed := TranslateFromPejelagarto(pejelagarto)
