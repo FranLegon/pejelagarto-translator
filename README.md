@@ -2,6 +2,18 @@
 
 A complete bidirectional translator between Human and Pejelagarto, a fictional language with complex transformation rules. Includes a web-based UI for interactive translation.
 
+## About
+
+Pejelagarto is a fictional constructed language designed as a challenging translation exercise. The name "Pejelagarto" comes from a type of fish native to Mexico and Central America. This translator implements a sophisticated set of reversible transformations including:
+
+- Mathematical base conversions (base-10 ↔ base-7)
+- Prime factorization-based accent placement
+- Fibonacci/Tribonacci capitalization patterns
+- Custom character and punctuation mappings
+- Emoji-based timestamp encoding
+
+The project demonstrates advanced string manipulation, bijective mappings, and cryptographic-style transformations while maintaining perfect reversibility.
+
 ## Features
 
 ### Core Translation
@@ -21,6 +33,13 @@ A complete bidirectional translator between Human and Pejelagarto, a fictional l
 - 🔄 **Bidirectional Toggle**: One-click swap between Human ↔ Pejelagarto
 - 📱 **Mobile-Friendly**: Responsive design for all screen sizes
 - 🚀 **Auto-Launch**: Opens default browser automatically on startup
+
+## Requirements
+
+- **Go**: Version 1.24.2 or higher
+- **Dependencies**: `golang.org/x/text` (automatically installed via `go mod`)
+- **Supported OS**: Windows, macOS, Linux
+- **Browser**: Any modern web browser for the UI
 
 ## Installation & Usage
 
@@ -208,7 +227,61 @@ All transformations verified for reversibility with random inputs:
 - **Limited backward scanning** (max 50 chars for word boundaries)
 - Processes large texts efficiently (2000+ characters in ~20ms)
 
-## Implementation Details
+## Known Limitations
+
+- **Emoji Timestamp**: Translation includes a timestamp that changes with each translation, so direct string comparison will fail unless emojis are removed
+- **UTF-8 Sanitization**: Invalid UTF-8 bytes are encoded using soft hyphens and private use area characters, which may not display correctly in all environments
+- **Case Preservation**: Some Unicode characters with complex case rules (e.g., Turkish İ, German ß) may not preserve case perfectly
+- **Word Boundary Detection**: Limited to 50 characters of backward scanning for performance reasons
+- **Punctuation**: Only specific punctuation marks are mapped; unmapped punctuation passes through unchanged
+
+## Development
+
+### Setup for Contributors
+
+```bash
+# Clone the repository
+git clone https://github.com/FranLegon/pejelagarto-translator.git
+cd pejelagarto-translator
+
+# Install dependencies
+go mod download
+
+# Build the project
+go build -o bin/PejelagartoTranslator.exe main.go
+
+# Run tests
+go test -v
+
+# Run with live reload during development
+go run main.go
+```
+
+### Adding New Transformations
+
+To extend the translator with new rules:
+
+1. **Word/Letter Mappings**: Edit `wordMap`, `conjunctionMap`, or `letterMap` in `main.go`
+   - Ensure all mappings are bijective (one-to-one)
+   - Keys and values must have the same rune count
+   - Avoid collisions between different map types
+
+2. **Punctuation**: Add entries to `punctuationMap`
+   - Can have different lengths for keys and values
+
+3. **New Transformation Stage**: Add your function to both pipelines
+   - `TranslateToPejelagarto`: Add transformation step
+   - `TranslateFromPejelagarto`: Add reverse transformation at mirror position
+
+### Testing Strategy
+
+- **Unit Tests**: Test individual transformation functions
+- **Fuzz Tests**: Verify reversibility with random inputs
+- **Integration Tests**: Test full translation pipeline
+
+Always ensure your changes maintain 100% reversibility.
+
+### Project Structure
 
 ### Unicode Markers (Private Use Area)
 - `\uFFF0`: Start replacement marker
@@ -228,6 +301,22 @@ All transformations verified for reversibility with random inputs:
 - Extract uppercase positions from original
 - Apply to replacement maintaining pattern
 - Handle non-reversible case characters (Turkish İ, German ß, Greek Σ)
+
+## Implementation Details
+
+### Unicode Markers (Private Use Area)
+- `\uFFF0`: Start replacement marker
+- `\uFFF1`: End replacement marker
+- `\uFFF2`: Internal quote marker
+- `\u00AD`: Soft hyphen (invisible UTF-8 sanitization marker)
+- `\uE000-\uE0FF`: Private use characters for byte encoding
+
+### Bijective Map Construction
+1. Combine all maps into unified structure
+2. Index by key length (descending)
+3. Prefix multi-rune values with `'` marker
+4. Create inverse map with negative indices
+5. Process in deterministic order
 
 ## Project Structure
 
@@ -264,6 +353,41 @@ pejelagarto := TranslateToPejelagarto(original)
 restored := TranslateFromPejelagarto(pejelagarto)
 // After cleaning emojis/timestamps: restored == original ✓
 ```
+
+## Contributing
+
+Contributions are welcome! To contribute:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes ensuring:
+   - All tests pass (`go test -v`)
+   - Code follows Go best practices
+   - New features include tests
+   - Reversibility is maintained
+4. Commit your changes (`git commit -m 'Add amazing feature'`)
+5. Push to the branch (`git push origin feature/amazing-feature`)
+6. Open a Pull Request
+
+### Code Quality Guidelines
+
+- Maintain 100% reversibility for all transformations
+- Add fuzz tests for new transformation functions
+- Document complex algorithms with comments
+- Keep functions focused and testable
+- Follow existing code style and patterns
+
+## Future Enhancements
+
+Potential areas for expansion:
+
+- CLI interface for command-line translation
+- Batch file processing
+- Additional transformation rules (e.g., grammar-based patterns)
+- Translation history and caching
+- Support for additional character sets
+- Performance optimizations for very large texts
+- Export/import translation dictionaries
 
 ## License
 
