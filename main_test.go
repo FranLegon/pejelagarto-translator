@@ -130,8 +130,124 @@ func FuzzTranslatePejelagarto(f *testing.F) {
 	})
 }
 
-// TestNumberConversionBasic is removed - use FuzzApplyNumbersLogic instead
+// TestTranslateToPejelagarto tests the full translation to Pejelagarto
+func TestTranslateToPejelagarto(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{name: "Simple word", input: "hello"},
+		{name: "Word with number", input: "hello 42"},
+		{name: "The quick brown fox", input: "The quick brown fox"},
+		{name: "Text with conjunctions", input: "fish and chips"},
+		{name: "Number only", input: "123"},
+		{name: "Negative number", input: "-5"},
+		{name: "Text with quotes", input: "I'm happy"},
+		{name: "Empty string", input: ""},
+	}
 
-// TestNumberConversionReversibility is removed - use FuzzApplyNumbersLogic instead
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := TranslateToPejelagarto(tt.input)
+			// Verify reversibility
+			reversed := TranslateFromPejelagarto(result)
+			if reversed != tt.input {
+				t.Errorf("Reversibility failed: TranslateToPejelagarto(%q) = %q, but TranslateFromPejelagarto(%q) = %q",
+					tt.input, result, result, reversed)
+			}
+		})
+	}
+}
 
-// TestConvertToBase7 and TestConvertFromBase7 are removed - math/big handles conversions internally
+// TestTranslateFromPejelagarto tests the full translation from Pejelagarto
+func TestTranslateFromPejelagarto(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{name: "Simple word", input: "'jhtxz"},
+		{name: "Word with number", input: "'jhtxz 3333333333333333423"},
+		{name: "The quick brown fox", input: "'Zjc vracw pyekm dex"},
+		{name: "Text with conjunctions", input: "da'xs ĩmf 'jcabs"},
+		{name: "Number only", input: "3333333333333333600"},
+		{name: "Negative number", input: "-3333333333333333341"},
+		{name: "Text with escaped quotes", input: "At''s jibbu"},
+		{name: "Empty string", input: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := TranslateFromPejelagarto(tt.input)
+			// Verify reversibility
+			reversed := TranslateToPejelagarto(result)
+			if reversed != tt.input {
+				t.Errorf("Reversibility failed: TranslateFromPejelagarto(%q) = %q, but TranslateToPejelagarto(%q) = %q",
+					tt.input, result, result, reversed)
+			}
+		})
+	}
+}
+
+// TestAccentBasic tests basic accent replacement functionality
+func TestAccentBasic(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{name: "Empty string", input: ""},
+		{name: "Single vowel", input: "a"},
+		{name: "No vowels", input: "bcdfg"},
+		{name: "Multiple vowels", input: "aeiou"},
+		{name: "With uppercase", input: "AEI"},
+		{name: "Mixed text", input: "hello world"},
+		{name: "Y as vowel", input: "yes"},
+		{name: "Prime length 2", input: "ab"},
+		{name: "Prime length 3", input: "abc"},
+		{name: "Prime length 5", input: "abcde"},
+		{name: "Prime length 7", input: "abcdefg"},
+		{name: "Composite 6 (2*3)", input: "abcdef"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			accented := applyAccentReplacementLogicToPejelagarto(tt.input)
+			reversed := applyAccentReplacementLogicFromPejelagarto(accented)
+
+			if reversed != tt.input {
+				t.Errorf("Reversibility failed: input=%q, accented=%q, reversed=%q", tt.input, accented, reversed)
+			}
+		})
+	}
+}
+
+// TestPrimeFactorization tests the prime factorization helper
+func TestPrimeFactorization(t *testing.T) {
+	tests := []struct {
+		n        int
+		expected map[int]int
+	}{
+		{1, map[int]int{}},
+		{2, map[int]int{2: 1}},
+		{3, map[int]int{3: 1}},
+		{4, map[int]int{2: 2}},
+		{6, map[int]int{2: 1, 3: 1}},
+		{8, map[int]int{2: 3}},
+		{12, map[int]int{2: 2, 3: 1}},
+		{245, map[int]int{5: 1, 7: 2}},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			result := primeFactorize(tt.n)
+			if len(result) != len(tt.expected) {
+				t.Errorf("primeFactorize(%d) = %v, want %v", tt.n, result, tt.expected)
+				return
+			}
+			for prime, power := range tt.expected {
+				if result[prime] != power {
+					t.Errorf("primeFactorize(%d)[%d] = %d, want %d", tt.n, prime, result[prime], power)
+				}
+			}
+		})
+	}
+}

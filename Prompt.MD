@@ -95,7 +95,7 @@ func TranslateToPejelagarto(input string) string {
     input = applyPuntuationReplacementsToPejelagarto(input)
 	input = applyMapReplacementsToPejelagarto(input)
 	input = applyAccentReplacementLogicToPejelagarto(input)
-	input = applyCaseReplacementLogicToPejelagarto(input)
+	input = applyCaseReplacementLogic(input)
     input = addEmojiDatetimeEncoding(input string)
     return input
 }
@@ -103,7 +103,7 @@ func TranslateToPejelagarto(input string) string {
 func TranslateFromPejelagarto(input string) string {
     timestamp := readTimestampUsingEmojiEncoding(input)
     input = removeAllEmojies(input)
-	input = applyCaseReplacementLogicFromPejelagarto(input)
+	input = applyCaseReplacementLogic(input)
 	input = applyAccentReplacementLogicFromPejelagarto(input)
 	input = applyMapReplacementsFromPejelagarto(input)
     input = applyPuntuationReplacementsFromPejelagarto(input)
@@ -148,8 +148,8 @@ applyMapReplacementsToPejelagarto(applyMapReplacementsFromPejelagarto(input)) = 
 applyMapReplacementsFromPejelagarto(applyMapReplacementsToPejelagarto(input)) = input
 applyAccentReplacementLogicToPejelagarto(applyAccentReplacementLogicFromPejelagarto(input)) == input
 applyAccentReplacementLogicFromPejelagarto(applyAccentReplacementLogicToPejelagarto(input)) == input
-applyCaseReplacementLogicToPejelagarto(applyCaseReplacementLogicFromPejelagarto(input)) == input
-applyCaseReplacementLogicFromPejelagarto(applyCaseReplacementLogicToPejelagarto(input)) == input
+applyCaseReplacementLogic(applyCaseReplacementLogic(input)) == input
+applyCaseReplacementLogic(applyCaseReplacementLogic(input)) == input
 TranslateToPejelagarto(TranslateFromPejelagarto(input)) == input
 TranslateFromPejelagarto(TranslateToPejelagarto(input)) == input
 
