@@ -59,6 +59,23 @@ var letterMap = map[string]string{
 	// Letters c, h, i, j, s, t, x, z are NOT mapped to avoid conjunction collisions
 }
 
+// Punctuation replacement map
+// NOTE: This map is independent from word/conjunction/letter maps
+// Can have different lengths for keys and values
+var punctuationMap = map[string]string{
+	"?": "‽",
+	"!": "¡",
+	".": "..",
+	",": "،",
+	";": "⁏",
+	":": "︰",
+	"'": "〝",
+	"\"": "〞",
+	"-": "‐",
+	"(": "⦅",
+	")": "⦆",
+}
+
 // validateMaps checks that all mappings have equal rune lengths for keys and values
 func validateMaps() error {
 	maps := []struct {
@@ -1136,9 +1153,140 @@ func applyCaseReplacementLogic(input string) string {
 	return string(result)
 }
 
+// createPunctuationBijectiveMap creates a unified bijective map for punctuation replacements
+func createPunctuationBijectiveMap() map[int32]map[string]string {
+	bijectiveMap := make(map[int32]map[string]string)
+
+	// Helper function to add entries to the map
+	addEntries := func(sourceMap map[string]string, positive bool) {
+		for key, value := range sourceMap {
+			var index int32
+			var from, to string
+
+			if positive {
+				// Positive index: key length, key -> value
+				keyLen := utf8.RuneCountInString(key)
+				index = int32(keyLen)
+				from = key
+				to = value
+				// Prefix multi-rune values with single quote
+				if utf8.RuneCountInString(value) > 1 {
+					to = "'" + to
+				}
+			} else {
+				// Negative index: value -> key (inverse)
+				valueLen := utf8.RuneCountInString(value)
+				if valueLen > 1 {
+					// Multi-rune: the actual Pejelagarto text has a quote prefix
+					index = -int32(valueLen + 1) // +1 for the quote character
+					from = "'" + value
+					to = key
+				} else {
+					// Single-rune: no quote prefix in Pejelagarto text
+					index = -int32(valueLen)
+					from = value
+					to = key
+				}
+			}
+
+			// Add to map
+			if bijectiveMap[index] == nil {
+				bijectiveMap[index] = make(map[string]string)
+			}
+			bijectiveMap[index][from] = to
+		}
+	}
+
+	// Add forward mappings (positive indices)
+	addEntries(punctuationMap, true)
+	// Add reverse mappings (negative indices)
+	addEntries(punctuationMap, false)
+
+	return bijectiveMap
+}
+
+// getSortedPunctuationIndices returns indices sorted for the direction
+func getSortedPunctuationIndices(bijectiveMap map[int32]map[string]string, toPejelagarto bool) []int32 {
+	indices := make([]int32, 0, len(bijectiveMap))
+	for index := range bijectiveMap {
+		indices = append(indices, index)
+	}
+
+	sort.Slice(indices, func(i, j int) bool {
+		iPos := indices[i] > 0
+		jPos := indices[j] > 0
+
+		if toPejelagarto {
+			// ToPejelagarto: positive first, then descending by absolute value
+			if iPos != jPos {
+				return iPos
+			}
+		} else {
+			// FromPejelagarto: negative first, then descending by absolute value
+			if iPos != jPos {
+				return !iPos
+			}
+		}
+
+		// Within same sign group: descending by absolute value
+		absI := indices[i]
+		if absI < 0 {
+			absI = -absI
+		}
+		absJ := indices[j]
+		if absJ < 0 {
+			absJ = -absJ
+		}
+		return absI > absJ
+	})
+
+	return indices
+}
+
+// applyPunctuationReplacementsToPejelagarto applies punctuation replacements
+func applyPunctuationReplacementsToPejelagarto(input string) string {
+	if !utf8.ValidString(input) {
+		return input
+	}
+
+	// Use a special marker for literal quotes to avoid ambiguity
+	const quoteMarker = "\uFFF3"
+	input = strings.ReplaceAll(input, "'", quoteMarker)
+
+	bijectiveMap := createPunctuationBijectiveMap()
+	indices := getSortedPunctuationIndices(bijectiveMap, true)
+	result := applyReplacements(input, bijectiveMap, indices)
+
+	// Restore literal quotes as doubled quotes in the output
+	result = strings.ReplaceAll(result, quoteMarker, "''")
+
+	return result
+}
+
+// applyPunctuationReplacementsFromPejelagarto reverses punctuation replacements
+func applyPunctuationReplacementsFromPejelagarto(input string) string {
+	if !utf8.ValidString(input) {
+		return input
+	}
+
+	// Convert doubled quotes (escaped literals) to temporary marker
+	const quoteMarker = "\uFFF3"
+	input = strings.ReplaceAll(input, "''", quoteMarker)
+
+	bijectiveMap := createPunctuationBijectiveMap()
+	indices := getSortedPunctuationIndices(bijectiveMap, false)
+	result := applyReplacements(input, bijectiveMap, indices)
+
+	// Restore literal quotes from marker
+	result = strings.ReplaceAll(result, quoteMarker, "'")
+
+	return result
+}
+
 // TranslateToPejelagarto translates Human text to Pejelagarto
 func TranslateToPejelagarto(input string) string {
 	input = applyNumbersLogicToPejelagarto(input)
+	input = applyPunctuationReplacementsToPejelagarto(input)
 	input = applyMapReplacementsToPejelagarto(input)
 	input = applyAccentReplacementLogicToPejelagarto(input)
 	input = applyCaseReplacementLogic(input)
@@ -1150,6 +1298,7 @@ func TranslateFromPejelagarto(input string) string {
 	input = applyCaseReplacementLogic(input)
 	input = applyAccentReplacementLogicFromPejelagarto(input)
 	input = applyMapReplacementsFromPejelagarto(input)
+	input = applyPunctuationReplacementsFromPejelagarto(input)
 	input = applyNumbersLogicFromPejelagarto(input)
 	return input
 }

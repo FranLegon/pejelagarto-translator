@@ -102,6 +102,49 @@ func FuzzApplyAccentReplacementLogic(f *testing.F) {
 	})
 }
 
+// FuzzApplyPunctuationReplacements tests punctuation replacement reversibility
+func FuzzApplyPunctuationReplacements(f *testing.F) {
+	// Seed corpus with punctuation examples
+	seeds := []string{
+		"Hello, world!",
+		"What? Really!",
+		"Test... more dots..",
+		"Quote: 'hello'",
+		`Quote: "hello"`,
+		"Dash-separated-words",
+		"(parentheses) test",
+		"Mix: of; punctuation, marks!",
+		"?.!,;:'-\"",
+		"",
+	}
+
+	for _, seed := range seeds {
+		f.Add(seed)
+	}
+
+	f.Fuzz(func(t *testing.T, input string) {
+		if !utf8.ValidString(input) {
+			t.Skip("invalid utf8")
+		}
+
+		// Test: ToPejelagarto -> FromPejelagarto
+		translated := applyPunctuationReplacementsToPejelagarto(input)
+		reversed := applyPunctuationReplacementsFromPejelagarto(translated)
+
+		if reversed != input {
+			t.Errorf("applyPunctuationReplacementsToPejelagarto->FromPejelagarto failed\nInput:      %q\nTranslated: %q\nReversed:   %q", input, translated, reversed)
+		}
+
+		// Test: FromPejelagarto -> ToPejelagarto
+		translated2 := applyPunctuationReplacementsFromPejelagarto(translated)
+		reversed2 := applyPunctuationReplacementsToPejelagarto(translated2)
+
+		if reversed2 != translated {
+			t.Errorf("applyPunctuationReplacementsFromPejelagarto->ToPejelagarto failed\nInput:      %q\nTranslated: %q\nReversed:   %q", translated, translated2, reversed2)
+		}
+	})
+}
+
 // FuzzApplyCaseReplacementLogic tests case replacement logic reversibility
 func FuzzApplyCaseReplacementLogic(f *testing.F) {
 	// Seed corpus with diverse examples
