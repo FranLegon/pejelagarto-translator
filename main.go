@@ -204,10 +204,23 @@ func matchCase(original, replacement string) string {
 
 	for i := replOffset; i < len(result) && (i-replOffset+origOffset) < len(origRunes); i++ {
 		origIdx := i - replOffset + origOffset
-		if unicode.IsUpper(origRunes[origIdx]) {
-			result[i] = unicode.ToUpper(result[i])
-		} else if unicode.IsLower(origRunes[origIdx]) {
-			result[i] = unicode.ToLower(result[i])
+		origChar := origRunes[origIdx]
+		replChar := result[i]
+
+		if unicode.IsUpper(origChar) {
+			upperReplChar := unicode.ToUpper(replChar)
+			// Only apply case conversion if it's reversible
+			// Check: upper -> lower -> upper gives back the same character
+			if unicode.ToUpper(unicode.ToLower(upperReplChar)) == upperReplChar {
+				result[i] = upperReplChar
+			}
+		} else if unicode.IsLower(origChar) {
+			lowerReplChar := unicode.ToLower(replChar)
+			// Only apply case conversion if it's reversible
+			// Check: lower -> upper -> lower gives back the same character
+			if unicode.ToLower(unicode.ToUpper(lowerReplChar)) == lowerReplChar {
+				result[i] = lowerReplChar
+			}
 		}
 	}
 
@@ -346,9 +359,30 @@ func applyReplacements(input string, bijectiveMap map[int32]map[string]string, i
 					// Also check for case-insensitive character match
 					if matched {
 						for i := 0; i < len(keyRunes); i++ {
-							if unicode.ToLower(resultRunes[pos+i]) != unicode.ToLower(keyRunes[i]) {
+							resultChar := resultRunes[pos+i]
+							keyChar := keyRunes[i]
+
+							// Check if characters match (case-insensitive)
+							if unicode.ToLower(resultChar) != unicode.ToLower(keyChar) {
 								matched = false
 								break
+							}
+
+							// Additional check: ensure case conversion is reversible for this character
+							// Skip match if either character has non-reversible case conversion
+							if unicode.IsLetter(resultChar) {
+								// Check if upper->lower->upper is reversible
+								if unicode.ToUpper(unicode.ToLower(resultChar)) != unicode.ToUpper(resultChar) {
+									matched = false
+									break
+								}
+							}
+							if unicode.IsLetter(keyChar) {
+								// Check if upper->lower->upper is reversible
+								if unicode.ToUpper(unicode.ToLower(keyChar)) != unicode.ToUpper(keyChar) {
+									matched = false
+									break
+								}
 							}
 						}
 					}
@@ -626,6 +660,20 @@ func applyNumbersLogicFromPejelagarto(input string) string {
 // isBase7Digit checks if a rune is a valid base 7 digit (0-6)
 func isBase7Digit(r rune) bool {
 	return r >= '0' && r <= '6'
+}
+
+// TranslateToPejelagarto translates Human text to Pejelagarto
+func TranslateToPejelagarto(input string) string {
+	input = applyNumbersLogicToPejelagarto(input)
+	input = applyMapReplacementsToPejelagarto(input)
+	return input
+}
+
+// TranslateFromPejelagarto translates Pejelagarto text back to Human
+func TranslateFromPejelagarto(input string) string {
+	input = applyMapReplacementsFromPejelagarto(input)
+	input = applyNumbersLogicFromPejelagarto(input)
+	return input
 }
 
 func main() {

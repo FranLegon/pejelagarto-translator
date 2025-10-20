@@ -1,0 +1,2 @@
+go test fuzz v1
+string("% \xa6\xc4\x12\xa7\x14\x001")
