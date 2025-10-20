@@ -6,9 +6,17 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"log"
 	"math/big"
+	"math/rand"
+	"net/http"
+	"os/exec"
+	"regexp"
+	"runtime"
 	"sort"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 )
@@ -63,17 +71,58 @@ var letterMap = map[string]string{
 // NOTE: This map is independent from word/conjunction/letter maps
 // Can have different lengths for keys and values
 var punctuationMap = map[string]string{
-	"?": "‽",
-	"!": "¡",
-	".": "..",
-	",": "،",
-	";": "⁏",
-	":": "︰",
-	"'": "〝",
+	"?":  "‽",
+	"!":  "¡",
+	".":  "..",
+	",":  "،",
+	";":  "⁏",
+	":":  "︰",
+	"'":  "〝",
 	"\"": "〞",
-	"-": "‐",
-	"(": "⦅",
-	")": "⦆",
+	"-":  "‐",
+	"(":  "⦅",
+	")":  "⦆",
+}
+
+// Emoji encoding maps for datetime
+var dayEmojiIndex = []string{
+	"🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘", "🌙", "🌚",
+	"🌛", "🌜", "🌝", "🌞", "⭐", "🌟", "✨", "💫", "🌠", "☀️",
+	"🌤️", "⛅", "🌥️", "☁️", "🌦️", "🌧️", "⛈️", "🌩️", "🌨️", "❄️",
+	"☃️",
+}
+
+var monthEmojiIndex = []string{
+	"🍇", "🍈", "🍉", "🍊", "🍋", "🍌", "🍍", "🥭", "🍎", "🍏",
+	"🍐", "🍑",
+}
+
+var yearEmojiIndex = []string{
+	"🐀", "🐁", "🐂", "🐃", "🐄", "🐅", "🐆", "🐇", "🐈", "🐉",
+	"🐊", "🐋", "🐌", "🐍", "🐎", "🐏", "🐐", "🐑", "🐒", "🐓",
+	"🐔", "🐕", "🐖", "🐗", "🐘", "🐙", "🐚", "🐛", "🐜", "🐝",
+	"🐞", "🐟", "🐠", "🐡", "🐢", "🐣", "🐤", "🐥", "🐦", "🐧",
+	"🐨", "🐩", "🐪", "🐫", "🐬", "🐭", "🐮", "🐯", "🐰", "🐱",
+	"🐲", "🐳", "🐴", "🐵", "🐶", "🐷", "🐸", "🐹", "🐺", "🐻",
+	"🐼", "🐽", "🐾", "🐿️", "👀", "👁️", "👂", "👃", "👄", "👅",
+	"👆", "👇", "👈", "👉", "👊", "👋", "👌", "👍", "👎", "👏",
+	"👐", "👑", "👒", "👓", "👔", "👕", "👖", "👗", "👘", "👙",
+	"👚", "👛", "👜", "👝", "👞", "👟", "👠", "👡", "👢",
+}
+
+var hourEmojiIndex = []string{
+	"🕐", "🕑", "🕒", "🕓", "🕔", "🕕", "🕖", "🕗", "🕘", "🕙",
+	"🕚", "🕛", "🕜", "🕝", "🕞", "🕟", "🕠", "🕡", "🕢", "🕣",
+	"🕤", "🕥", "🕦", "🕧",
+}
+
+var minuteEmojiIndex = []string{
+	"⏰", "⏱️", "⏲️", "⏳", "⌚", "⌛", "⏰", "🔔", "🔕", "📅",
+	"📆", "📇", "📈", "📉", "📊", "📋", "📌", "📍", "📎", "📏",
+	"📐", "📑", "📒", "📓", "📔", "📕", "📖", "📗", "📘", "📙",
+	"📚", "📛", "📜", "📝", "📞", "📟", "📠", "📡", "📢", "📣",
+	"📤", "📥", "📦", "📧", "📨", "📩", "📪", "📫", "📬", "📭",
+	"📮", "📯", "📰", "📱", "📲", "📳", "📴", "📵", "📶", "📷",
 }
 
 // validateMaps checks that all mappings have equal rune lengths for keys and values
@@ -276,10 +325,10 @@ func applyReplacements(input string, bijectiveMap map[int32]map[string]string, i
 			value := replacements[key]
 
 			// For FromPejelagarto: if the key has a quote prefix (Pejelagarto multi-rune pattern),
-			// remove it from the output value so it doesn't appear in English text
+			// remove it from the output value so it doesn't appear in Human text
 			outputValue := value
 			if strings.HasPrefix(key, "'") {
-				// This is a Pejelagarto pattern being converted back to English
+				// This is a Pejelagarto pattern being converted back to Human
 				// Remove any quote prefix from the output
 				outputValue = strings.TrimPrefix(value, "'")
 			}
@@ -1283,35 +1332,625 @@ func applyPunctuationReplacementsFromPejelagarto(input string) string {
 	return result
 }
 
+// removeISO8601timestamp removes ISO 8601 timestamp from the last line if present
+func removeISO8601timestamp(input string) string {
+	// ISO 8601 regex pattern for timestamps like 2025-10-19T14:30:00Z or 2025-10-19T14:30:00+00:00
+	iso8601Pattern := regexp.MustCompile(`(?m)^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})$`)
+
+	lines := strings.Split(input, "\n")
+	if len(lines) == 0 {
+		return input
+	}
+
+	// Check if last line matches ISO 8601 timestamp
+	lastLine := lines[len(lines)-1]
+	if iso8601Pattern.MatchString(lastLine) {
+		// Remove the last line
+		if len(lines) == 1 {
+			return ""
+		}
+		return strings.Join(lines[:len(lines)-1], "\n")
+	}
+
+	return input
+}
+
+// addISO8601timestamp adds timestamp as new last line to input
+func addISO8601timestamp(input string, timestamp string) string {
+	if timestamp == "" {
+		return input
+	}
+
+	if input == "" {
+		return timestamp
+	}
+
+	return input + "\n" + timestamp
+}
+
+// removeAllEmojies removes all emoji characters from the input
+func removeAllEmojies(input string) string {
+	// Create a set of all emojis from our maps
+	emojiSet := make(map[string]bool)
+	for _, emoji := range dayEmojiIndex {
+		emojiSet[emoji] = true
+	}
+	for _, emoji := range monthEmojiIndex {
+		emojiSet[emoji] = true
+	}
+	for _, emoji := range yearEmojiIndex {
+		emojiSet[emoji] = true
+	}
+	for _, emoji := range hourEmojiIndex {
+		emojiSet[emoji] = true
+	}
+	for _, emoji := range minuteEmojiIndex {
+		emojiSet[emoji] = true
+	}
+
+	result := input
+	for emoji := range emojiSet {
+		result = strings.ReplaceAll(result, emoji, "")
+	}
+
+	return result
+}
+
+// readTimestampUsingEmojiEncoding locates emojis and returns ISO 8601 timestamp
+func readTimestampUsingEmojiEncoding(input string) string {
+	// Find one emoji from each category
+	var day, month, year, hour, minute int = -1, -1, -1, -1, -1
+
+	// Search for emojis in the input
+	for i, emoji := range dayEmojiIndex {
+		if strings.Contains(input, emoji) {
+			day = i + 1 // days are 1-indexed
+			break
+		}
+	}
+
+	for i, emoji := range monthEmojiIndex {
+		if strings.Contains(input, emoji) {
+			month = i + 1 // months are 1-indexed
+			break
+		}
+	}
+
+	for i, emoji := range yearEmojiIndex {
+		if strings.Contains(input, emoji) {
+			year = 2025 + i // years start from 2025
+			break
+		}
+	}
+
+	for i, emoji := range hourEmojiIndex {
+		if strings.Contains(input, emoji) {
+			hour = i
+			break
+		}
+	}
+
+	for i, emoji := range minuteEmojiIndex {
+		if strings.Contains(input, emoji) {
+			minute = i
+			break
+		}
+	}
+
+	// Check if we found all components
+	if day == -1 || month == -1 || year == -1 || hour == -1 || minute == -1 {
+		return "" // Cannot determine datetime
+	}
+
+	// Create timestamp in ISO 8601 format
+	return fmt.Sprintf("%04d-%02d-%02dT%02d:%02d:00Z", year, month, day, hour, minute)
+}
+
+// addEmojiDatetimeEncoding inserts datetime emojis at random positions
+func addEmojiDatetimeEncoding(input string) string {
+	// Get current UTC datetime
+	now := time.Now().UTC()
+
+	// Get emoji indices
+	day := now.Day() - 1          // Convert to 0-indexed
+	month := int(now.Month()) - 1 // Convert to 0-indexed
+	year := now.Year() - 2025     // Years start from 2025
+	hour := now.Hour()
+	minute := now.Minute()
+
+	// Validate indices
+	if day < 0 || day >= len(dayEmojiIndex) {
+		day = 0
+	}
+	if month < 0 || month >= len(monthEmojiIndex) {
+		month = 0
+	}
+	if year < 0 || year >= len(yearEmojiIndex) {
+		year = 0
+	}
+	if hour < 0 || hour >= len(hourEmojiIndex) {
+		hour = 0
+	}
+	if minute < 0 || minute >= len(minuteEmojiIndex) {
+		minute = 0
+	}
+
+	// Get the emojis
+	emojis := []string{
+		dayEmojiIndex[day],
+		monthEmojiIndex[month],
+		yearEmojiIndex[year],
+		hourEmojiIndex[hour],
+		minuteEmojiIndex[minute],
+	}
+
+	// Find all positions next to spaces or line breaks
+	runes := []rune(input)
+	var positions []int
+
+	for i := 0; i < len(runes); i++ {
+		if i == 0 || runes[i] == ' ' || runes[i] == '\n' {
+			positions = append(positions, i)
+		}
+		if i == len(runes)-1 {
+			positions = append(positions, i+1)
+		}
+	}
+
+	// If no positions found, just append to the end
+	if len(positions) == 0 {
+		for _, emoji := range emojis {
+			input += emoji
+		}
+		return input
+	}
+
+	// Shuffle positions and pick the first 5
+	rand.Seed(time.Now().UnixNano())
+	rand.Shuffle(len(positions), func(i, j int) {
+		positions[i], positions[j] = positions[j], positions[i]
+	})
+
+	// Insert emojis at random positions
+	// Sort positions to insert from end to beginning (to maintain correct indices)
+	if len(positions) > len(emojis) {
+		positions = positions[:len(emojis)]
+	}
+	sort.Ints(positions)
+
+	result := string(runes)
+	for i := len(positions) - 1; i >= 0 && i < len(emojis); i-- {
+		pos := positions[i]
+		if pos > len(result) {
+			pos = len(result)
+		}
+		result = result[:pos] + emojis[i] + result[pos:]
+	}
+
+	return result
+}
+
 // TranslateToPejelagarto translates Human text to Pejelagarto
 func TranslateToPejelagarto(input string) string {
+	input = removeAllEmojies(input)
+	input = removeISO8601timestamp(input)
 	input = applyNumbersLogicToPejelagarto(input)
 	input = applyPunctuationReplacementsToPejelagarto(input)
 	input = applyMapReplacementsToPejelagarto(input)
 	input = applyAccentReplacementLogicToPejelagarto(input)
 	input = applyCaseReplacementLogic(input)
+	input = addEmojiDatetimeEncoding(input)
 	return input
 }
 
 // TranslateFromPejelagarto translates Pejelagarto text back to Human
 func TranslateFromPejelagarto(input string) string {
+	timestamp := readTimestampUsingEmojiEncoding(input)
+	input = removeAllEmojies(input)
 	input = applyCaseReplacementLogic(input)
 	input = applyAccentReplacementLogicFromPejelagarto(input)
 	input = applyMapReplacementsFromPejelagarto(input)
 	input = applyPunctuationReplacementsFromPejelagarto(input)
 	input = applyNumbersLogicFromPejelagarto(input)
+	input = addISO8601timestamp(input, timestamp)
 	return input
 }
 
-func main() {
-	// Placeholder for future web server implementation
-	fmt.Println("Pejelagarto Translator - Implementation in progress")
+// HTML UI template
+const htmlUI = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pejelagarto Translator</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 900px;
+            width: 100%;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .translator-box {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .text-area-container {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        label {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 1.1em;
+        }
+        
+        textarea {
+            width: 100%;
+            height: 250px;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        textarea[readonly] {
+            background-color: #f5f5f5;
+            cursor: not-allowed;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .invert-btn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            padding: 12px 20px;
+            font-size: 20px;
+            box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
+        }
+        
+        .invert-btn:hover {
+            box-shadow: 0 6px 20px rgba(245, 87, 108, 0.6);
+        }
+        
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 16px;
+            color: #333;
+        }
+        
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        @media (max-width: 768px) {
+            .translator-box {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+            
+            .container {
+                padding: 20px;
+            }
+        }
+        
+        .htmx-indicator {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐊 Pejelagarto Translator 🐊</h1>
+        
+        <div class="translator-box">
+            <div class="text-area-container">
+                <label id="input-label">Human:</label>
+                <textarea id="input-text" placeholder="Type your text here..."></textarea>
+            </div>
+            
+            <div class="text-area-container">
+                <label id="output-label">Pejelagarto:</label>
+                <textarea id="output-text" readonly placeholder="Translation will appear here..."></textarea>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button 
+                id="translate-btn"
+                hx-post="/to"
+                hx-trigger="click"
+                hx-include="#input-text"
+                hx-target="#output-text"
+                hx-swap="innerHTML"
+                hx-indicator="#loading-indicator">
+                Translate to Pejelagarto
+            </button>
+            
+            <button class="invert-btn" onclick="invertTranslation()">⇅</button>
+            
+            <div class="checkbox-container">
+                <input type="checkbox" id="live-translate" onchange="toggleLiveTranslation()">
+                <label for="live-translate" style="margin: 0;">Live Translation</label>
+            </div>
+            
+            <span id="loading-indicator" class="htmx-indicator"></span>
+        </div>
+    </div>
+    
+    <script>
+        let isInverted = false;
+        let liveTranslateEnabled = false;
+        
+        // Invert button functionality
+        function invertTranslation() {
+            const inputText = document.getElementById('input-text');
+            const outputText = document.getElementById('output-text');
+            const inputLabel = document.getElementById('input-label');
+            const outputLabel = document.getElementById('output-label');
+            const translateBtn = document.getElementById('translate-btn');
+            
+            // Swap text content
+            const temp = inputText.value;
+            inputText.value = outputText.value;
+            outputText.value = temp;
+            
+            // Swap labels
+            const tempLabel = inputLabel.textContent;
+            inputLabel.textContent = outputLabel.textContent;
+            outputLabel.textContent = tempLabel;
+            
+            // Toggle button state
+            isInverted = !isInverted;
+            if (isInverted) {
+                translateBtn.textContent = 'Translate from Pejelagarto';
+                translateBtn.setAttribute('hx-post', '/from');
+            } else {
+                translateBtn.textContent = 'Translate to Pejelagarto';
+                translateBtn.setAttribute('hx-post', '/to');
+            }
+            
+            // Re-initialize HTMX on the button
+            htmx.process(translateBtn);
+        }
+        
+        // Live translation functionality
+        function toggleLiveTranslation() {
+            const checkbox = document.getElementById('live-translate');
+            const translateBtn = document.getElementById('translate-btn');
+            const inputText = document.getElementById('input-text');
+            
+            liveTranslateEnabled = checkbox.checked;
+            
+            if (liveTranslateEnabled) {
+                // Hide the translate button
+                translateBtn.classList.add('hidden');
+                
+                // Add live translation event listener
+                inputText.addEventListener('input', handleLiveTranslation);
+                
+                // Trigger initial translation
+                handleLiveTranslation();
+            } else {
+                // Show the translate button
+                translateBtn.classList.remove('hidden');
+                
+                // Remove live translation event listener
+                inputText.removeEventListener('input', handleLiveTranslation);
+            }
+        }
+        
+        function handleLiveTranslation() {
+            const inputText = document.getElementById('input-text');
+            const outputText = document.getElementById('output-text');
+            const endpoint = isInverted ? '/from' : '/to';
+            
+            // Send request to backend
+            fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain'
+                },
+                body: inputText.value
+            })
+            .then(response => response.text())
+            .then(data => {
+                outputText.value = data;
+            })
+            .catch(error => {
+                console.error('Translation error:', error);
+            });
+        }
+        
+        // Custom HTMX response handler to update textarea value
+        document.body.addEventListener('htmx:afterSwap', function(evt) {
+            if (evt.detail.target.id === 'output-text') {
+                const outputText = document.getElementById('output-text');
+                outputText.value = evt.detail.xhr.responseText;
+            }
+        });
+    </script>
+</body>
+</html>`
 
-	// Quick test
-	input := "hello"
-	pej := applyMapReplacementsToPejelagarto(input)
-	back := applyMapReplacementsFromPejelagarto(pej)
-	fmt.Println("Input:", input)
-	fmt.Println("ToPejelagarto:", pej)
-	fmt.Println("FromPejelagarto:", back)
+// HTTP handler for the main UI
+func handleIndex(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprint(w, htmlUI)
+}
+
+// HTTP handler for translating to Pejelagarto
+func handleTranslateTo(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Error reading request body", http.StatusBadRequest)
+		return
+	}
+
+	input := string(body)
+	result := TranslateToPejelagarto(input)
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	fmt.Fprint(w, result)
+}
+
+// HTTP handler for translating from Pejelagarto
+func handleTranslateFrom(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Error reading request body", http.StatusBadRequest)
+		return
+	}
+
+	input := string(body)
+	result := TranslateFromPejelagarto(input)
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	fmt.Fprint(w, result)
+}
+
+// openBrowser opens the default browser to the specified URL
+func openBrowser(url string) error {
+	var cmd *exec.Cmd
+
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	case "darwin":
+		cmd = exec.Command("open", url)
+	default: // "linux", "freebsd", "openbsd", "netbsd"
+		cmd = exec.Command("xdg-open", url)
+	}
+
+	return cmd.Start()
+}
+
+func main() {
+	// Set up HTTP routes
+	http.HandleFunc("/", handleIndex)
+	http.HandleFunc("/to", handleTranslateTo)
+	http.HandleFunc("/from", handleTranslateFrom)
+
+	// Server address
+	addr := ":8080"
+	url := "http://localhost:8080"
+
+	// Start server in goroutine
+	go func() {
+		log.Printf("Starting Pejelagarto Translator server on %s\n", url)
+		if err := http.ListenAndServe(addr, nil); err != nil {
+			log.Fatalf("Server failed to start: %v", err)
+		}
+	}()
+
+	// Wait a moment for server to start, then open browser
+	time.Sleep(500 * time.Millisecond)
+	if err := openBrowser(url); err != nil {
+		log.Printf("Could not open browser automatically: %v\n", err)
+		log.Printf("Please open your browser and navigate to %s\n", url)
+	}
+
+	// Keep the server running
+	log.Println("Server is running. Press Ctrl+C to stop.")
+	select {} // Block forever
 }

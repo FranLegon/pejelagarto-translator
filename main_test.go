@@ -207,6 +207,49 @@ func countWordsInString(input string) int {
 	return wordCount
 }
 
+// FuzzEmojiDateTimeEncoding tests emoji datetime encoding with special non-reversibility handling
+func FuzzEmojiDateTimeEncoding(f *testing.F) {
+	// Seed corpus with diverse examples
+	seeds := []string{
+		"hello world",
+		"The quick brown fox jumps over the lazy dog",
+		"test 123 numbers",
+		"aeiou vowels",
+		"",
+		"a",
+		"CHAPTER",
+		"mixed 42 content",
+		"the fish and chips",
+	}
+
+	for _, seed := range seeds {
+		f.Add(seed)
+	}
+
+	f.Fuzz(func(t *testing.T, input string) {
+		// Skip invalid UTF-8 as Go's string handling will convert invalid bytes to replacement characters
+		if !utf8.ValidString(input) {
+			return
+		}
+		
+		// Emoji datetime logic isn't fully reversible because:
+		// 1. Emojis encode current time, which changes
+		// 2. Random placement of emojis
+		// But we can verify correct behavior by comparing after removing emojis and timestamps
+		
+		translated := TranslateToPejelagarto(input)
+		restored := TranslateFromPejelagarto(translated)
+		
+		// Clean both for comparison (remove emojis and timestamps)
+		inputCleaned := removeAllEmojies(removeISO8601timestamp(input))
+		restoredCleaned := removeAllEmojies(removeISO8601timestamp(restored))
+
+		if inputCleaned != restoredCleaned {
+			t.Errorf("Reversibility failed after cleaning.\nInput (cleaned):    %q\nRestored (cleaned): %q", inputCleaned, restoredCleaned)
+		}
+	})
+}
+
 // FuzzTranslatePejelagarto uses fuzzing to test full translation pipeline reversibility
 func FuzzTranslatePejelagarto(f *testing.F) {
 	// Seed corpus with diverse examples
@@ -227,12 +270,21 @@ func FuzzTranslatePejelagarto(f *testing.F) {
 	}
 
 	f.Fuzz(func(t *testing.T, input string) {
+		// Skip invalid UTF-8 as Go's string handling will convert invalid bytes to replacement characters
+		if !utf8.ValidString(input) {
+			return
+		}
+		
 		// Test: TranslateToPejelagarto -> TranslateFromPejelagarto
 		pejelagarto := TranslateToPejelagarto(input)
 		reversed := TranslateFromPejelagarto(pejelagarto)
 
-		if reversed != input {
-			t.Errorf("TranslateToPejelagarto->TranslateFromPejelagarto failed\nInput:       %q\nPejelagarto: %q\nReversed:    %q", input, pejelagarto, reversed)
+		// Since emoji/timestamp logic is now integrated, we need to clean for comparison
+		inputCleaned := removeAllEmojies(removeISO8601timestamp(input))
+		reversedCleaned := removeAllEmojies(removeISO8601timestamp(reversed))
+
+		if reversedCleaned != inputCleaned {
+			t.Errorf("TranslateToPejelagarto->TranslateFromPejelagarto failed\nInput (cleaned):       %q\nPejelagarto: %q\nReversed (cleaned):    %q", inputCleaned, pejelagarto, reversedCleaned)
 		}
 	})
 }
@@ -256,9 +308,11 @@ func TestTranslateToPejelagarto(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := TranslateToPejelagarto(tt.input)
-			// Verify reversibility
+			// Verify reversibility (with emoji/timestamp cleaning)
 			reversed := TranslateFromPejelagarto(result)
-			if reversed != tt.input {
+			inputCleaned := removeAllEmojies(removeISO8601timestamp(tt.input))
+			reversedCleaned := removeAllEmojies(removeISO8601timestamp(reversed))
+			if reversedCleaned != inputCleaned {
 				t.Errorf("Reversibility failed: TranslateToPejelagarto(%q) = %q, but TranslateFromPejelagarto(%q) = %q",
 					tt.input, result, result, reversed)
 			}
@@ -285,9 +339,11 @@ func TestTranslateFromPejelagarto(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := TranslateFromPejelagarto(tt.input)
-			// Verify reversibility
+			// Verify reversibility (with emoji/timestamp cleaning)
 			reversed := TranslateToPejelagarto(result)
-			if reversed != tt.input {
+			inputCleaned := removeAllEmojies(removeISO8601timestamp(tt.input))
+			reversedCleaned := removeAllEmojies(removeISO8601timestamp(reversed))
+			if reversedCleaned != inputCleaned {
 				t.Errorf("Reversibility failed: TranslateFromPejelagarto(%q) = %q, but TranslateToPejelagarto(%q) = %q",
 					tt.input, result, result, reversed)
 			}

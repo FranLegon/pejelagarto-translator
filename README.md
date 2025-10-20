@@ -1,12 +1,12 @@
 # Pejelagarto Translator
 
-A Go implementation of a bidirectional translator between English and Pejelagarto language.
+A Go implementation of a bidirectional translator between Human and Pejelagarto language.
 
 ## Features
 
-- **Bidirectional Translation**: Convert text from English to Pejelagarto and back
+- **Bidirectional Translation**: Convert text from Human to Pejelagarto and back
 - **Number Conversion**: Translates numbers from base-10 to base-7 with custom offset
-- **Character Mapping**: Maps English letters, conjunctions, and words to Pejelagarto equivalents
+- **Character Mapping**: Maps Human letters, conjunctions, and words to Pejelagarto equivalents
 - **Quote Handling**: Properly escapes quotes to avoid ambiguity
 - **High Performance**: Optimized for O(n) complexity with pre-calculated marker depth maps
 
@@ -15,10 +15,10 @@ A Go implementation of a bidirectional translator between English and Pejelagart
 ### Main Functions
 
 ```go
-// Translate from English to Pejelagarto
+// Translate from Human to Pejelagarto
 func TranslateToPejelagarto(input string) string
 
-// Translate from Pejelagarto to English  
+// Translate from Pejelagarto to Human  
 func TranslateFromPejelagarto(input string) string
 ```
 
@@ -86,12 +86,12 @@ The translator automatically detects these characters and skips case-insensitive
 
 ### Character Mapping
 The translator uses a bijective mapping system with:
-- **Positive indices**: English → Pejelagarto
-- **Negative indices**: Pejelagarto → English
+- **Positive indices**: Human → Pejelagarto
+- **Negative indices**: Pejelagarto → Human
 - Processing order by index magnitude: 6, 5, 4, 3, 2, 1
 
 ### Quote Escaping
-- Single quotes in English are doubled in Pejelagarto: `'` → `''`
+- Single quotes in Human are doubled in Pejelagarto: `'` → `''`
 - Internal representation uses Unicode marker `\uFFF2` to avoid ambiguity
 - Ensures reversibility: `'quoted'` → `''vretof''` → `'quoted'`
 

@@ -113,7 +113,7 @@ func TranslateFromPejelagarto(input string) string {
 }
 
 Web Server:
-The main function should start a web server on http://localhost:8080.
+The main function should start a web server on http://localhost:8080. It should also attempt to open http://localhost:8080 in default browser. 
 It must serve the main HTML UI from the root path (/).
 It must handle POST requests from the frontend at /to and /from, using the translation functions to process the request body and return the translated text.
 Frontend Requirements (HTML/JS/HTMX):
