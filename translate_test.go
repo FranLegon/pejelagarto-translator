@@ -45,7 +45,7 @@ func TestTranslateFromPejelagarto(t *testing.T) {
 		{name: "Simple word", input: "'jhtxz"},
 		{name: "Word with number", input: "'jhtxz 3333333333333333423"},
 		{name: "The quick brown fox", input: "'Zjc vracw pyekm dex"},
-		{name: "Text with conjunctions", input: "da'xs imf 'jcabs"},
+		{name: "Text with conjunctions", input: "da'xs ĩmf 'jcabs"},
 		{name: "Number only", input: "3333333333333333600"},
 		{name: "Negative number", input: "-3333333333333333341"},
 		{name: "Text with escaped quotes", input: "At''s jibbu"},

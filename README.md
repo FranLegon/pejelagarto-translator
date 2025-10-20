@@ -69,16 +69,14 @@ go test -fuzz=FuzzMapReplacements -fuzztime=30s
 
 ## Known Limitations
 
-### Unicode Case Conversion
+### Unicode Characters with Non-Reversible Case Conversion
 
-The translator has a known limitation with certain Unicode characters that have locale-specific case conversion rules:
+Characters with non-reversible case conversion (where `ToUpper(ToLower(char)) != ToUpper(char)`) are preserved as-is and not translated. This includes:
 
-- **Turkish İ (U+0130)**: Capital I with dot above converts to lowercase i, but reverses to regular I without dot
-- **Other affected characters**: German ß, Greek Σ/ς may also behave unexpectedly
+- **Turkish İ (U+0130)**: Capital I with dot above (İ → i → I would lose the dot)
+- **Other affected characters**: German ß, Greek Σ/ς, and similar locale-specific characters
 
-This is due to Go's standard `unicode.ToLower/ToUpper` functions which don't handle all locale-specific case rules.
-
-**Workaround**: For text containing these characters, consider normalizing to ASCII equivalents before translation.
+The translator automatically detects these characters and skips case-insensitive matching for them, ensuring full reversibility. Such characters will appear unchanged in the translated output.
 
 ## Translation Rules
 

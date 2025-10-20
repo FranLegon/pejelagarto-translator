@@ -90,6 +90,11 @@ func createBijectiveMap() map[int32]map[string]string {
 		panic(err)
 	}
 
+	// Validate accent wheels on first call
+	if err := validateAccentWheels(); err != nil {
+		panic(err)
+	}
+
 	bijectiveMap := make(map[int32]map[string]string)
 
 	// Helper function to add entries to the map
@@ -662,15 +667,370 @@ func isBase7Digit(r rune) bool {
 	return r >= '0' && r <= '6'
 }
 
+// Accent wheels for vowel replacement
+// oneRuneAccentsWheel: single-rune accent forms (1 rune input → 1 rune output)
+// twoRunesAccentsWheel: two-rune accent forms (2 runes input → 2 runes output)
+// Each vowel has its own independent wheel - position 3 for 'a' can be different from position 3 for 'e'
+// Only includes accents with reversible case conversion (ToUpper then ToLower returns original)
+
+var oneRuneAccentsWheel = map[rune][]string{
+	'a': {"a", "à", "á", "â", "ã", "å", "ä", "ā", "ă"}, // 9 single-rune accents for 'a'
+	'e': {"e", "è", "é", "ê", "ẽ", "ė", "ë", "ē", "ĕ"}, // 9 single-rune accents for 'e'
+	'i': {"i", "ì", "í", "î", "ĩ", "ï", "ī", "ĭ"},      // 8 single-rune accents for 'i' (ı excluded - case not reversible)
+	'o': {"o", "ò", "ó", "ô", "õ", "ø", "ö", "ō", "ŏ"}, // 9 single-rune accents for 'o'
+	'u': {"u", "ù", "ú", "û", "ũ", "ů", "ü", "ū", "ŭ"}, // 9 single-rune accents for 'u'
+	'y': {"y", "ỳ", "ý", "ŷ", "ỹ", "ẏ", "ÿ", "ȳ"},      // 8 single-rune accents for 'y' (ỵ excluded if needed)
+}
+
+var twoRunesAccentsWheel = map[rune][]string{
+	// Using combining diacritics (base + combining character = 2 runes)
+	// U+0328 = combining ogonek, U+030C = combining caron, U+031B = combining horn
+	'a': {"a\u0328", "a\u030C"},            // a+ogonek, a+caron (2 runes each)
+	'e': {"e\u0328", "e\u030C"},            // e+ogonek, e+caron (2 runes each)
+	'i': {"i\u0328", "i\u030C"},            // i+ogonek, i+caron (2 runes each)
+	'o': {"o\u0328", "o\u030C", "o\u031B"}, // o+ogonek, o+caron, o+horn (2 runes each)
+	'u': {"u\u0328", "u\u030C", "u\u031B"}, // u+ogonek, u+caron, u+horn (2 runes each)
+	'y': {"y\u0328"},                       // y+ogonek (2 runes)
+}
+
+// validateAccentWheels checks that all accent forms have the expected rune count and case reversibility
+func validateAccentWheels() error {
+	// Validate oneRuneAccentsWheel - all values should be single runes with reversible case
+	for baseVowel, accents := range oneRuneAccentsWheel {
+		for idx, accentedForm := range accents {
+			runeCount := utf8.RuneCountInString(accentedForm)
+			if runeCount != 1 {
+				return fmt.Errorf("oneRuneAccentsWheel['%c'][%d] = %q has %d runes, expected 1",
+					baseVowel, idx, accentedForm, runeCount)
+			}
+
+			// Check case reversibility
+			r := []rune(accentedForm)[0]
+			upperForm := unicode.ToUpper(r)
+			if unicode.ToLower(upperForm) != r {
+				return fmt.Errorf("oneRuneAccentsWheel['%c'][%d] = %q has non-reversible case conversion",
+					baseVowel, idx, accentedForm)
+			}
+		}
+	}
+
+	// Validate twoRunesAccentsWheel - all values should be exactly 2 runes (combining character sequences)
+	// Format: base character + combining diacritic
+	for baseVowel, accents := range twoRunesAccentsWheel {
+		for idx, accentedForm := range accents {
+			runeCount := utf8.RuneCountInString(accentedForm)
+			if runeCount != 2 {
+				return fmt.Errorf("twoRunesAccentsWheel['%c'][%d] = %q has %d runes, expected 2",
+					baseVowel, idx, accentedForm, runeCount)
+			}
+
+			// Check case reversibility for the base character (first rune)
+			runes := []rune(accentedForm)
+			baseChar := runes[0]
+			upperForm := unicode.ToUpper(baseChar)
+			if unicode.ToLower(upperForm) != baseChar {
+				return fmt.Errorf("twoRunesAccentsWheel['%c'][%d] = %q has non-reversible case conversion for base char",
+					baseVowel, idx, accentedForm)
+			}
+		}
+	}
+
+	return nil
+} // isVowel checks if a rune is a vowel (including y and accented forms)
+func isVowel(r rune) bool {
+	lower := unicode.ToLower(r)
+	lowerStr := string(lower)
+
+	// Check oneRuneAccentsWheel
+	for _, accents := range oneRuneAccentsWheel {
+		for _, accentedForm := range accents {
+			if accentedForm == lowerStr {
+				return true
+			}
+		}
+	}
+
+	// Check twoRunesAccentsWheel
+	for _, accents := range twoRunesAccentsWheel {
+		for _, accentedForm := range accents {
+			if accentedForm == lowerStr {
+				return true
+			}
+		}
+	}
+
+	return false
+} // primeFactorize returns prime factors with their powers
+// Example: 245 -> map[5:1, 7:2] means 5^1 * 7^2
+func primeFactorize(n int) map[int]int {
+	factors := make(map[int]int)
+	if n <= 1 {
+		return factors
+	}
+
+	// Check for factor 2
+	for n%2 == 0 {
+		factors[2]++
+		n = n / 2
+	}
+
+	// Check for odd factors from 3 onwards
+	for i := 3; i*i <= n; i += 2 {
+		for n%i == 0 {
+			factors[i]++
+			n = n / i
+		}
+	}
+
+	// If n is still greater than 1, it's a prime factor
+	if n > 1 {
+		factors[n]++
+	}
+
+	return factors
+}
+
+// findAccentIndex finds the current accent index for a vowel in oneRuneAccentsWheel
+func findAccentIndex(baseVowel rune, vowelStr string) int {
+	accents, ok := oneRuneAccentsWheel[baseVowel]
+	if !ok {
+		return 0
+	}
+	for idx, accentedForm := range accents {
+		if accentedForm == vowelStr {
+			return idx
+		}
+	}
+	return 0 // Default to no accent
+}
+
+// getBaseVowel gets the base vowel character (lowercase, no accent)
+func getBaseVowel(vowelStr string) rune {
+	// Try to find in oneRuneAccentsWheel
+	for baseVowel, accents := range oneRuneAccentsWheel {
+		for _, accentedForm := range accents {
+			if accentedForm == vowelStr {
+				return baseVowel
+			}
+		}
+	}
+	// Try to find in twoRunesAccentsWheel
+	for baseVowel, accents := range twoRunesAccentsWheel {
+		for _, accentedForm := range accents {
+			if accentedForm == vowelStr {
+				return baseVowel
+			}
+		}
+	}
+	// If not found, return first rune as fallback
+	runes := []rune(vowelStr)
+	if len(runes) > 0 {
+		return unicode.ToLower(runes[0])
+	}
+	return 'a'
+}
+
+// applyAccentReplacementLogicToPejelagarto applies accent changes based on prime factorization
+func applyAccentReplacementLogicToPejelagarto(input string) string {
+	if !utf8.ValidString(input) {
+		return input
+	}
+
+	runes := []rune(input)
+	totalCount := len(runes)
+
+	if totalCount == 0 {
+		return input
+	}
+
+	// Get prime factors
+	factors := primeFactorize(totalCount)
+	if len(factors) == 0 {
+		return input // No factors (totalCount is 1 or 0)
+	}
+
+	// Find all vowels and their positions
+	vowelPositions := []int{}
+	for i, r := range runes {
+		if isVowel(r) {
+			vowelPositions = append(vowelPositions, i)
+		}
+	}
+
+	if len(vowelPositions) == 0 {
+		return input // No vowels to modify
+	}
+
+	// Apply accent changes for each prime factor
+	// Work directly with runes and ensure single-rune replacements only
+	result := make([]rune, len(runes))
+	copy(result, runes)
+
+	for prime, power := range factors {
+		// Find the nth vowel (1-indexed to match prime)
+		vowelIndex := prime - 1 // Convert to 0-indexed
+
+		if vowelIndex >= 0 && vowelIndex < len(vowelPositions) {
+			pos := vowelPositions[vowelIndex]
+			vowelRune := result[pos]
+			isUpper := unicode.IsUpper(vowelRune)
+
+			// Get current accent index and base vowel
+			vowelStr := string(unicode.ToLower(vowelRune))
+			baseVowel := getBaseVowel(vowelStr)
+			currentAccentIndex := findAccentIndex(baseVowel, vowelStr)
+
+			// Get the wheel for this vowel
+			wheel, ok := oneRuneAccentsWheel[baseVowel]
+			if !ok || len(wheel) == 0 {
+				continue // Skip if no wheel for this vowel
+			}
+
+			// Move forward by power positions
+			newAccentIndex := (currentAccentIndex + power) % len(wheel)
+
+			// Get new accented form (always single rune from our wheel)
+			newAccentedForm := wheel[newAccentIndex]
+			newAccentRunes := []rune(newAccentedForm)
+
+			// Only apply if:
+			// 1. We got a single rune
+			// 2. The new form is different from base vowel (otherwise accent info is lost)
+			if len(newAccentRunes) == 1 {
+				// Check if this accent actually changes the vowel
+				baseVowelStr := string(baseVowel)
+				if newAccentedForm != baseVowelStr || newAccentIndex == 0 {
+					if isUpper {
+						// Apply uppercase - but only if case conversion is reversible
+						upperForm := unicode.ToUpper(newAccentRunes[0])
+						if unicode.ToLower(upperForm) == newAccentRunes[0] {
+							result[pos] = upperForm
+						} else {
+							// Case conversion not reversible, keep lowercase
+							result[pos] = newAccentRunes[0]
+						}
+					} else {
+						result[pos] = newAccentRunes[0]
+					}
+				}
+			}
+		}
+	}
+
+	return string(result)
+}
+
+// applyAccentReplacementLogicFromPejelagarto reverses accent changes based on prime factorization
+func applyAccentReplacementLogicFromPejelagarto(input string) string {
+	if !utf8.ValidString(input) {
+		return input
+	}
+
+	runes := []rune(input)
+	totalCount := len(runes)
+
+	if totalCount == 0 {
+		return input
+	}
+
+	// Get prime factors
+	factors := primeFactorize(totalCount)
+	if len(factors) == 0 {
+		return input
+	}
+
+	// Find all vowels and their positions
+	vowelPositions := []int{}
+	for i, r := range runes {
+		if isVowel(r) {
+			vowelPositions = append(vowelPositions, i)
+		}
+	}
+
+	if len(vowelPositions) == 0 {
+		return input
+	}
+
+	// Apply accent changes for each prime factor (backwards)
+	result := make([]rune, len(runes))
+	copy(result, runes)
+
+	for prime, power := range factors {
+		// Find the nth vowel (1-indexed to match prime)
+		vowelIndex := prime - 1
+
+		if vowelIndex >= 0 && vowelIndex < len(vowelPositions) {
+			pos := vowelPositions[vowelIndex]
+			vowelRune := result[pos]
+			isUpper := unicode.IsUpper(vowelRune)
+
+			// Get current accent index and base vowel
+			vowelStr := string(unicode.ToLower(vowelRune))
+			baseVowel := getBaseVowel(vowelStr)
+			currentAccentIndex := findAccentIndex(baseVowel, vowelStr)
+
+			// Get the wheel for this vowel
+			wheel, ok := oneRuneAccentsWheel[baseVowel]
+			if !ok || len(wheel) == 0 {
+				continue // Skip if no wheel for this vowel
+			}
+
+			// Verify the vowel is in our wheel (skip unknown accents)
+			if currentAccentIndex >= len(wheel) {
+				continue // Skip if accent index out of range
+			}
+			expectedForm := wheel[currentAccentIndex]
+			if expectedForm != vowelStr {
+				// Accent not in our wheel, skip transformation
+				continue
+			}
+
+			// Move backward by power positions (with wrapping)
+			newAccentIndex := (currentAccentIndex - power) % len(wheel)
+			if newAccentIndex < 0 {
+				newAccentIndex += len(wheel)
+			}
+
+			// Get new accented form (always single rune from our wheel)
+			newAccentedForm := wheel[newAccentIndex]
+			newAccentRunes := []rune(newAccentedForm) // Only apply if:
+			// 1. We got a single rune
+			// 2. The new form is different from base vowel (otherwise accent info is lost)
+			if len(newAccentRunes) == 1 {
+				// Check if this accent actually changes the vowel
+				baseVowelStr := string(baseVowel)
+				if newAccentedForm != baseVowelStr || newAccentIndex == 0 {
+					if isUpper {
+						// Apply uppercase - but only if case conversion is reversible
+						upperForm := unicode.ToUpper(newAccentRunes[0])
+						if unicode.ToLower(upperForm) == newAccentRunes[0] {
+							result[pos] = upperForm
+						} else {
+							// Case conversion not reversible, keep lowercase
+							result[pos] = newAccentRunes[0]
+						}
+					} else {
+						result[pos] = newAccentRunes[0]
+					}
+				}
+			}
+		}
+	}
+
+	return string(result)
+}
+
 // TranslateToPejelagarto translates Human text to Pejelagarto
 func TranslateToPejelagarto(input string) string {
 	input = applyNumbersLogicToPejelagarto(input)
 	input = applyMapReplacementsToPejelagarto(input)
+	input = applyAccentReplacementLogicToPejelagarto(input)
 	return input
 }
 
 // TranslateFromPejelagarto translates Pejelagarto text back to Human
 func TranslateFromPejelagarto(input string) string {
+	input = applyAccentReplacementLogicFromPejelagarto(input)
 	input = applyMapReplacementsFromPejelagarto(input)
 	input = applyNumbersLogicFromPejelagarto(input)
 	return input
