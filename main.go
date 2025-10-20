@@ -1518,16 +1518,19 @@ func addEmojiDatetimeEncoding(input string) string {
 	}
 	sort.Ints(positions)
 
-	result := string(runes)
+	// Work with runes to avoid splitting UTF-8 sequences
+	resultRunes := runes
 	for i := len(positions) - 1; i >= 0 && i < len(emojis); i-- {
 		pos := positions[i]
-		if pos > len(result) {
-			pos = len(result)
+		if pos > len(resultRunes) {
+			pos = len(resultRunes)
 		}
-		result = result[:pos] + emojis[i] + result[pos:]
+		// Convert emoji to runes and insert
+		emojiRunes := []rune(emojis[i])
+		resultRunes = append(resultRunes[:pos], append(emojiRunes, resultRunes[pos:]...)...)
 	}
 
-	return result
+	return string(resultRunes)
 }
 
 // sanitizeInvalidUTF8 replaces invalid UTF-8 bytes with soft hyphens + Private Use Area characters
