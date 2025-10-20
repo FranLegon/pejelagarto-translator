@@ -2,6 +2,8 @@ package main
 
 import (
 	"testing"
+	"unicode"
+	"unicode/utf8"
 )
 
 // FuzzApplyMapReplacements uses fuzzing to test map replacement reversibility with random inputs
@@ -98,6 +100,68 @@ func FuzzApplyAccentReplacementLogic(f *testing.F) {
 			t.Errorf("ToPejelagarto->FromPejelagarto failed\nInput:    %q\nAccented: %q\nReversed: %q", input, accented, reversed)
 		}
 	})
+}
+
+// FuzzApplyCaseReplacementLogic tests case replacement logic reversibility
+func FuzzApplyCaseReplacementLogic(f *testing.F) {
+	// Seed corpus with diverse examples
+	seeds := []string{
+		"hello world",               // 2 words (even) -> Tribonacci
+		"Go programming language",   // 3 words (odd) -> Fibonacci
+		"one two three four five",   // 5 words (odd) -> Fibonacci
+		"A B C D",                   // 4 words (even) -> Tribonacci
+		"test",                      // 1 word (odd) -> Fibonacci
+		"Testing reversibility",     // 2 words (even) -> Tribonacci
+		"",                          // 0 words -> no-op
+		"a",                         // 1 word (odd) -> Fibonacci
+		"UPPERCASE lowercase MiXeD", // 3 words (odd) -> Fibonacci
+		"123 456",                   // 2 words (even) -> Tribonacci
+	}
+
+	for _, seed := range seeds {
+		f.Add(seed)
+	}
+
+	f.Fuzz(func(t *testing.T, input string) {
+		if !utf8.ValidString(input) {
+			t.Skip("invalid utf8")
+		}
+
+		// Apply case replacement twice - should return to original (self-reversing)
+		once := applyCaseReplacementLogic(input)
+		twice := applyCaseReplacementLogic(once)
+
+		if input != twice {
+			t.Errorf("applyCaseReplacementLogic not reversible:\nInput: %q\nOnce:  %q\nTwice: %q", input, once, twice)
+		}
+
+		// Word count should not change
+		originalWords := countWordsInString(input)
+		onceWords := countWordsInString(once)
+
+		if originalWords != onceWords {
+			t.Errorf("Word count changed: %d -> %d\nInput: %q\nOnce:  %q", originalWords, onceWords, input, once)
+		}
+	})
+}
+
+// countWordsInString counts words for testing (matches applyCaseReplacementLogic logic)
+func countWordsInString(input string) int {
+	runes := []rune(input)
+	wordCount := 0
+	inWord := false
+
+	for _, r := range runes {
+		isLetterOrDigit := unicode.IsLetter(r) || unicode.IsDigit(r)
+		if isLetterOrDigit && !inWord {
+			wordCount++
+			inWord = true
+		} else if !isLetterOrDigit {
+			inWord = false
+		}
+	}
+
+	return wordCount
 }
 
 // FuzzTranslatePejelagarto uses fuzzing to test full translation pipeline reversibility

@@ -739,6 +739,16 @@ func validateAccentWheels() error {
 } // isVowel checks if a rune is a vowel (including y and accented forms)
 func isVowel(r rune) bool {
 	lower := unicode.ToLower(r)
+	
+	// Verify case conversion is reversible if character is uppercase
+	// This prevents issues with characters like İ (Turkish I with dot, U+0130)
+	// which lowercase to 'i' but ToUpper('i') != 'İ'
+	if unicode.IsUpper(r) {
+		if unicode.ToUpper(lower) != r {
+			return false // Not reversible, don't treat as vowel
+		}
+	}
+	
 	lowerStr := string(lower)
 
 	// Check oneRuneAccentsWheel
@@ -1020,16 +1030,124 @@ func applyAccentReplacementLogicFromPejelagarto(input string) string {
 	return string(result)
 }
 
+// generateFibonacci generates Fibonacci sequence up to maxIndex
+func generateFibonacci(maxIndex int) []int {
+	if maxIndex < 1 {
+		return []int{}
+	}
+
+	fib := []int{1, 2} // Start with 1, 2 (1-indexed positions)
+	for {
+		next := fib[len(fib)-1] + fib[len(fib)-2]
+		if next > maxIndex {
+			break
+		}
+		fib = append(fib, next)
+	}
+	return fib
+}
+
+// generateTribonacci generates Tribonacci sequence up to maxIndex
+func generateTribonacci(maxIndex int) []int {
+	if maxIndex < 1 {
+		return []int{}
+	}
+
+	trib := []int{1, 2, 4} // Start with 1, 2, 4 (1-indexed positions)
+	for {
+		next := trib[len(trib)-1] + trib[len(trib)-2] + trib[len(trib)-3]
+		if next > maxIndex {
+			break
+		}
+		trib = append(trib, next)
+	}
+	return trib
+}
+
+// applyCaseReplacementLogic inverts capitalization at Fibonacci/Tribonacci positions
+// If word count is odd, use Fibonacci sequence; if even, use Tribonacci sequence
+// Applying twice returns to original (reversible)
+func applyCaseReplacementLogic(input string) string {
+	if !utf8.ValidString(input) {
+		return input
+	}
+
+	// Count words (sequences of letters/digits separated by non-letter/non-digit characters)
+	runes := []rune(input)
+	wordCount := 0
+	inWord := false
+
+	for _, r := range runes {
+		isLetterOrDigit := unicode.IsLetter(r) || unicode.IsDigit(r)
+		if isLetterOrDigit && !inWord {
+			wordCount++
+			inWord = true
+		} else if !isLetterOrDigit {
+			inWord = false
+		}
+	}
+
+	if wordCount == 0 {
+		return input // No words, nothing to do
+	}
+
+	// Choose sequence based on word count parity
+	var sequence []int
+	if wordCount%2 == 1 {
+		// Odd: use Fibonacci
+		sequence = generateFibonacci(len(runes))
+	} else {
+		// Even: use Tribonacci
+		sequence = generateTribonacci(len(runes))
+	}
+
+	// Create a set of positions to invert (1-indexed in sequence, convert to 0-indexed)
+	positionsToInvert := make(map[int]bool)
+	for _, pos := range sequence {
+		if pos > 0 && pos <= len(runes) {
+			positionsToInvert[pos-1] = true // Convert to 0-indexed
+		}
+	}
+
+	// Apply case inversion at specified positions
+	result := make([]rune, len(runes))
+	copy(result, runes)
+
+	for i := range result {
+		if positionsToInvert[i] {
+			if unicode.IsUpper(result[i]) {
+				lower := unicode.ToLower(result[i])
+				// Check reversibility: if converting back doesn't give original, skip
+				if unicode.ToUpper(lower) != result[i] {
+					continue
+				}
+				result[i] = lower
+			} else if unicode.IsLower(result[i]) {
+				upper := unicode.ToUpper(result[i])
+				// Check reversibility: if converting back doesn't give original, skip
+				if unicode.ToLower(upper) != result[i] {
+					continue
+				}
+				result[i] = upper
+			}
+		}
+	}
+
+	return string(result)
+}
+
 // TranslateToPejelagarto translates Human text to Pejelagarto
 func TranslateToPejelagarto(input string) string {
 	input = applyNumbersLogicToPejelagarto(input)
 	input = applyMapReplacementsToPejelagarto(input)
 	input = applyAccentReplacementLogicToPejelagarto(input)
+	input = applyCaseReplacementLogic(input)
 	return input
 }
 
 // TranslateFromPejelagarto translates Pejelagarto text back to Human
 func TranslateFromPejelagarto(input string) string {
+	input = applyCaseReplacementLogic(input)
 	input = applyAccentReplacementLogicFromPejelagarto(input)
 	input = applyMapReplacementsFromPejelagarto(input)
 	input = applyNumbersLogicFromPejelagarto(input)
