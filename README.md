@@ -89,13 +89,13 @@ The interface provides:
 func TranslateToPejelagarto(input string) string {
     input = sanitizeInvalidUTF8(input)              // 1. Handle broken UTF-8
     input = removeAllEmojies(input)                  // 2. Remove existing emojis
-    input = removeISO8601timestamp(input)            // 3. Remove existing timestamps
+    input, timestamp := removeISO8601timestamp(input) // 3. Extract & remove existing timestamps
     input = applyNumbersLogicToPejelagarto(input)    // 4. Base 10 → Base 7
     input = applyPunctuationReplacementsToPejelagarto(input) // 5. Map punctuation
     input = applyMapReplacementsToPejelagarto(input) // 6. Apply word/letter map
     input = applyAccentReplacementLogicToPejelagarto(input)  // 7. Add accents
     input = applyCaseReplacementLogic(input)         // 8. Apply case patterns
-    input = addEmojiDatetimeEncoding(input)          // 9. Insert emoji timestamp
+    input = addEmojiDatetimeEncoding(input, timestamp) // 9. Insert emoji timestamp (preserves original if found)
     return input
 }
 ```
@@ -342,7 +342,7 @@ Toggle capitalization at sequence positions (e.g., 1st, 2nd, 3rd, 5th, 8th, 13th
 
 **Encoding Process:**
 
-The translator embeds the current UTC timestamp as 5 emojis representing date/time components:
+The translator embeds a UTC timestamp as 5 emojis representing date/time components:
 
 **Emoji Categories:**
 1. **Day Emoji** (1-31): Moon phases and weather (🌑, 🌒, ..., ☃️)
@@ -353,7 +353,10 @@ The translator embeds the current UTC timestamp as 5 emojis representing date/ti
 
 **To Pejelagarto - Insertion Algorithm:**
 
-1. Get current UTC time: `time.Now().UTC()`
+1. Extract any existing ISO 8601 timestamp from input using `removeISO8601timestamp()`
+   - Returns both cleaned input and found timestamp (or empty string if none)
+2. If timestamp parameter is empty: use current UTC time `time.Now().UTC()`
+   - If timestamp parameter provided: parse it as RFC3339 format
 2. Convert to 0-indexed emoji indices:
    - Day: `now.Day() - 1` 
    - Month: `int(now.Month()) - 1`
@@ -361,35 +364,38 @@ The translator embeds the current UTC timestamp as 5 emojis representing date/ti
    - Hour: `now.Hour()`
    - Minute: `now.Minute()`
 3. Validate all indices are within bounds (fallback to 0 if out of range)
-4. Find insertion positions: next to spaces, newlines, or string boundaries
-5. **Random placement:** Shuffle available positions and select 5 random spots
-6. Insert emojis from end to beginning (to maintain correct indices)
+4. Find insertion positions: at start, next to spaces, and at newlines
+5. **Random placement:** Shuffle available positions and select up to 5 random spots
+6. **Guarantee all 5 emojis inserted:** If fewer than 5 positions available, remaining emojis are appended to the end
+7. Insert emojis from end to beginning (to maintain correct indices)
 
 **From Pejelagarto - Extraction Algorithm:**
 
 1. Search entire input string for presence of emojis from each category
 2. Find **first match** in each category (day, month, year, hour, minute)
 3. Convert emoji back to its index value
-4. Reconstruct ISO 8601 timestamp: `YYYY-MM-DDTHH:MM:00Z`
-5. **Critical:** If any component is missing (not found), return empty string `""`
-   - This indicates timestamp could not be reliably decoded
-   - Original addISO8601timestamp() will not add anything if timestamp is empty
+4. **Optional hour/minute:** If day, month, and year are found but hour or minute are missing, default them to 0
+5. Reconstruct ISO 8601 timestamp: `YYYY-MM-DDTHH:MM:00Z`
+6. Return empty string if day, month, or year are missing (required components)
+7. The restored timestamp is added back to the output using `addISO8601timestamp()`
 
 **Key Characteristics:**
 
-- **Not Fully Reversible:** Each translation generates a NEW timestamp for current time
-- **Random Placement:** Emoji positions are randomized, not deterministic
+- **Timestamp Preservation:** If input contains an existing ISO 8601 timestamp, it's preserved through translation
+- **Random Placement:** Emoji positions are randomized for each translation
+- **Always 5 Emojis:** All date/time components are always inserted, even in short text
+- **Reversible with Tolerance:** Hour and minute can be reconstructed even if those emojis are missing (default to 00:00)
 - **Fuzz Test Special Handling:** 
   - Unlike other transformations, emoji encoding is tested differently in fuzzing
   - Test verifies correctness by **removing emojis and timestamps** before comparison
-  - This is because timestamps change between translation calls
+  - This is because timestamps can vary between translation calls
   - See `FuzzEmojiDateTimeEncoding()` which cleans both input and output before comparing
 
-**Why Timestamp Might Not Be Found:**
-- Input doesn't contain all 5 required emoji categories
-- Emojis were removed or modified
+**Why Timestamp Might Not Be Fully Restored:**
+- Input doesn't contain day, month, or year emojis (required)
+- Emojis were removed or modified after translation
 - Text was not previously translated to Pejelagarto
-- In these cases, an empty timestamp is returned and no timestamp is added back
+- In these cases, an empty timestamp is returned and no timestamp line is added back
 
 ## Testing
 
@@ -427,7 +433,7 @@ All transformations verified for reversibility with random inputs:
 - Full translation pipeline
 
 **Proven Reliability:**
-- 56,000+ fuzz executions without failures
+- 80,000+ fuzz executions without failures
 - 100% reversibility guarantee
 - Handles edge cases: empty strings, single characters, Unicode, invalid UTF-8
 
@@ -498,7 +504,7 @@ Always ensure your changes maintain 100% reversibility.
 
 ```
 pejelagarto-translator/
-├── main.go           # Core translator + web server (2006 lines)
+├── main.go           # Core translator + web server (~1800 lines)
 ├── main_test.go      # Comprehensive test suite with fuzz testing
 ├── README.md         # This file
 ├── go.mod            # Go module definition
