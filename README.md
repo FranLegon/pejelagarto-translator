@@ -434,7 +434,7 @@ go test -fuzz=FuzzTranslatePejelagarto -fuzztime=30s
 ```
 
 ### Test Coverage
-
+ 
 **Unit Tests:**
 - `TestTranslateToPejelagarto`: Full pipeline tests
 - `TestTranslateFromPejelagarto`: Reverse pipeline tests
