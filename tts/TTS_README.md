@@ -2,6 +2,19 @@
 
 This directory contains a complete, self-contained Golang implementation for executing the Piper Text-to-Speech binary.
 
+## ⚠️ IMPORTANT: Portuguese Language Required
+
+**This application is configured for Brazilian Portuguese (pt_BR) only.** The text preprocessing logic filters and optimizes text specifically for Portuguese pronunciation:
+
+- ✅ **Required:** Brazilian Portuguese voice model (`pt_BR-faber-medium.onnx`)
+- ✅ **Automatic:** Removes non-Portuguese characters
+- ✅ **Automatic:** Limits consonant clusters to 2 for better pronunciation
+- ⚠️ **Not compatible:** English or other language models without modifying `preprocessTextForTTS()` function
+
+**If you need a different language:** Follow the "Alternative Voice Models" section and modify the preprocessing function accordingly.
+
+---
+
 ## Overview
 
 The TTS functionality provides a simple Go function to convert text to speech using the [Piper TTS](https://github.com/rhasspy/piper) engine. The implementation follows best practices for external process execution, error handling, and temporary file management.
@@ -119,26 +132,30 @@ rm -rf piper piper_macos_x86_64.tar.gz
 
 ### Step 2: Download Voice Model and Configuration
 
+**⚠️ REQUIRED: Brazilian Portuguese Voice Model**
+
+This application requires Brazilian Portuguese TTS. The preprocessing logic filters text specifically for Portuguese characters and pronunciation rules.
+
 **Windows (PowerShell):**
 ```powershell
-# Download voice model (English US female voice - medium quality)
-$modelUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx"
+# Download Brazilian Portuguese voice model (Male voice - medium quality)
+$modelUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx"
 Invoke-WebRequest -Uri $modelUrl -OutFile "tts\requirements\model.onnx"
 
 # Download model configuration (REQUIRED)
-$configUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json"
+$configUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx.json"
 Invoke-WebRequest -Uri $configUrl -OutFile "tts\requirements\model.onnx.json"
 ```
 
 **Linux/macOS:**
 ```bash
-# Download voice model (English US female voice - medium quality)
+# Download Brazilian Portuguese voice model (Male voice - medium quality)
 wget -O tts/requirements/model.onnx \
-  https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx
+  https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx
 
 # Download model configuration (REQUIRED)
 wget -O tts/requirements/model.onnx.json \
-  https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json
+  https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx.json
 ```
 
 **⚠️ Important:** Both the `.onnx` model file AND the `.onnx.json` config file are required!
@@ -161,9 +178,9 @@ Get-ChildItem tts\requirements\ | Select-Object Name
 # - piper_phonemize.dll
 # - espeak-ng-data (directory)
 
-# Test Piper execution
+# Test Piper execution with Portuguese text
 cd tts\requirements
-echo "test" | .\piper.exe --model model.onnx --output_file test.wav
+echo "Olá, como vai você?" | .\piper.exe --model model.onnx --output_file test.wav
 cd ..\..
 
 # If successful, you should see a test.wav file created
@@ -177,13 +194,13 @@ ls -la tts/requirements/
 
 # Expected output should include:
 # - piper (executable)
-# - model.onnx
-# - model.onnx.json
+# - model.onnx (Brazilian Portuguese)
+# - model.onnx.json (Brazilian Portuguese config)
 # - espeak-ng-data/ (directory)
 
-# Test Piper execution
+# Test Piper execution with Portuguese text
 cd tts/requirements
-echo "test" | ./piper --model model.onnx --output_file test.wav
+echo "Olá, como vai você?" | ./piper --model model.onnx --output_file test.wav
 cd ../..
 
 # If successful, you should see a test.wav file created
@@ -221,34 +238,137 @@ go build
 
 **Test in browser:**
 1. Open http://localhost:8080
-2. Type some text (e.g., "Hello world")
+2. Type some Portuguese text (e.g., "Olá, como vai você?")
 3. Click the "Play" button (speaker icon)
-4. You should hear the text spoken aloud!
+4. You should hear the text spoken aloud in Brazilian Portuguese!
+
+---
+
+## Portuguese Text Preprocessing
+
+The application includes automatic text preprocessing specifically designed for Portuguese TTS. The `preprocessTextForTTS()` function in `main.go` performs two important operations:
+
+### 1. Remove Non-Portuguese Characters
+
+The function filters out any characters that aren't part of the Portuguese alphabet or common punctuation:
+- **Keeps:** a-z, á, é, í, ó, ú, â, ê, ô, ã, õ, à, ü, ç (uppercase and lowercase)
+- **Keeps:** Common punctuation: `. , ! ? ; : ' " - ( ) [ ]`
+- **Removes:** Everything else (emoji, special symbols, unsupported accents, etc.)
+
+### 2. Limit Consonant Clusters
+
+Portuguese pronunciation works best with a maximum of 2 consecutive consonants. The function:
+- Detects sequences of 3 or more consonants
+- Removes the 3rd consonant onwards from each cluster
+- Preserves vowels and the first 2 consonants
+
+**Examples:**
+- `"tkr"` → `"tk"` (3rd consonant removed)
+- `"strp"` → `"st"` (3rd and 4th consonants removed)
+- `"blá"` → `"blá"` (unchanged, only 2 consonants)
+- `"escritor"` → `"escritor"` (unchanged, no clusters > 2)
+
+This preprocessing prevents the TTS engine from spelling out unpronounceable letter combinations, resulting in more natural-sounding speech.
 
 ---
 
 ## Alternative Voice Models
 
-You can use different voice models by replacing `model.onnx` and `model.onnx.json`:
+**⚠️ Note:** If you change to a non-Portuguese model, you should modify the `preprocessTextForTTS()` function in `main.go` to match your chosen language's character set and pronunciation rules.
 
-**Other English voices:**
+### Other Portuguese Voices
+
+You can use different Portuguese voice models by replacing `model.onnx` and `model.onnx.json`:
+
+**Windows (PowerShell):**
 ```powershell
-# Windows - High quality male voice
+# Male voice - Medium quality
+$modelUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx"
+$configUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx.json"
+Invoke-WebRequest -Uri $modelUrl -OutFile "tts\requirements\model.onnx"
+Invoke-WebRequest -Uri $configUrl -OutFile "tts\requirements\model.onnx.json"
+```
+
+**Linux/macOS:**
+```bash
+# Male voice - Medium quality
+wget -O tts/requirements/model.onnx \
+  https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx
+wget -O tts/requirements/model.onnx.json \
+  https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx.json
+```
+
+---
+
+### English Voices
+
+**⚠️ Warning:** English models are NOT recommended for this application. The text preprocessing is designed for Portuguese and will remove English-specific characters. If you must use English, modify the `preprocessTextForTTS()` function first.
+
+**Windows (PowerShell):**
+```powershell
+# US English - High quality male voice
 $modelUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/libritts/high/en_US-libritts-high.onnx"
 $configUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/libritts/high/en_US-libritts-high.onnx.json"
 Invoke-WebRequest -Uri $modelUrl -OutFile "tts\requirements\model.onnx"
 Invoke-WebRequest -Uri $configUrl -OutFile "tts\requirements\model.onnx.json"
 
-# British English
+# US English - Medium quality female voice (default)
+$modelUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx"
+$configUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json"
+Invoke-WebRequest -Uri $modelUrl -OutFile "tts\requirements\model.onnx"
+Invoke-WebRequest -Uri $configUrl -OutFile "tts\requirements\model.onnx.json"
+
+# British English - Male voice
 $modelUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/alan/medium/en_GB-alan-medium.onnx"
 $configUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/alan/medium/en_GB-alan-medium.onnx.json"
 Invoke-WebRequest -Uri $modelUrl -OutFile "tts\requirements\model.onnx"
 Invoke-WebRequest -Uri $configUrl -OutFile "tts\requirements\model.onnx.json"
 ```
 
-Browse all available voices: [Piper Voices](https://github.com/rhasspy/piper/blob/master/VOICES.md)
+---
 
-**Remember:** Always download BOTH the `.onnx` and `.onnx.json` files for any voice model!
+### Other Languages
+
+**Spanish (Spain):**
+```powershell
+$modelUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx"
+$configUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx.json"
+Invoke-WebRequest -Uri $modelUrl -OutFile "tts\requirements\model.onnx"
+Invoke-WebRequest -Uri $configUrl -OutFile "tts\requirements\model.onnx.json"
+```
+
+**French (France):**
+```powershell
+$modelUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/siwis/medium/fr_FR-siwis-medium.onnx"
+$configUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/siwis/medium/fr_FR-siwis-medium.onnx.json"
+Invoke-WebRequest -Uri $modelUrl -OutFile "tts\requirements\model.onnx"
+Invoke-WebRequest -Uri $configUrl -OutFile "tts\requirements\model.onnx.json"
+```
+
+**German:**
+```powershell
+$modelUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/de/de_DE/thorsten/medium/de_DE-thorsten-medium.onnx"
+$configUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/de/de_DE/thorsten/medium/de_DE-thorsten-medium.onnx.json"
+Invoke-WebRequest -Uri $modelUrl -OutFile "tts\requirements\model.onnx"
+Invoke-WebRequest -Uri $configUrl -OutFile "tts\requirements\model.onnx.json"
+```
+
+**Italian:**
+```powershell
+$modelUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/riccardo/x_low/it_IT-riccardo-x_low.onnx"
+$configUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/riccardo/x_low/it_IT-riccardo-x_low.onnx.json"
+Invoke-WebRequest -Uri $modelUrl -OutFile "tts\requirements\model.onnx"
+Invoke-WebRequest -Uri $configUrl -OutFile "tts\requirements\model.onnx.json"
+```
+
+---
+
+Browse all available voices (40+ languages): [Piper Voices](https://github.com/rhasspy/piper/blob/master/VOICES.md)
+
+**⚠️ Important:** 
+- Always download BOTH the `.onnx` and `.onnx.json` files for any voice model!
+- After changing the model, restart your application for the changes to take effect
+- Test the new voice with the commands above before using in production
 
 ## Usage
 
@@ -436,6 +556,88 @@ echo "Hello world" | piper -m model.onnx --output_file output.wav
 3. **Temp File Safety**: Uses `os.CreateTemp()` which creates files with secure permissions
 4. **Error Messages**: Includes command output in errors for debugging
 5. **Resource Cleanup**: Removes temp files on failure
+
+## Customization and Advanced Usage
+
+### Handling Unpronounceable Text
+
+By default, Piper uses **espeak-ng** for phonemization, which will spell out letter-by-letter any text it considers unpronounceable (e.g., "tkr" becomes "tee, kay, arr"). This behavior **cannot be changed** through the ONNX model or JSON configuration file, as it's controlled by espeak-ng itself.
+
+**Workarounds:**
+
+1. **Pre-process text** (implemented in `preprocessTextForTTS` function):
+   ```go
+   // Example: Add vowels to consonant clusters
+   text = strings.ReplaceAll(text, "tkr", "ticker") // or "take-er"
+   
+   // Example: Use phonetic spelling
+   text = strings.ReplaceAll(text, "xyz", "ex why zee")
+   ```
+
+2. **Use phonetic hints in input**:
+   ```
+   Instead of: "tkr"
+   Try: "taker" or "t-ker" or "ticker"
+   ```
+
+3. **Custom phoneme mapping** (advanced):
+   - Modify the `phoneme_map` in `model.onnx.json`
+   - Add custom pronunciations for specific letter combinations
+   - Example:
+   ```json
+   "phoneme_map": {
+     "tkr": "tɪkɚ"
+   }
+   ```
+   Note: This requires understanding of IPA (International Phonetic Alphabet)
+
+4. **Try different espeak-ng voices**:
+   Some voices handle consonant clusters differently. You can change the voice in `model.onnx.json`:
+   ```json
+   "espeak": {
+     "voice": "en-us"  // Try: "en-gb", "en-au", etc.
+   }
+   ```
+   **⚠️ Warning:** Changing the espeak voice may produce unexpected results or errors, as the model was trained with a specific voice.
+
+5. **Use a different TTS model**:
+   - Some Piper models are trained with different phonemization strategies
+   - Try high-quality models like `libritts-high` which may handle edge cases better
+   - Browse options at: [Piper Voices](https://github.com/rhasspy/piper/blob/master/VOICES.md)
+
+### Modifying the Preprocessing Function
+
+The `preprocessTextForTTS()` function in `main.go` is currently configured for Brazilian Portuguese. If you need to use a different language, modify the character sets:
+
+```go
+func preprocessTextForTTS(input string) string {
+    // Example 1: For Spanish, add Spanish-specific characters
+    spanishVowels := "aeiouáéíóúü"
+    spanishConsonants := "bcdfghjklmnpqrstvwxyzñ"
+    spanishAllowed := spanishVowels + spanishConsonants + "AEIOUÁÉÍÓÚÜÑ..." + " .,!?;:'\"-()[]"
+    
+    // Example 2: For French, add French-specific characters
+    frenchVowels := "aeiouàâæçéèêëïîôùûü"
+    frenchConsonants := "bcdfghjklmnpqrstvwxyzœ"
+    
+    // Example 3: For English (disable consonant cluster limiting)
+    // Simply remove the consonant cluster limiting logic
+    // and only filter unwanted characters
+    
+    // The current implementation:
+    // 1. Filters to Portuguese characters only
+    // 2. Limits consecutive consonants to maximum 2
+    
+    return input
+}
+```
+
+**Current Implementation (Portuguese):**
+- Keeps: `a-z`, `á`, `é`, `í`, `ó`, `ú`, `â`, `ê`, `ô`, `ã`, `õ`, `à`, `ü`, `ç` + uppercase
+- Limits: Consonant clusters to max 2 consecutive
+- Removes: All other characters (emoji, unsupported accents, etc.)
+
+---
 
 ## Troubleshooting
 

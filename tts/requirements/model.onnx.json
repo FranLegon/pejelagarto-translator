@@ -4,7 +4,7 @@
     "quality": "medium"
   },
   "espeak": {
-    "voice": "en-us"
+    "voice": "pt-br"
   },
   "inference": {
     "noise_scale": 0.667,
@@ -12,7 +12,11 @@
     "noise_w": 0.8
   },
   "phoneme_type": "espeak",
-  "phoneme_map": {},
+  "phoneme_map": {
+    "c": [
+      "k"
+    ]
+  },
   "phoneme_id_map": {
     "_": [
       0
@@ -469,12 +473,6 @@
     ],
     "↑": [
       151
-    ],
-    "̺": [
-      152
-    ],
-    "̻": [
-      153
     ]
   },
   "num_symbols": 256,
@@ -482,12 +480,12 @@
   "speaker_id_map": {},
   "piper_version": "1.0.0",
   "language": {
-    "code": "en_US",
-    "family": "en",
-    "region": "US",
-    "name_native": "English",
-    "name_english": "English",
-    "country_english": "United States"
+    "code": "pt_BR",
+    "family": "pt",
+    "region": "BR",
+    "name_native": "Português",
+    "name_english": "Portuguese",
+    "country_english": "Brazil"
   },
-  "dataset": "lessac"
+  "dataset": "faber"
 }
