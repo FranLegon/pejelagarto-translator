@@ -537,7 +537,8 @@ func applyMapReplacementsFromPejelagarto(input string) string {
 }
 
 // applyNumbersLogicToPejelagarto applies number transformation for Pejelagarto encoding
-// Adds offset (5699447592686571) to all base-10 numbers and converts to base-7
+// Positive numbers: converts base-10 to base-8
+// Negative numbers: converts base-10 to base-7
 // Preserves leading zeros and handles signs separately
 // Uses arbitrary-precision arithmetic to handle any size number
 func applyNumbersLogicToPejelagarto(input string) string {
@@ -600,10 +601,15 @@ func applyNumbersLogicToPejelagarto(input string) string {
 					continue
 				}
 
-				// Add offset and convert to base-7
-				offset := big.NewInt(5699447592686571)
-				offsetValue := new(big.Int).Add(absValue, offset)
-				base7 := offsetValue.Text(7)
+				// Convert to base-8 for positive, base-7 for negative
+				var convertedStr string
+				if isNegative {
+					// Negative: convert to base-7
+					convertedStr = absValue.Text(7)
+				} else {
+					// Positive: convert to base-8
+					convertedStr = absValue.Text(8)
+				}
 
 				// Write sign if negative
 				if isNegative {
@@ -613,7 +619,7 @@ func applyNumbersLogicToPejelagarto(input string) string {
 				for j := 0; j < leadingZeros; j++ {
 					result.WriteRune('0')
 				}
-				result.WriteString(base7)
+				result.WriteString(convertedStr)
 			}
 		} else {
 			result.WriteRune(runes[i])
@@ -625,7 +631,8 @@ func applyNumbersLogicToPejelagarto(input string) string {
 }
 
 // applyNumbersLogicFromPejelagarto applies number transformation from Pejelagarto encoding
-// Converts all base-7 numbers to base-10 and subtracts offset (5699447592686571)
+// Positive numbers: converts base-8 to base-10
+// Negative numbers: converts base-7 to base-10
 // Preserves leading zeros and handles signs separately
 // Uses arbitrary-precision arithmetic to handle any size number
 func applyNumbersLogicFromPejelagarto(input string) string {
@@ -638,8 +645,8 @@ func applyNumbersLogicFromPejelagarto(input string) string {
 	i := 0
 
 	for i < len(runes) {
-		// Check if we're at the start of a base 7 number (including negative)
-		if isBase7Digit(runes[i]) || (runes[i] == '-' && i+1 < len(runes) && isBase7Digit(runes[i+1])) {
+		// Check if we're at the start of a number (base 7 or base 8, including negative)
+		if isBase8Digit(runes[i]) || (runes[i] == '-' && i+1 < len(runes) && isBase7Digit(runes[i+1])) {
 			// Extract sign
 			isNegative := false
 			if runes[i] == '-' {
@@ -654,36 +661,68 @@ func applyNumbersLogicFromPejelagarto(input string) string {
 				i++
 			}
 
-			// Get the rest of the digits (must be base 7)
+			// Get the rest of the digits
+			// For positive: base-8 (0-7), for negative: base-7 (0-6)
 			digitStart := i
-			for i < len(runes) && isBase7Digit(runes[i]) {
-				i++
-			}
-
-			// Check if followed by digits 7-9 (which means it's actually a base-10 number, not base-7)
-			// If so, we need to consume those digits and skip transformation
-			hasHighDigits := false
-			highDigitEnd := i
-			if i < len(runes) && runes[i] >= '7' && runes[i] <= '9' {
-				hasHighDigits = true
-				// Consume remaining base-10 digits
-				for i < len(runes) && runes[i] >= '0' && runes[i] <= '9' {
+			if isNegative {
+				// Negative: expect base-7 digits (0-6)
+				for i < len(runes) && isBase7Digit(runes[i]) {
 					i++
 				}
-				highDigitEnd = i
-			}
 
-			// If we found digits 7-9, this is a base-10 number, not base-7 - preserve as-is
-			if hasHighDigits {
-				numberStr := string(runes[digitStart:highDigitEnd])
-				if isNegative {
-					result.WriteRune('-')
+				// Check if followed by digits 7-9 (which means it's actually a base-10 number, not base-7)
+				// If so, we need to consume those digits and skip transformation
+				hasHighDigits := false
+				highDigitEnd := i
+				if i < len(runes) && runes[i] >= '7' && runes[i] <= '9' {
+					hasHighDigits = true
+					// Consume remaining base-10 digits
+					for i < len(runes) && runes[i] >= '0' && runes[i] <= '9' {
+						i++
+					}
+					highDigitEnd = i
 				}
-				for j := 0; j < leadingZeros; j++ {
-					result.WriteRune('0')
+
+				// If we found digits 7-9, this is a base-10 number, not base-7 - preserve as-is
+				if hasHighDigits {
+					numberStr := string(runes[digitStart:highDigitEnd])
+					if isNegative {
+						result.WriteRune('-')
+					}
+					for j := 0; j < leadingZeros; j++ {
+						result.WriteRune('0')
+					}
+					result.WriteString(numberStr)
+					continue
 				}
-				result.WriteString(numberStr)
-				continue
+			} else {
+				// Positive: expect base-8 digits (0-7)
+				for i < len(runes) && isBase8Digit(runes[i]) {
+					i++
+				}
+
+				// Check if followed by digits 8-9 (which means it's actually a base-10 number, not base-8)
+				// If so, we need to consume those digits and skip transformation
+				hasHighDigits := false
+				highDigitEnd := i
+				if i < len(runes) && runes[i] >= '8' && runes[i] <= '9' {
+					hasHighDigits = true
+					// Consume remaining base-10 digits
+					for i < len(runes) && runes[i] >= '0' && runes[i] <= '9' {
+						i++
+					}
+					highDigitEnd = i
+				}
+
+				// If we found digits 8-9, this is a base-10 number, not base-8 - preserve as-is
+				if hasHighDigits {
+					numberStr := string(runes[digitStart:highDigitEnd])
+					for j := 0; j < leadingZeros; j++ {
+						result.WriteRune('0')
+					}
+					result.WriteString(numberStr)
+					continue
+				}
 			}
 
 			numberStr := string(runes[digitStart:i])
@@ -698,25 +737,38 @@ func applyNumbersLogicFromPejelagarto(input string) string {
 					result.WriteRune('0')
 				}
 			} else {
-				// Parse as big.Int from base-7
-				base7Value := new(big.Int)
-				_, ok := base7Value.SetString(numberStr, 7)
-				if !ok {
-					// Parse failed, preserve as-is
-					if isNegative {
-						result.WriteRune('-')
+				// Parse as big.Int from appropriate base
+				var base10Str string
+				if isNegative {
+					// Negative: parse from base-7
+					base7Value := new(big.Int)
+					_, ok := base7Value.SetString(numberStr, 7)
+					if !ok {
+						// Parse failed, preserve as-is
+						if isNegative {
+							result.WriteRune('-')
+						}
+						for j := 0; j < leadingZeros; j++ {
+							result.WriteRune('0')
+						}
+						result.WriteString(numberStr)
+						continue
 					}
-					for j := 0; j < leadingZeros; j++ {
-						result.WriteRune('0')
+					base10Str = base7Value.Text(10)
+				} else {
+					// Positive: parse from base-8
+					base8Value := new(big.Int)
+					_, ok := base8Value.SetString(numberStr, 8)
+					if !ok {
+						// Parse failed, preserve as-is
+						for j := 0; j < leadingZeros; j++ {
+							result.WriteRune('0')
+						}
+						result.WriteString(numberStr)
+						continue
 					}
-					result.WriteString(numberStr)
-					continue
+					base10Str = base8Value.Text(10)
 				}
-
-				// Convert from base-7 and subtract offset
-				offset := big.NewInt(5699447592686571)
-				resultValue := new(big.Int).Sub(base7Value, offset)
-				base10Str := resultValue.Text(10)
 
 				// Write sign if negative
 				if isNegative {
@@ -740,6 +792,11 @@ func applyNumbersLogicFromPejelagarto(input string) string {
 // isBase7Digit checks if a rune is a valid base 7 digit (0-6)
 func isBase7Digit(r rune) bool {
 	return r >= '0' && r <= '6'
+}
+
+// isBase8Digit checks if a rune is a valid base 8 digit (0-7)
+func isBase8Digit(r rune) bool {
+	return r >= '0' && r <= '7'
 }
 
 // Accent wheels for vowel replacement
