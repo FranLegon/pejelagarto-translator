@@ -1971,7 +1971,7 @@ const htmlUI = `<!DOCTYPE html>
         
         <div class="translator-box">
             <div class="text-area-container">
-                <label id="input-label">Human: <button class="play-btn" id="play-input" onclick="playAudio('input')">🔊 Play</button></label>
+                <label id="input-label">Human:</label>
                 <textarea id="input-text" placeholder="Type your text here..."></textarea>
             </div>
             
@@ -2039,22 +2039,24 @@ const htmlUI = `<!DOCTYPE html>
             const inputLabel = document.getElementById('input-label');
             const outputLabel = document.getElementById('output-label');
             const translateBtn = document.getElementById('translate-btn');
+            const playBtn = document.getElementById('play-output');
             
             // Swap text content
             const temp = inputText.value;
             inputText.value = outputText.value;
             outputText.value = temp;
             
-            // Swap labels
-            const tempLabel = inputLabel.textContent;
-            inputLabel.textContent = outputLabel.textContent;
-            outputLabel.textContent = tempLabel;
-            
-            // Toggle button state
+            // Swap labels and ensure Play button stays with Pejelagarto
             isInverted = !isInverted;
             if (isInverted) {
+                // Input is now Pejelagarto, output is Human
+                inputLabel.innerHTML = 'Pejelagarto: <button class="play-btn" id="play-input" onclick="playAudio(\'input\')">🔊 Play</button>';
+                outputLabel.textContent = 'Human:';
                 translateBtn.textContent = 'Translate from Pejelagarto';
             } else {
+                // Input is Human, output is Pejelagarto
+                inputLabel.textContent = 'Human:';
+                outputLabel.innerHTML = 'Pejelagarto: <button class="play-btn" id="play-output" onclick="playAudio(\'output\')">🔊 Play</button>';
                 translateBtn.textContent = 'Translate to Pejelagarto';
             }
         }
