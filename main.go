@@ -2002,13 +2002,8 @@ const htmlUI = `<!DOCTYPE html>
             font-size: 16px;
             font-weight: bold;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s, background 0.3s ease;
+            transition: background 0.3s ease;
             box-shadow: 0 4px 15px var(--button-shadow);
-        }
-        
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px var(--button-hover-shadow);
         }
         
         button:active {
@@ -2020,10 +2015,6 @@ const htmlUI = `<!DOCTYPE html>
             padding: 12px 20px;
             font-size: 20px;
             box-shadow: 0 4px 15px var(--invert-btn-shadow);
-        }
-        
-        .invert-btn:hover {
-            box-shadow: 0 6px 20px var(--invert-btn-hover-shadow);
         }
         
         .checkbox-container {
@@ -2047,10 +2038,6 @@ const htmlUI = `<!DOCTYPE html>
             font-size: 18px;
             box-shadow: 0 4px 15px rgba(86, 171, 47, 0.4);
             min-width: auto;
-        }
-        
-        .play-btn:hover {
-            box-shadow: 0 6px 20px rgba(86, 171, 47, 0.6);
         }
         
         .play-btn:disabled {
@@ -2338,10 +2325,10 @@ const htmlUI = `<!DOCTYPE html>
             
             // Always reset both labels to ensure clean state
             if (isInverted) {
-                inputLabel.innerHTML = 'Pejelagarto: <button class="play-btn" id="play-input" onclick="playAudio(&quot;input&quot;, false)" style="width: 100px; height: 38px; padding: 4px; font-size: 16px; overflow: hidden; white-space: nowrap;">🔊 Play</button>' + dropdownHTML;
+                inputLabel.innerHTML = 'Pejelagarto: <button class="play-btn" id="play-input" onclick="playAudio(&quot;input&quot;, false)" style="width: 104px; height: 38px; padding: 4px 2px; font-size: 16px; overflow: hidden; white-space: nowrap;">🔊 Play</button>' + dropdownHTML;
                 outputLabel.textContent = 'Human:';
             } else {
-                outputLabel.innerHTML = 'Pejelagarto: <button class="play-btn" id="play-output" onclick="playAudio(&quot;output&quot;, false)" style="width: 100px; height: 38px; padding: 4px; font-size: 16px; overflow: hidden; white-space: nowrap;">🔊 Play</button>' + dropdownHTML;
+                outputLabel.innerHTML = 'Pejelagarto: <button class="play-btn" id="play-output" onclick="playAudio(&quot;output&quot;, false)" style="width: 104px; height: 38px; padding: 4px 2px; font-size: 16px; overflow: hidden; white-space: nowrap;">🔊 Play</button>' + dropdownHTML;
                 inputLabel.textContent = 'Human:';
             }
             
