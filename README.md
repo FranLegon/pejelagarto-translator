@@ -128,31 +128,29 @@ func TranslateFromPejelagarto(input string) string {
 
 **Algorithm Details:**
 
-The number conversion transforms base-10 numbers to base-7 (and vice versa) with an offset to obfuscate values:
+The number conversion transforms base-10 numbers to base-7 (and vice versa) using arbitrary-precision arithmetic:
 
 **To Pejelagarto (Base-10 → Base-7):**
 1. Scan input for sequences of ASCII digits (0-9), including negative numbers (prefixed with `-`)
 2. Extract and preserve leading zeros separately
 3. Parse the number using arbitrary-precision arithmetic (`math/big`)
-4. Add offset: `5699447592686571` to the absolute value
-5. Convert to base-7 representation
-6. Reconstruct: sign + leading zeros + base-7 digits
-7. Handle edge case: if only zeros present (e.g., "000", "-0"), preserve them without conversion
+4. Convert to base-7 representation
+5. Reconstruct: sign + leading zeros + base-7 digits
+6. Handle edge case: if only zeros present (e.g., "000", "-0"), preserve them without conversion
 
 **From Pejelagarto (Base-7 → Base-10):**
 1. Scan for valid base-7 sequences (digits 0-6 only)
 2. **Key distinction:** If digits 7-9 are found after base-7 digits, treat entire number as base-10 (pass through unchanged)
 3. Extract sign and leading zeros
 4. Parse as base-7 using `math/big`
-5. Subtract offset: `5699447592686571`
-6. Convert to base-10 representation
-7. Reconstruct with preserved sign and leading zeros
+5. Convert to base-10 representation
+6. Reconstruct with preserved sign and leading zeros
 
 **Special Cases:**
 - Leading zeros are always preserved: `007` → `0010` in base-7
 - Negative signs are handled separately from the magnitude
 - Zero-only numbers (e.g., "000") are preserved as-is
-- Arbitrary precision ensures no overflow for large numbers
+- **No size limits:** `math/big` provides arbitrary precision, supporting numbers of any size without overflow
 
 ### 3. Character Mapping
 
@@ -262,30 +260,41 @@ Accents are applied based on the prime factorization of the input string's lengt
 1. **Calculate Input Length:** Count runes (not bytes) in the string
 2. **Prime Factorization:** Break down length into prime factors with powers
    - Example: 245 = 5¹ × 7²
-3. **Find Vowels:** Identify all vowel positions (a, e, i, o, u, y)
+3. **Find Vowels:** Identify all vowel positions using `isVowel()` check
 4. **Apply Transformations:** For each prime factor `p` with power `n`:
    - Locate the `p`-th vowel (1-indexed)
    - Move that vowel forward `n` steps in its accent wheel
 
-**Accent Wheels (9 levels per vowel):**
+**Dual Accent Wheel System:**
 
-Each base vowel has a circular wheel of accented forms:
-```
-None → Grave → Acute → Circumflex → Tilde → Ring → Diaeresis → Macron → Breve → [wraps to None]
-```
+Each base vowel has **two independent accent wheels**:
 
-For example, vowel 'a':
-```
-Index 0: a (no accent)
-Index 1: à (grave)
-Index 2: á (acute)
-Index 3: â (circumflex)
-Index 4: ã (tilde)
-Index 5: å (ring)
-Index 6: ä (diaeresis)
-Index 7: ā (macron)
-Index 8: ă (breve)
-```
+1. **One-Rune Accent Wheel** (includes no-accent):
+   - Contains single-rune accented forms, including the base vowel with no accent
+   - Example for 'a': `["a", "à", "á", "â", "ã", "å", "ä", "ā", "ă"]` (9 forms)
+   - Used in the accent transformation algorithm
+   - All forms have reversible case conversion
+
+2. **Two-Rune Accent Wheel** (excludes no-accent):
+   - Contains two-rune accented forms using combining diacritics
+   - Example for 'a': `["a\u0328", "a\u030C"]` (base + combining ogonek, base + combining caron)
+   - Does NOT include the no-accent form (since it's only 1 rune)
+   - Currently defined but not used in transformation algorithm
+
+**Vowel Identification with Case Reversibility Check:**
+
+The `isVowel()` function determines which characters can have accents changed. A character is considered a vowel if:
+
+1. It exists in either the one-rune or two-rune accent wheels (for any base vowel)
+2. **AND** it passes the case reversibility check:
+   - For uppercase characters: `ToUpper(ToLower(char)) == char`
+   - This prevents treating non-reversible characters as vowels
+
+**Example of Non-Reversible Cases:**
+- Turkish İ (U+0130): `ToLower(İ) = i`, but `ToUpper(i) = I` (not İ)
+- These fail the reversibility check and are NOT treated as vowels, so accents won't be changed
+
+This ensures that only characters with predictable, reversible case behavior can have their accents transformed.
 
 **Example Calculation:**
 
@@ -295,17 +304,17 @@ For text length 245 = 5 × 7²:
 
 **Special Cases and Exceptions:**
 
-1. **Non-Vowels Treated as Exceptions:**
-   - Only characters matching `isVowel()` are considered: a, e, i, o, u, y (case-insensitive)
-   - All other characters, including consonants and accented letters not in the wheel, are skipped
+1. **Only Wheel Vowels Are Transformed:**
+   - Characters must be in the accent wheels to be considered vowels
+   - Consonants and unknown accented letters are skipped
    - This means accented vowels from outside the standard wheels are left unchanged
 
 2. **Reversible Case Handling:**
-   - If original vowel is uppercase and `ToLower(ToUpper(vowel))` is reversible, apply uppercase
+   - If original vowel is uppercase and `ToUpper(ToLower(vowel))` is reversible, apply uppercase
    - Otherwise, keep result in lowercase to maintain reversibility
 
 3. **Single-Rune Guarantee:**
-   - Only single-rune replacements from the wheel are applied
+   - Only single-rune replacements from the one-rune wheel are applied
    - Multi-rune Unicode sequences are rejected to ensure clean reversibility
 
 4. **Reverse Direction (From Pejelagarto):**
