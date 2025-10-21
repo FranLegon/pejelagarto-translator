@@ -189,10 +189,11 @@ func FuzzTranslatePejelagarto(f *testing.F) {
 // TestTextToSpeech tests the text-to-speech functionality
 func TestTextToSpeech(t *testing.T) {
 	// Check if Piper is installed
-	binaryPath := piperBinaryPath
-	if _, err := os.Stat(binaryPath + ".exe"); os.IsNotExist(err) {
+	binaryPath := getPiperBinaryPath()
+	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
 		t.Skip("Piper binary not found, skipping TTS test")
 	}
+	modelPath := getModelPath("english")
 	if _, err := os.Stat(modelPath); os.IsNotExist(err) {
 		t.Skip("Voice model not found, skipping TTS test")
 	}
@@ -226,7 +227,7 @@ func TestTextToSpeech(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			outputPath, err := textToSpeech(tt.input)
+			outputPath, err := textToSpeech(tt.input, "english")
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("textToSpeech() error = %v, wantErr %v", err, tt.wantErr)
@@ -271,10 +272,11 @@ func TestTextToSpeech(t *testing.T) {
 // TestHandleTextToSpeech tests the HTTP handler for text-to-speech
 func TestHandleTextToSpeech(t *testing.T) {
 	// Check if Piper is installed
-	binaryPath := piperBinaryPath
-	if _, err := os.Stat(binaryPath + ".exe"); os.IsNotExist(err) {
+	binaryPath := getPiperBinaryPath()
+	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
 		t.Skip("Piper binary not found, skipping TTS handler test")
 	}
+	modelPath := getModelPath("english")
 	if _, err := os.Stat(modelPath); os.IsNotExist(err) {
 		t.Skip("Voice model not found, skipping TTS handler test")
 	}
@@ -366,10 +368,11 @@ func TestHandleTextToSpeech(t *testing.T) {
 // TestTextToSpeechWithCleanup tests that temporary files are cleaned up
 func TestTextToSpeechWithCleanup(t *testing.T) {
 	// Check if Piper is installed
-	binaryPath := piperBinaryPath
-	if _, err := os.Stat(binaryPath + ".exe"); os.IsNotExist(err) {
+	binaryPath := getPiperBinaryPath()
+	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
 		t.Skip("Piper binary not found, skipping TTS cleanup test")
 	}
+	modelPath := getModelPath("english")
 	if _, err := os.Stat(modelPath); os.IsNotExist(err) {
 		t.Skip("Voice model not found, skipping TTS cleanup test")
 	}
@@ -382,7 +385,7 @@ func TestTextToSpeechWithCleanup(t *testing.T) {
 	beforeCount := len(beforeFiles)
 
 	// Generate audio
-	outputPath, err := textToSpeech("Test cleanup")
+	outputPath, err := textToSpeech("Test cleanup", "english")
 	if err != nil {
 		t.Fatalf("textToSpeech failed: %v", err)
 	}
@@ -410,10 +413,11 @@ func TestTextToSpeechWithCleanup(t *testing.T) {
 // BenchmarkTextToSpeech benchmarks the TTS performance
 func BenchmarkTextToSpeech(b *testing.B) {
 	// Check if Piper is installed
-	binaryPath := piperBinaryPath
-	if _, err := os.Stat(binaryPath + ".exe"); os.IsNotExist(err) {
+	binaryPath := getPiperBinaryPath()
+	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
 		b.Skip("Piper binary not found, skipping TTS benchmark")
 	}
+	modelPath := getModelPath("english")
 	if _, err := os.Stat(modelPath); os.IsNotExist(err) {
 		b.Skip("Voice model not found, skipping TTS benchmark")
 	}
@@ -422,7 +426,7 @@ func BenchmarkTextToSpeech(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		outputPath, err := textToSpeech(testText)
+		outputPath, err := textToSpeech(testText, "english")
 		if err != nil {
 			b.Fatalf("textToSpeech failed: %v", err)
 		}

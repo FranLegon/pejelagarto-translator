@@ -2473,9 +2473,13 @@ func getModelPath(language string) string {
 }
 
 // preprocessTextForTTS prepares text for TTS by:
-// 1. Removing non-language-specific characters
-// 2. Limiting consonant clusters to max 2 adjacent consonants
+// 1. Converting numbers from Pejelagarto format to standard format
+// 2. Removing non-language-specific characters
+// 3. Limiting consonant clusters to max 2 adjacent consonants
 func preprocessTextForTTS(input string, pronunciationLanguage string) string {
+	// Step 1: Apply number conversion from Pejelagarto format
+	input = applyNumbersLogicFromPejelagarto(input)
+
 	// Define language-specific vowels and consonants
 	var vowels, consonants, allowed string
 
