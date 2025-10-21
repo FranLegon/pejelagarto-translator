@@ -406,7 +406,7 @@ The translator embeds a UTC timestamp using special Unicode characters from the 
   - Unlike other transformations, special character encoding is tested differently in fuzzing
   - Test verifies correctness by **removing special characters and timestamps** before comparison
   - This is because timestamps can vary between translation calls
-  - See `FuzzEmojiDateTimeEncoding()` which cleans both input and output before comparing
+  - See `FuzzSpecialCharDateTimeEncoding()` which cleans both input and output before comparing
 
 **Why Timestamp Might Not Be Fully Restored:**
 - Input doesn't contain day, month, or year special characters (required)
@@ -429,7 +429,7 @@ go test -fuzz=FuzzApplyNumbersLogic -fuzztime=30s
 go test -fuzz=FuzzApplyAccentReplacementLogic -fuzztime=30s
 go test -fuzz=FuzzApplyPunctuationReplacements -fuzztime=30s
 go test -fuzz=FuzzApplyCaseReplacementLogic -fuzztime=30s
-go test -fuzz=FuzzEmojiDateTimeEncoding -fuzztime=30s
+go test -fuzz=FuzzSpecialCharDateTimeEncoding -fuzztime=30s
 go test -fuzz=FuzzTranslatePejelagarto -fuzztime=30s
 ```
 
