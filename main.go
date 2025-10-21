@@ -1,10 +1,13 @@
 // Pejelagarto Translator
 // Build command: go build -o pejelagarto-translator.exe main.go
-// Run command: .\pejelagarto-translator.exe
+// Run command (local): .\pejelagarto-translator.exe
+// Run command (ngrok): .\pejelagarto-translator.exe -ngrok_token YOUR_TOKEN_HERE
 
 package main
 
 import (
+	"context"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -19,6 +22,9 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"golang.ngrok.com/ngrok"
+	"golang.ngrok.com/ngrok/config"
 )
 
 // Translation maps for word/syllable replacements
@@ -1998,31 +2004,70 @@ func openBrowser(url string) error {
 }
 
 func main() {
+	// Parse command-line flags
+	ngrokToken := flag.String("ngrok_token", "", "Optional ngrok auth token to expose server publicly")
+	flag.Parse()
+
 	// Set up HTTP routes
 	http.HandleFunc("/", handleIndex)
 	http.HandleFunc("/to", handleTranslateTo)
 	http.HandleFunc("/from", handleTranslateFrom)
 
-	// Server address
-	addr := ":8080"
-	url := "http://localhost:8080"
+	if *ngrokToken != "" {
+		// Use ngrok to expose server publicly
+		log.Println("Initializing ngrok tunnel...")
+		log.Printf("Using auth token: %s...\n", (*ngrokToken)[:10])
 
-	// Start server in goroutine
-	go func() {
-		log.Printf("Starting Pejelagarto Translator server on %s\n", url)
-		if err := http.ListenAndServe(addr, nil); err != nil {
-			log.Fatalf("Server failed to start: %v", err)
+		log.Println("Connecting to ngrok service...")
+		// Use background context that never times out
+		listener, err := ngrok.Listen(context.Background(),
+			config.HTTPEndpoint(),
+			ngrok.WithAuthtoken(*ngrokToken),
+		)
+		
+		if err != nil {
+			log.Fatalf("Failed to start ngrok listener: %v", err)
 		}
-	}()
 
-	// Wait a moment for server to start, then open browser
-	time.Sleep(500 * time.Millisecond)
-	if err := openBrowser(url); err != nil {
-		log.Printf("Could not open browser automatically: %v\n", err)
-		log.Printf("Please open your browser and navigate to %s\n", url)
+		url := listener.URL()
+		log.Printf("✓ ngrok tunnel established successfully!\n")
+		log.Printf("Public URL: %s\n", url)
+
+		// Open browser with ngrok URL
+		go func() {
+			time.Sleep(1 * time.Second)
+			if err := openBrowser(url); err != nil {
+				log.Printf("Could not open browser automatically: %v\n", err)
+				log.Printf("Please open your browser and navigate to %s\n", url)
+			}
+		}()
+
+		log.Println("Server is running. Press Ctrl+C to stop.")
+		if err := http.Serve(listener, nil); err != nil {
+			log.Fatalf("Server failed: %v", err)
+		}
+	} else {
+		// Use local server (default behavior)
+		addr := ":8080"
+		url := "http://localhost:8080"
+
+		// Start server in goroutine
+		go func() {
+			log.Printf("Starting Pejelagarto Translator server on %s\n", url)
+			if err := http.ListenAndServe(addr, nil); err != nil {
+				log.Fatalf("Server failed to start: %v", err)
+			}
+		}()
+
+		// Wait a moment for server to start, then open browser
+		time.Sleep(500 * time.Millisecond)
+		if err := openBrowser(url); err != nil {
+			log.Printf("Could not open browser automatically: %v\n", err)
+			log.Printf("Please open your browser and navigate to %s\n", url)
+		}
+
+		// Keep the server running
+		log.Println("Server is running. Press Ctrl+C to stop.")
+		select {} // Block forever
 	}
-
-	// Keep the server running
-	log.Println("Server is running. Press Ctrl+C to stop.")
-	select {} // Block forever
 }
