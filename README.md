@@ -125,41 +125,200 @@ func TranslateFromPejelagarto(input string) string {
 - Fully reversible bijective encoding (256 possible bytes)
 
 ### 2. Number Conversion
-- Base-10 → Base-7 conversion
-- Preserves leading/trailing zeros (e.g., `007` → `0010`)
-- Supports negative numbers and arbitrary precision via `math/big`
+
+**Algorithm Details:**
+
+The number conversion transforms base-10 numbers to base-7 (and vice versa) with an offset to obfuscate values:
+
+**To Pejelagarto (Base-10 → Base-7):**
+1. Scan input for sequences of ASCII digits (0-9), including negative numbers (prefixed with `-`)
+2. Extract and preserve leading zeros separately
+3. Parse the number using arbitrary-precision arithmetic (`math/big`)
+4. Add offset: `5699447592686571` to the absolute value
+5. Convert to base-7 representation
+6. Reconstruct: sign + leading zeros + base-7 digits
+7. Handle edge case: if only zeros present (e.g., "000", "-0"), preserve them without conversion
+
+**From Pejelagarto (Base-7 → Base-10):**
+1. Scan for valid base-7 sequences (digits 0-6 only)
+2. **Key distinction:** If digits 7-9 are found after base-7 digits, treat entire number as base-10 (pass through unchanged)
+3. Extract sign and leading zeros
+4. Parse as base-7 using `math/big`
+5. Subtract offset: `5699447592686571`
+6. Convert to base-10 representation
+7. Reconstruct with preserved sign and leading zeros
+
+**Special Cases:**
+- Leading zeros are always preserved: `007` → `0010` in base-7
+- Negative signs are handled separately from the magnitude
+- Zero-only numbers (e.g., "000") are preserved as-is
+- Arbitrary precision ensures no overflow for large numbers
 
 ### 3. Character Mapping
-**Bijective map with three tiers:**
+
+**Bijective Map Structure:**
+
+The translator uses three tiers of character mappings with sophisticated indexing:
+
 - `wordMap`: Multi-character words (e.g., `"hello"` → `"jhtxz"`)
-- `conjunctionMap`: Letter pairs (e.g., `"ch"` → `"jc"`)
+- `conjunctionMap`: Letter pairs (e.g., `"ch"` → `"jc"`)  
 - `letterMap`: Single letters (e.g., `"a"` → `"i"`)
 
-**Processing:**
-- Indexed by key length (longer matches first)
-- Wrapped in temporary markers (`\uFFF0`, `\uFFF1`) to prevent re-replacement
-- Case preservation: matches original capitalization pattern
+**Index-Based Ordering:**
 
-### 4. Punctuation Mapping
-Custom bijective punctuation transformations:
-```go
-"?"  → "‽"
-"."  → ".."
-"'"  → "〝"
-// ... and more
+The bijective map uses **positive and negative indices** to determine processing order:
+
+**Positive Indices (To Pejelagarto):**
+- Index = length of source text in runes
+- Processed in descending order: longer patterns matched first
+- Multi-rune target values are prefixed with `'` (e.g., `"hello"` → `"'jhtxz"`)
+- Processing order: wordMap → conjunctionMap → letterMap (by descending length)
+
+**Negative Indices (From Pejelagarto):**
+- Index = -(length of Pejelagarto pattern including quote prefix)
+- For multi-rune patterns: index = -(rune_count + 1) to account for `'` prefix
+- For single-rune patterns: index = -1
+- Processed first (negative before positive), then by descending absolute value
+- The `'` prefix in Pejelagarto text identifies multi-character patterns
+
+**Example Index Mapping:**
+```
+"hello" (5 runes) → "'jhtxz" (6 runes with ')
+  To Pejelagarto:   index +5, maps "hello" → "'jhtxz"
+  From Pejelagarto: index -6, maps "'jhtxz" → "hello"
+
+"ch" (2 runes) → "'jc" (3 runes with ')
+  To Pejelagarto:   index +2, maps "ch" → "'jc"
+  From Pejelagarto: index -3, maps "'jc" → "ch"
+
+"a" (1 rune) → "i" (1 rune, no ')
+  To Pejelagarto:   index +1, maps "a" → "i"
+  From Pejelagarto: index -1, maps "i" → "a"
 ```
 
-### 5. Accent Replacement (Prime Factorization)
-- Calculate prime factorization of input length
-- For each prime factor `p` with power `n`:
-  - Change accent of the `p`-th vowel
-  - Move `n` steps forward in the accent wheel
-- **Accent wheels** (9 levels): None → Grave → Acute → Circumflex → Tilde → Ring → Diaeresis → Macron → Breve
-- Vowels: `a`, `e`, `i`, `o`, `u`, `y`
+**Replacement Algorithm:**
 
-**Example:** For input length 245 = 5 × 7²:
-- 5th vowel: move 1 step forward in accent wheel
-- 7th vowel: move 2 steps forward in accent wheel
+1. **Marker Protection:** Use Unicode markers (`\uFFF0`, `\uFFF1`) to wrap replaced text
+2. **Depth Tracking:** Pre-calculate marker depth at each position for O(1) lookup
+3. **Quote Boundaries:** The `'` character acts as a word boundary - patterns cannot span across quotes
+4. **Word Boundary Detection:** Scan backward (max 50 chars) to find word start for quote checking
+5. **Case Preservation:** Extract case pattern from source, apply to target using `matchCase()`
+6. **Reversible Case Check:** Skip characters where `ToUpper(ToLower(c)) != ToUpper(c)` (e.g., Turkish İ, German ß)
+7. **Marker Removal:** After all replacements, remove all `\uFFF0` and `\uFFF1` markers
+
+**Case Matching Logic:**
+- If source is all uppercase → target becomes all uppercase
+- If source is title case (first letter upper) → target becomes title case  
+- If source is mixed case → applies case pattern position-by-position
+- Non-reversible case characters are preserved in lowercase
+
+### 4. Punctuation Mapping
+
+**Bijective Punctuation Transformations:**
+
+Punctuation uses a separate bijective map independent from character mappings:
+
+```go
+"?"  → "‽"  (interrobang)
+"!"  → "¡"  (inverted exclamation)
+"."  → ".." (doubled period)
+","  → "،"  (Arabic comma)
+";"  → "⁏"  (reversed semicolon)
+":"  → "︰"  (presentation form colon)
+"'"  → "〝" (reversed quotation mark) 
+"\"" → "〞" (low quotation mark)
+"-"  → "‐"  (hyphen)
+"("  → "⦅" (left white parenthesis)
+")"  → "⦆" (right white parenthesis)
+```
+
+**Processing Details:**
+
+Unlike character mapping, punctuation can have different lengths for keys and values.
+
+**To Pejelagarto:**
+1. Literal single quotes (`'`) are converted to a temporary marker (`\uFFF3`) to avoid conflicts with the multi-rune pattern prefix
+2. Apply punctuation bijective map using the same `applyReplacements()` algorithm as character mapping
+3. Restore literal quotes as doubled quotes (`''`) in the output - this escapes them
+
+**From Pejelagarto:**
+1. Doubled quotes (`''`) are converted to the temporary marker (`\uFFF3`) to preserve them as literals
+2. Apply reverse punctuation mapping
+3. Restore the marker as single quote (`'`) in Human text
+
+**Why Quote Escaping:**
+The `'` character serves dual purpose:
+- Marks multi-rune patterns in Pejelagarto text
+- Can also appear as literal punctuation
+
+Escaping as `''` disambiguates: `''hello` = literal quote + "hello", while `'jhtxz` = multi-rune pattern.
+
+### 5. Accent Replacement (Prime Factorization)
+
+**Algorithm Overview:**
+
+Accents are applied based on the prime factorization of the input string's length:
+
+1. **Calculate Input Length:** Count runes (not bytes) in the string
+2. **Prime Factorization:** Break down length into prime factors with powers
+   - Example: 245 = 5¹ × 7²
+3. **Find Vowels:** Identify all vowel positions (a, e, i, o, u, y)
+4. **Apply Transformations:** For each prime factor `p` with power `n`:
+   - Locate the `p`-th vowel (1-indexed)
+   - Move that vowel forward `n` steps in its accent wheel
+
+**Accent Wheels (9 levels per vowel):**
+
+Each base vowel has a circular wheel of accented forms:
+```
+None → Grave → Acute → Circumflex → Tilde → Ring → Diaeresis → Macron → Breve → [wraps to None]
+```
+
+For example, vowel 'a':
+```
+Index 0: a (no accent)
+Index 1: à (grave)
+Index 2: á (acute)
+Index 3: â (circumflex)
+Index 4: ã (tilde)
+Index 5: å (ring)
+Index 6: ä (diaeresis)
+Index 7: ā (macron)
+Index 8: ă (breve)
+```
+
+**Example Calculation:**
+
+For text length 245 = 5 × 7²:
+- **5th vowel:** Move forward 1 step (power of 5 is 1)
+- **7th vowel:** Move forward 2 steps (power of 7 is 2)
+
+**Special Cases and Exceptions:**
+
+1. **Non-Vowels Treated as Exceptions:**
+   - Only characters matching `isVowel()` are considered: a, e, i, o, u, y (case-insensitive)
+   - All other characters, including consonants and accented letters not in the wheel, are skipped
+   - This means accented vowels from outside the standard wheels are left unchanged
+
+2. **Reversible Case Handling:**
+   - If original vowel is uppercase and `ToLower(ToUpper(vowel))` is reversible, apply uppercase
+   - Otherwise, keep result in lowercase to maintain reversibility
+
+3. **Single-Rune Guarantee:**
+   - Only single-rune replacements from the wheel are applied
+   - Multi-rune Unicode sequences are rejected to ensure clean reversibility
+
+4. **Reverse Direction (From Pejelagarto):**
+   - Verify the current accented form exists in our wheel before transforming
+   - If accent is not in our wheel (unknown accent), skip transformation
+   - Move **backward** by power steps with modular arithmetic to reverse
+
+**Why Prime Factorization?**
+
+This creates a deterministic yet complex transformation:
+- Same text length always produces same accent pattern
+- Different lengths produce very different patterns
+- Reversible: knowing the length allows exact reversal
 
 ### 6. Case Replacement Logic
 Based on word count:
@@ -171,14 +330,57 @@ Toggle capitalization at sequence positions (e.g., 1st, 2nd, 3rd, 5th, 8th, 13th
 **Self-inverse:** Applying twice returns original
 
 ### 7. Emoji Datetime Encoding
-Encodes current UTC time as 5 emojis:
-- Day (1-31): `dayEmojiIndex[0-30]`
-- Month (1-12): `monthEmojiIndex[0-11]`
-- Year (2025+): `yearEmojiIndex[0-98]`
-- Hour (0-23): `hourEmojiIndex[0-23]`
-- Minute (0-59): `minuteEmojiIndex[0-59]`
 
-Emojis randomly inserted next to spaces/linebreaks
+**Encoding Process:**
+
+The translator embeds the current UTC timestamp as 5 emojis representing date/time components:
+
+**Emoji Categories:**
+1. **Day Emoji** (1-31): Moon phases and weather (🌑, 🌒, ..., ☃️)
+2. **Month Emoji** (1-12): Fruits (🍇, 🍈, 🍉, 🍊, 🍋, 🍌, 🍍, 🥭, 🍎, 🍏, 🍐, 🍑)
+3. **Year Emoji** (2025+): Various symbols indexed from year 2025
+4. **Hour Emoji** (0-23): Clock and time-related symbols
+5. **Minute Emoji** (0-59): Numbers and timing symbols
+
+**To Pejelagarto - Insertion Algorithm:**
+
+1. Get current UTC time: `time.Now().UTC()`
+2. Convert to 0-indexed emoji indices:
+   - Day: `now.Day() - 1` 
+   - Month: `int(now.Month()) - 1`
+   - Year: `now.Year() - 2025`
+   - Hour: `now.Hour()`
+   - Minute: `now.Minute()`
+3. Validate all indices are within bounds (fallback to 0 if out of range)
+4. Find insertion positions: next to spaces, newlines, or string boundaries
+5. **Random placement:** Shuffle available positions and select 5 random spots
+6. Insert emojis from end to beginning (to maintain correct indices)
+
+**From Pejelagarto - Extraction Algorithm:**
+
+1. Search entire input string for presence of emojis from each category
+2. Find **first match** in each category (day, month, year, hour, minute)
+3. Convert emoji back to its index value
+4. Reconstruct ISO 8601 timestamp: `YYYY-MM-DDTHH:MM:00Z`
+5. **Critical:** If any component is missing (not found), return empty string `""`
+   - This indicates timestamp could not be reliably decoded
+   - Original addISO8601timestamp() will not add anything if timestamp is empty
+
+**Key Characteristics:**
+
+- **Not Fully Reversible:** Each translation generates a NEW timestamp for current time
+- **Random Placement:** Emoji positions are randomized, not deterministic
+- **Fuzz Test Special Handling:** 
+  - Unlike other transformations, emoji encoding is tested differently in fuzzing
+  - Test verifies correctness by **removing emojis and timestamps** before comparison
+  - This is because timestamps change between translation calls
+  - See `FuzzEmojiDateTimeEncoding()` which cleans both input and output before comparing
+
+**Why Timestamp Might Not Be Found:**
+- Input doesn't contain all 5 required emoji categories
+- Emojis were removed or modified
+- Text was not previously translated to Pejelagarto
+- In these cases, an empty timestamp is returned and no timestamp is added back
 
 ## Testing
 
