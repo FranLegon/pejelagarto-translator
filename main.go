@@ -30,6 +30,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -2164,7 +2165,7 @@ const htmlUI = `<!DOCTYPE html>
             </div>
             
             <div class="text-area-container">
-                <label id="output-label">Pejelagarto: <button class="play-btn" id="play-output" onclick="playAudio('output')">🔊 Play</button>{{DROPDOWN_PLACEHOLDER}}</label>
+                <label id="output-label">Pejelagarto: <button class="play-btn" id="play-output" onclick="playAudio('output', false)">🔊 Play</button>{{DROPDOWN_PLACEHOLDER}}</label>
                 <textarea id="output-text" readonly placeholder="Translation will appear here..."></textarea>
             </div>
         </div>
@@ -2224,34 +2225,25 @@ const htmlUI = `<!DOCTYPE html>
         function invertTranslation() {
             const inputText = document.getElementById('input-text');
             const outputText = document.getElementById('output-text');
-            const inputLabel = document.getElementById('input-label');
-            const outputLabel = document.getElementById('output-label');
             const translateBtn = document.getElementById('translate-btn');
-            const playBtn = document.getElementById('play-output');
             
             // Swap text content
             const temp = inputText.value;
             inputText.value = outputText.value;
             outputText.value = temp;
             
-            // Swap labels and ensure Play button stays with Pejelagarto
+            // Toggle inverted state
             isInverted = !isInverted;
             
-            // Get dropdown HTML if it exists
-            const dropdownHTML = document.getElementById('tts-language') ? 
-                ' <select id="tts-language" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-size: 14px;"><option value="portuguese">Portuguese</option><option value="spanish">Spanish</option><option value="english">English</option><option value="russian">Russian</option></select>' : '';
-            
+            // Update translate button text
             if (isInverted) {
-                // Input is now Pejelagarto, output is Human
-                inputLabel.innerHTML = 'Pejelagarto: <button class="play-btn" id="play-input" onclick="playAudio(\'input\')">🔊 Play</button>' + dropdownHTML;
-                outputLabel.textContent = 'Human:';
                 translateBtn.textContent = 'Translate from Pejelagarto';
             } else {
-                // Input is Human, output is Pejelagarto
-                inputLabel.textContent = 'Human:';
-                outputLabel.innerHTML = 'Pejelagarto: <button class="play-btn" id="play-output" onclick="playAudio(\'output\')">🔊 Play</button>' + dropdownHTML;
                 translateBtn.textContent = 'Translate to Pejelagarto';
             }
+            
+            // Force reset to single button state with proper labels
+            resetToSingleButton();
         }
         
         // Live translation functionality
@@ -2302,23 +2294,89 @@ const htmlUI = `<!DOCTYPE html>
             });
         }
         
+        // Track current output text, language, and slow audio availability
+        let currentOutputText = '';
+        let currentLanguage = '';
+        let currentInvertedState = false;
+        let slowAudioReady = {}; // Tracks which text+language combinations have slow audio ready
+        
+        // Watch for output text changes or language changes to reset buttons
+        function watchOutputChanges() {
+            const outputText = document.getElementById('output-text');
+            const languageDropdown = document.getElementById('tts-language');
+            const selectedLanguage = languageDropdown ? languageDropdown.value : '';
+            
+            // Check if state has changed (text, language, or invert state)
+            if (outputText.value !== currentOutputText || selectedLanguage !== currentLanguage || isInverted !== currentInvertedState) {
+                currentOutputText = outputText.value;
+                currentLanguage = selectedLanguage;
+                currentInvertedState = isInverted;
+                resetToSingleButton();
+                
+                // Check if slow audio is already ready for this text+language combination
+                const cacheKey = currentOutputText + ':' + selectedLanguage;
+                if (slowAudioReady[cacheKey]) {
+                    // Already have slow audio, split button immediately
+                    const source = isInverted ? 'input' : 'output';
+                    const container = isInverted ? document.getElementById('input-label') : document.getElementById('output-label');
+                    splitButton(source, container);
+                }
+            }
+        }
+        
+        // Reset to single button state
+        function resetToSingleButton() {
+            const outputLabel = document.getElementById('output-label');
+            const inputLabel = document.getElementById('input-label');
+            
+            // Get current language selection before recreating dropdown
+            const oldDropdown = document.getElementById('tts-language');
+            const selectedLang = oldDropdown ? oldDropdown.value : 'portuguese';
+            
+            const dropdownHTML = document.getElementById('tts-language') ? 
+                ' <select id="tts-language" onchange="watchOutputChanges()" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-size: 14px;"><option value="portuguese">Portuguese</option><option value="spanish">Spanish</option><option value="english">English</option><option value="russian">Russian</option></select>' : '';
+            
+            // Always reset both labels to ensure clean state
+            if (isInverted) {
+                inputLabel.innerHTML = 'Pejelagarto: <button class="play-btn" id="play-input" onclick="playAudio(&quot;input&quot;, false)" style="width: 100px; height: 38px; padding: 4px; font-size: 16px; overflow: hidden; white-space: nowrap;">🔊 Play</button>' + dropdownHTML;
+                outputLabel.textContent = 'Human:';
+            } else {
+                outputLabel.innerHTML = 'Pejelagarto: <button class="play-btn" id="play-output" onclick="playAudio(&quot;output&quot;, false)" style="width: 100px; height: 38px; padding: 4px; font-size: 16px; overflow: hidden; white-space: nowrap;">🔊 Play</button>' + dropdownHTML;
+                inputLabel.textContent = 'Human:';
+            }
+            
+            // Restore language selection
+            const newDropdown = document.getElementById('tts-language');
+            if (newDropdown) {
+                newDropdown.value = selectedLang;
+            }
+        }
+        
+        // Start watching for changes
+        setInterval(watchOutputChanges, 500);
+        
         // Play audio function - only called when play button is clicked
-        function playAudio(source) {
+        function playAudio(source, slow) {
             const inputText = document.getElementById('input-text');
             const outputText = document.getElementById('output-text');
             const playInputBtn = document.getElementById('play-input');
             const playOutputBtn = document.getElementById('play-output');
+            const playInputSlowBtn = document.getElementById('play-input-slow');
+            const playOutputSlowBtn = document.getElementById('play-output-slow');
             
             // Determine which text to convert to speech
             let textToSpeak = '';
             let button = null;
+            let container = null;
             
             if (source === 'input') {
                 textToSpeak = inputText.value;
-                button = playInputBtn;
+                button = slow ? playInputSlowBtn : playInputBtn;
+                container = document.getElementById('input-label');
             } else {
                 textToSpeak = outputText.value;
-                button = playOutputBtn;
+                button = slow ? playOutputSlowBtn : playOutputBtn;
+                container = document.getElementById('output-label');
             }
             
             // Check if there's text to speak
@@ -2330,14 +2388,17 @@ const htmlUI = `<!DOCTYPE html>
             // Disable button and show loading state
             button.disabled = true;
             const originalText = button.textContent;
-            button.textContent = '⏳ Loading...';
+            button.textContent = '⏳';
             
             // Get selected language from dropdown if available
             const languageDropdown = document.getElementById('tts-language');
             const selectedLanguage = languageDropdown ? languageDropdown.value : '';
             
-            // Build URL with language parameter
-            const url = selectedLanguage ? '/tts?lang=' + selectedLanguage : '/tts';
+            // Build URL with language parameter and slow parameter
+            let url = selectedLanguage ? '/tts?lang=' + selectedLanguage : '/tts';
+            if (slow) {
+                url += (selectedLanguage ? '&' : '?') + 'slow=true';
+            }
             
             // Send request to TTS endpoint
             fetch(url, {
@@ -2373,7 +2434,12 @@ const htmlUI = `<!DOCTYPE html>
                 };
                 
                 audio.play();
-                button.textContent = '▶️ Playing...';
+                button.textContent = '▶️';
+                
+                // If this is normal speed, start checking for slow version
+                if (!slow) {
+                    checkForSlowAudio(textToSpeak, selectedLanguage, source, container);
+                }
             })
             .catch(error => {
                 console.error('TTS error:', error);
@@ -2388,6 +2454,77 @@ const htmlUI = `<!DOCTYPE html>
                 
                 alert('Text-to-speech error:\\n\\n' + errorMsg);
             });
+        }
+        
+        // Check periodically if slow audio is ready
+        function checkForSlowAudio(text, language, source, container) {
+            const url = language ? '/tts-check-slow?lang=' + language : '/tts-check-slow';
+            const cacheKey = text + ':' + language;
+            
+            const checkInterval = setInterval(() => {
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain'
+                    },
+                    body: text
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.ready) {
+                        clearInterval(checkInterval);
+                        // Mark this text+language combination as ready
+                        slowAudioReady[cacheKey] = true;
+                        splitButton(source, container);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking slow audio:', error);
+                    clearInterval(checkInterval);
+                });
+            }, 1000); // Check every second
+            
+            // Stop checking after 30 seconds
+            setTimeout(() => clearInterval(checkInterval), 30000);
+        }
+        
+        // Split button into fast and slow versions
+        function splitButton(source, container) {
+            // Validate that we're modifying the correct container based on current state
+            const expectedSource = isInverted ? 'input' : 'output';
+            if (source !== expectedSource) {
+                // State has changed since this was called, don't modify
+                return;
+            }
+            
+            // Double-check the container is the correct label
+            const expectedContainer = isInverted ? document.getElementById('input-label') : document.getElementById('output-label');
+            if (container !== expectedContainer) {
+                // Container mismatch, state has changed
+                return;
+            }
+            
+            // Get current language selection before recreating dropdown
+            const oldDropdown = document.getElementById('tts-language');
+            const selectedLang = oldDropdown ? oldDropdown.value : 'portuguese';
+            
+            const dropdownHTML = document.getElementById('tts-language') ? 
+                ' <select id="tts-language" onchange="watchOutputChanges()" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-size: 14px;"><option value="portuguese">Portuguese</option><option value="spanish">Spanish</option><option value="english">English</option><option value="russian">Russian</option></select>' : '';
+            
+            const label = 'Pejelagarto:';
+            const buttonId = source === 'input' ? 'play-input' : 'play-output';
+            const slowButtonId = source === 'input' ? 'play-input-slow' : 'play-output-slow';
+            
+            container.innerHTML = label + 
+                ' <button class="play-btn" id="' + buttonId + '" onclick="playAudio(&quot;' + source + '&quot;, false)" style="width: 50px; height: 38px; padding: 4px 2px; font-size: 16px; overflow: hidden; white-space: nowrap;">🐇🔊</button>' +
+                ' <button class="play-btn" id="' + slowButtonId + '" onclick="playAudio(&quot;' + source + '&quot;, true)" style="width: 50px; height: 38px; padding: 4px 2px; font-size: 16px; overflow: hidden; white-space: nowrap;">🐌🔊</button>' +
+                dropdownHTML;
+            
+            // Restore language selection
+            const newDropdown = document.getElementById('tts-language');
+            if (newDropdown) {
+                newDropdown.value = selectedLang;
+            }
         }
     </script>
 </body>
@@ -2457,6 +2594,14 @@ func handleTranslateFrom(w http.ResponseWriter, r *http.Request) {
 // Global variable to store the pronunciation language flag
 var pronunciationLanguage string
 var pronunciationLanguageDropdown bool
+
+// Audio cache for storing normal and slow versions
+var audioCache = struct {
+	sync.RWMutex
+	cache map[string][]byte // key: text+lang hash -> audio data
+}{
+	cache: make(map[string][]byte),
+}
 
 // getPiperBinaryPath returns the path to the Piper binary
 func getPiperBinaryPath() string {
@@ -2655,6 +2800,55 @@ func textToSpeech(input string, pronunciationLanguage string) (outputPath string
 	return outputPath, nil
 }
 
+// slowDownAudio reduces the playback speed of an audio file by half using FFmpeg.
+// It creates a new temporary file with the slowed-down audio.
+//
+// Parameters:
+//   - inputPath: Path to the input WAV file
+//
+// Returns:
+//   - outputPath: Path to the slowed-down WAV file
+//   - err: Any error encountered during processing
+func slowDownAudio(inputPath string) (outputPath string, err error) {
+	// Create a unique temporary file for the slowed output
+	tempFile, err := os.CreateTemp("", "piper-tts-slow-*.wav")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temporary output file: %w", err)
+	}
+	outputPath = tempFile.Name()
+	tempFile.Close()
+
+	// Use FFmpeg to slow down the audio by half (0.5x speed)
+	// The atempo filter can only adjust speed between 0.5 and 2.0
+	// For 0.5x speed, we use atempo=0.5
+	cmd := exec.Command(
+		"ffmpeg",
+		"-i", inputPath,
+		"-af", "atempo=0.5",
+		"-y", // Overwrite output file if it exists
+		outputPath,
+	)
+
+	// Capture output for debugging
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		os.Remove(outputPath)
+		return "", fmt.Errorf("ffmpeg command failed: %w\nOutput: %s", err, string(output))
+	}
+
+	// Verify that the output file was created and has content
+	fileInfo, err := os.Stat(outputPath)
+	if err != nil {
+		return "", fmt.Errorf("output file not created: %w", err)
+	}
+	if fileInfo.Size() == 0 {
+		os.Remove(outputPath)
+		return "", fmt.Errorf("output file is empty")
+	}
+
+	return outputPath, nil
+}
+
 // HTTP handler for text-to-speech conversion
 func handleTextToSpeech(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -2674,6 +2868,9 @@ func handleTextToSpeech(w http.ResponseWriter, r *http.Request) {
 		lang = pronunciationLanguage
 	}
 
+	// Get slow parameter to determine if audio should be slowed down
+	slow := r.URL.Query().Get("slow") == "true"
+
 	// Validate language
 	validLanguages := map[string]bool{"portuguese": true, "spanish": true, "english": true, "russian": true}
 	if !validLanguages[lang] {
@@ -2682,10 +2879,39 @@ func handleTextToSpeech(w http.ResponseWriter, r *http.Request) {
 	}
 
 	input := string(body)
+
+	// Generate cache key
+	cacheKey := fmt.Sprintf("%s:%s:%v", input, lang, slow)
+
+	// Check if audio is already cached
+	audioCache.RLock()
+	cachedAudio, exists := audioCache.cache[cacheKey]
+	audioCache.RUnlock()
+
+	if exists {
+		w.Header().Set("Content-Type", "audio/wav")
+		w.Header().Set("Content-Disposition", "inline")
+		w.Write(cachedAudio)
+		return
+	}
+
+	// Generate normal speed audio
 	wavPath, err := textToSpeech(input, lang)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("TTS error: %v", err), http.StatusInternalServerError)
 		return
+	}
+	defer os.Remove(wavPath)
+
+	// If slow mode is requested, apply audio slowdown
+	if slow {
+		slowWavPath, err := slowDownAudio(wavPath)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Audio slowdown error: %v", err), http.StatusInternalServerError)
+			return
+		}
+		defer os.Remove(slowWavPath)
+		wavPath = slowWavPath
 	}
 
 	// Read the WAV file
@@ -2695,13 +2921,86 @@ func handleTextToSpeech(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Clean up the temporary file
-	defer os.Remove(wavPath)
+	// Cache the audio
+	audioCache.Lock()
+	audioCache.cache[cacheKey] = wavData
+	audioCache.Unlock()
 
 	// Send the WAV file back to the client
 	w.Header().Set("Content-Type", "audio/wav")
 	w.Header().Set("Content-Disposition", "inline")
 	w.Write(wavData)
+}
+
+// handleCheckSlowAudio checks if slow audio is ready and returns status
+func handleCheckSlowAudio(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Error reading request body", http.StatusBadRequest)
+		return
+	}
+
+	lang := r.URL.Query().Get("lang")
+	if lang == "" {
+		lang = pronunciationLanguage
+	}
+
+	input := string(body)
+	cacheKey := fmt.Sprintf("%s:%s:true", input, lang)
+
+	// Check if slow audio is already cached
+	audioCache.RLock()
+	_, exists := audioCache.cache[cacheKey]
+	audioCache.RUnlock()
+
+	if exists {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"ready":true}`)
+		return
+	}
+
+	// If not cached, start generating it in the background
+	go func() {
+		// Check again to avoid duplicate processing
+		audioCache.RLock()
+		_, exists := audioCache.cache[cacheKey]
+		audioCache.RUnlock()
+		if exists {
+			return
+		}
+
+		// Generate normal speed audio first
+		wavPath, err := textToSpeech(input, lang)
+		if err != nil {
+			return
+		}
+		defer os.Remove(wavPath)
+
+		// Generate slow version
+		slowWavPath, err := slowDownAudio(wavPath)
+		if err != nil {
+			return
+		}
+		defer os.Remove(slowWavPath)
+
+		// Read and cache the slow audio
+		slowData, err := os.ReadFile(slowWavPath)
+		if err != nil {
+			return
+		}
+
+		audioCache.Lock()
+		audioCache.cache[cacheKey] = slowData
+		audioCache.Unlock()
+	}()
+
+	w.Header().Set("Content-Type", "application/json")
+	fmt.Fprint(w, `{"ready":false}`)
 }
 
 // openBrowser opens the default browser to the specified URL
@@ -2752,6 +3051,7 @@ func main() {
 	http.HandleFunc("/to", handleTranslateTo)
 	http.HandleFunc("/from", handleTranslateFrom)
 	http.HandleFunc("/tts", handleTextToSpeech)
+	http.HandleFunc("/tts-check-slow", handleCheckSlowAudio)
 
 	if *ngrokToken != "" {
 		// Use ngrok to expose server publicly
