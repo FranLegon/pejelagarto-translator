@@ -1643,6 +1643,52 @@ const htmlUI = `<!DOCTYPE html>
     <title>Pejelagarto Translator</title>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <style>
+        :root {
+            --bg-gradient-start: #1a1a2e;
+            --bg-gradient-end: #16213e;
+            --container-bg: #0f3460;
+            --text-primary: #e1e1e1;
+            --text-secondary: #b0b0b0;
+            --heading-color: #53a8e2;
+            --button-gradient-start: #53a8e2;
+            --button-gradient-end: #3d7ea6;
+            --button-shadow: rgba(83, 168, 226, 0.4);
+            --button-hover-shadow: rgba(83, 168, 226, 0.6);
+            --invert-btn-gradient-start: #e94560;
+            --invert-btn-gradient-end: #d62839;
+            --invert-btn-shadow: rgba(233, 69, 96, 0.4);
+            --invert-btn-hover-shadow: rgba(233, 69, 96, 0.6);
+            --border-color: #2a2a40;
+            --textarea-bg: #1a1a2e;
+            --textarea-readonly-bg: #16213e;
+            --textarea-focus-border: #53a8e2;
+            --theme-btn-bg: #53a8e2;
+            --theme-btn-hover: #3d7ea6;
+        }
+
+        [data-theme="light"] {
+            --bg-gradient-start: #667eea;
+            --bg-gradient-end: #764ba2;
+            --container-bg: white;
+            --text-primary: #333;
+            --text-secondary: #666;
+            --heading-color: #667eea;
+            --button-gradient-start: #667eea;
+            --button-gradient-end: #764ba2;
+            --button-shadow: rgba(102, 126, 234, 0.4);
+            --button-hover-shadow: rgba(102, 126, 234, 0.6);
+            --invert-btn-gradient-start: #f093fb;
+            --invert-btn-gradient-end: #f5576c;
+            --invert-btn-shadow: rgba(245, 87, 108, 0.4);
+            --invert-btn-hover-shadow: rgba(245, 87, 108, 0.6);
+            --border-color: #e0e0e0;
+            --textarea-bg: white;
+            --textarea-readonly-bg: #f5f5f5;
+            --textarea-focus-border: #667eea;
+            --theme-btn-bg: #ffd700;
+            --theme-btn-hover: #ffed4e;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -1651,29 +1697,58 @@ const htmlUI = `<!DOCTYPE html>
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
             padding: 20px;
+            transition: background 0.3s ease;
         }
         
         .container {
-            background: white;
+            background: var(--container-bg);
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             padding: 40px;
             max-width: 900px;
             width: 100%;
+            position: relative;
+            transition: background 0.3s ease;
+        }
+        
+        .theme-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: var(--theme-btn-bg);
+            border: none;
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            z-index: 10;
+        }
+        
+        .theme-toggle:hover {
+            background: var(--theme-btn-hover);
+            transform: scale(1.1) rotate(15deg);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
         }
         
         h1 {
             text-align: center;
-            color: #667eea;
+            color: var(--heading-color);
             margin-bottom: 30px;
             font-size: 2.5em;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+            transition: color 0.3s ease;
         }
         
         .translator-box {
@@ -1691,29 +1766,32 @@ const htmlUI = `<!DOCTYPE html>
         label {
             font-weight: bold;
             margin-bottom: 8px;
-            color: #333;
+            color: var(--text-primary);
             font-size: 1.1em;
+            transition: color 0.3s ease;
         }
         
         textarea {
             width: 100%;
             height: 250px;
             padding: 15px;
-            border: 2px solid #e0e0e0;
+            border: 2px solid var(--border-color);
             border-radius: 10px;
             font-size: 14px;
             font-family: 'Courier New', monospace;
             resize: vertical;
-            transition: border-color 0.3s;
+            transition: all 0.3s ease;
+            background-color: var(--textarea-bg);
+            color: var(--text-primary);
         }
         
         textarea:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: var(--textarea-focus-border);
         }
         
         textarea[readonly] {
-            background-color: #f5f5f5;
+            background-color: var(--textarea-readonly-bg);
             cursor: not-allowed;
         }
         
@@ -1726,7 +1804,7 @@ const htmlUI = `<!DOCTYPE html>
         }
         
         button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--button-gradient-start) 0%, var(--button-gradient-end) 100%);
             color: white;
             border: none;
             padding: 12px 30px;
@@ -1734,13 +1812,13 @@ const htmlUI = `<!DOCTYPE html>
             font-size: 16px;
             font-weight: bold;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            transition: transform 0.2s, box-shadow 0.2s, background 0.3s ease;
+            box-shadow: 0 4px 15px var(--button-shadow);
         }
         
         button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+            box-shadow: 0 6px 20px var(--button-hover-shadow);
         }
         
         button:active {
@@ -1748,14 +1826,14 @@ const htmlUI = `<!DOCTYPE html>
         }
         
         .invert-btn {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            background: linear-gradient(135deg, var(--invert-btn-gradient-start) 0%, var(--invert-btn-gradient-end) 100%);
             padding: 12px 20px;
             font-size: 20px;
-            box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
+            box-shadow: 0 4px 15px var(--invert-btn-shadow);
         }
         
         .invert-btn:hover {
-            box-shadow: 0 6px 20px rgba(245, 87, 108, 0.6);
+            box-shadow: 0 6px 20px var(--invert-btn-hover-shadow);
         }
         
         .checkbox-container {
@@ -1763,7 +1841,8 @@ const htmlUI = `<!DOCTYPE html>
             align-items: center;
             gap: 8px;
             font-size: 16px;
-            color: #333;
+            color: var(--text-primary);
+            transition: color 0.3s ease;
         }
         
         input[type="checkbox"] {
@@ -1794,8 +1873,8 @@ const htmlUI = `<!DOCTYPE html>
             display: inline-block;
             width: 20px;
             height: 20px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
+            border: 3px solid var(--border-color);
+            border-top: 3px solid var(--button-gradient-start);
             border-radius: 50%;
             animation: spin 1s linear infinite;
             margin-left: 10px;
@@ -1809,6 +1888,9 @@ const htmlUI = `<!DOCTYPE html>
 </head>
 <body>
     <div class="container">
+        <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+            <span id="theme-icon">🌙</span>
+        </button>
         <h1>🐊 Pejelagarto Translator 🐊</h1>
         
         <div class="translator-box">
@@ -1844,6 +1926,30 @@ const htmlUI = `<!DOCTYPE html>
     <script>
         let isInverted = false;
         let liveTranslateEnabled = false;
+        
+        // Initialize theme on page load
+        (function initTheme() {
+            // Check localStorage for saved preference, default to dark mode
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeIcon(savedTheme);
+        })();
+        
+        // Toggle theme function
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon(newTheme);
+        }
+        
+        // Update theme icon
+        function updateThemeIcon(theme) {
+            const icon = document.getElementById('theme-icon');
+            icon.textContent = theme === 'dark' ? '🌙' : '☀️';
+        }
         
         // Handle translate button click
         function handleTranslateClick() {
