@@ -1,28 +1,28 @@
 # Pejelagarto Translator
 
-A complete bidirectional translator between Human and Pejelagarto, a fictional language with complex transformation rules. Includes a web-based UI for interactive translation.
+A complete bidirectional translator between Human and Pejelagarto, a fictional language with complex transformation rules. Includes a web-based UI with light/dark theme support and ngrok integration for remote access.
 
 ## About
 
-Pejelagarto is a fictional constructed language designed as a challenging translation exercise. The name "Pejelagarto" comes from a type of fish native to Mexico and Central America. This translator implements a sophisticated set of reversible transformations including:
+Pejelagarto is a fictional constructed language designed as a challenging translation exercise. The name "Pejelagarto" comes from a type of fish native to Mexico and Central America. This translator implements a sophisticated set of transformations including:
 
-- Mathematical base conversions (base-10 ↔ base-7)
+- Mathematical base conversions (base-10 ↔ base-8 for positive, base-10 ↔ base-7 for negative)
 - Prime factorization-based accent placement
 - Fibonacci/Tribonacci capitalization patterns
 - Custom character and punctuation mappings
-- Emoji-based timestamp encoding
+- Special Unicode character-based timestamp encoding (U+2300-U+23FB)
 
 The project demonstrates advanced string manipulation, bijective mappings, and cryptographic-style transformations while maintaining perfect reversibility.
 
 ## Features
 
 ### Core Translation
-- ✅ **Perfectly Reversible**: All transformations are bidirectional with 100% accuracy
-- 🔢 **Number Conversion**: Base-10 ↔ Base-7 with arbitrary precision
+- ✅ **Nearly Reversible**: Most transformations are bidirectional, but special character timestamp encoding has some limitations
+- 🔢 **Number Conversion**: Base-10 ↔ Base-8 (positive) or Base-7 (negative) with arbitrary precision
 - 🔤 **Character Mapping**: Bijective word/conjunction/letter replacements with case preservation
 - ✏️ **Accent Transformations**: Prime-factorization-based vowel accent cycling
 - 📝 **Case Logic**: Fibonacci/Tribonacci sequence-based capitalization patterns
-- ⏰ **Emoji Datetime Encoding**: Current UTC time encoded as randomly-placed emojis
+- ⏰ **Special Character Datetime Encoding**: UTC time encoded as special Unicode characters (U+2300-U+23FB)
 - ❗ **Punctuation Mapping**: Custom punctuation character replacements
 - 🛡️ **UTF-8 Sanitization**: Handles invalid UTF-8 bytes with invisible soft-hyphen encoding
 
@@ -47,16 +47,22 @@ The project demonstrates advanced string manipulation, bijective mappings, and c
 
 ```bash
 # Build the executable
-go build -o bin/PejelagartoTranslator.exe main.go
+go build -o pejelagarto-translator.exe main.go
 
-# Run the web server
-./bin/PejelagartoTranslator.exe
+# Run the web server (local only)
+.\pejelagarto-translator.exe
+
+# Run with ngrok (random domain)
+.\pejelagarto-translator.exe -ngrok_token YOUR_TOKEN_HERE
+
+# Run with ngrok (persistent domain)
+.\pejelagarto-translator.exe -ngrok_domain your-domain.ngrok-free.app -ngrok_token YOUR_TOKEN_HERE
 
 # Or run directly
 go run main.go
 ```
 
-The server will start on `http://localhost:8080` and automatically open in your default browser.
+The server will start on `http://localhost:8080` and automatically open in your default browser. With ngrok enabled, you'll also get a public URL for remote access.
 
 ### Web UI
 
@@ -66,6 +72,7 @@ The interface provides:
 - **Translate Button**: Manual translation trigger
 - **Invert Button (⇅)**: Swap translation direction
 - **Live Translation Checkbox**: Enable real-time translation
+- **Theme Toggle Button**: Switch between light and dark modes
 
 ### API Endpoints
 
@@ -87,15 +94,15 @@ The interface provides:
 
 ```go
 func TranslateToPejelagarto(input string) string {
-    input = sanitizeInvalidUTF8(input)              // 1. Handle broken UTF-8
-    input = removeAllEmojies(input)                  // 2. Remove existing emojis
-    input, timestamp := removeISO8601timestamp(input) // 3. Extract & remove existing timestamps
-    input = applyNumbersLogicToPejelagarto(input)    // 4. Base 10 → Base 7
+    input = sanitizeInvalidUTF8(input)                    // 1. Handle broken UTF-8
+    input = removeTimestampSpecialCharacters(input)       // 2. Remove existing special chars
+    input, timestamp := removeISO8601timestamp(input)     // 3. Extract & remove existing timestamps
+    input = applyNumbersLogicToPejelagarto(input)         // 4. Base 10 → Base 8 (positive) / Base 7 (negative)
     input = applyPunctuationReplacementsToPejelagarto(input) // 5. Map punctuation
-    input = applyMapReplacementsToPejelagarto(input) // 6. Apply word/letter map
+    input = applyMapReplacementsToPejelagarto(input)      // 6. Apply word/letter map
     input = applyAccentReplacementLogicToPejelagarto(input)  // 7. Add accents
-    input = applyCaseReplacementLogic(input)         // 8. Apply case patterns
-    input = addEmojiDatetimeEncoding(input, timestamp) // 9. Insert emoji timestamp (preserves original if found)
+    input = applyCaseReplacementLogic(input)              // 8. Apply case patterns
+    input = addSpecialCharDatetimeEncoding(input, timestamp) // 9. Insert special char timestamp
     return input
 }
 ```
@@ -104,15 +111,15 @@ func TranslateToPejelagarto(input string) string {
 
 ```go
 func TranslateFromPejelagarto(input string) string {
-    timestamp := readTimestampUsingEmojiEncoding(input) // 1. Extract emoji timestamp
-    input = removeAllEmojies(input)                      // 2. Remove all emojis
-    input = applyCaseReplacementLogic(input)             // 3. Reverse case (self-inverse)
+    timestamp := readTimestampUsingSpecialCharEncoding(input) // 1. Extract special char timestamp
+    input = removeTimestampSpecialCharacters(input)       // 2. Remove all special chars
+    input = applyCaseReplacementLogic(input)              // 3. Reverse case (self-inverse)
     input = applyAccentReplacementLogicFromPejelagarto(input) // 4. Remove accents
-    input = applyMapReplacementsFromPejelagarto(input)   // 5. Reverse word/letter map
+    input = applyMapReplacementsFromPejelagarto(input)    // 5. Reverse word/letter map
     input = applyPunctuationReplacementsFromPejelagarto(input) // 6. Reverse punctuation
-    input = applyNumbersLogicFromPejelagarto(input)      // 7. Base 7 → Base 10
-    input = addISO8601timestamp(input, timestamp)        // 8. Add back timestamp
-    input = unsanitizeInvalidUTF8(input)                 // 9. Restore original bytes
+    input = applyNumbersLogicFromPejelagarto(input)       // 7. Base 8/7 → Base 10
+    input = addISO8601timestamp(input, timestamp)         // 8. Add back timestamp
+    input = unsanitizeInvalidUTF8(input)                  // 9. Restore original bytes
     return input
 }
 ```
@@ -128,29 +135,34 @@ func TranslateFromPejelagarto(input string) string {
 
 **Algorithm Details:**
 
-The number conversion transforms base-10 numbers to base-7 (and vice versa) using arbitrary-precision arithmetic:
+The number conversion transforms base-10 numbers using different bases depending on sign:
+- **Positive numbers**: Base-10 → Base-8 (octal)
+- **Negative numbers**: Base-10 → Base-7
 
-**To Pejelagarto (Base-10 → Base-7):**
+**To Pejelagarto (Base-10 → Base-8 for positive, Base-10 → Base-7 for negative):**
 1. Scan input for sequences of ASCII digits (0-9), including negative numbers (prefixed with `-`)
 2. Extract and preserve leading zeros separately
 3. Parse the number using arbitrary-precision arithmetic (`math/big`)
-4. Convert to base-7 representation
-5. Reconstruct: sign + leading zeros + base-7 digits
+4. **For positive numbers**: Convert to base-8 (octal) representation
+   **For negative numbers**: Convert to base-7 representation
+5. Reconstruct: sign + leading zeros + converted digits
 6. Handle edge case: if only zeros present (e.g., "000", "-0"), preserve them without conversion
 
-**From Pejelagarto (Base-7 → Base-10):**
-1. Scan for valid base-7 sequences (digits 0-6 only)
-2. **Key distinction:** If digits 7-9 are found after base-7 digits, treat entire number as base-10 (pass through unchanged)
+**From Pejelagarto (Base-8 or Base-7 → Base-10):**
+1. **For positive numbers**: Scan for valid base-8 sequences (digits 0-7 only)
+   **For negative numbers**: Scan for valid base-7 sequences (digits 0-6 only)
+2. **Key distinction:** If digits 8-9 are found after base-8 digits (or 7-9 after base-7), treat entire number as base-10 (pass through unchanged)
 3. Extract sign and leading zeros
-4. Parse as base-7 using `math/big`
+4. Parse as base-8 (positive) or base-7 (negative) using `math/big`
 5. Convert to base-10 representation
 6. Reconstruct with preserved sign and leading zeros
 
 **Special Cases:**
-- Leading zeros are always preserved: `007` → `0010` in base-7
+- Leading zeros are always preserved: positive `007` → `007` in base-8, negative `-007` → `-0010` in base-7
 - Negative signs are handled separately from the magnitude
 - Zero-only numbers (e.g., "000") are preserved as-is
 - **No size limits:** `math/big` provides arbitrary precision, supporting numbers of any size without overflow
+- Numbers with digits 8-9 following base-8 patterns (or 7-9 following base-7) are treated as base-10 and passed through unchanged
 
 ### 3. Character Mapping
 
@@ -338,18 +350,18 @@ Toggle capitalization at sequence positions (e.g., 1st, 2nd, 3rd, 5th, 8th, 13th
 
 **Self-inverse:** Applying twice returns original
 
-### 7. Emoji Datetime Encoding
+### 7. Special Character Datetime Encoding
 
 **Encoding Process:**
 
-The translator embeds a UTC timestamp as 5 emojis representing date/time components:
+The translator embeds a UTC timestamp using special Unicode characters from the range U+2300 to U+23FB. These characters are distributed across 5 categories representing date/time components:
 
-**Emoji Categories:**
-1. **Day Emoji** (1-31): Moon phases and weather (🌑, 🌒, ..., ☃️)
-2. **Month Emoji** (1-12): Fruits (🍇, 🍈, 🍉, 🍊, 🍋, 🍌, 🍍, 🥭, 🍎, 🍏, 🍐, 🍑)
-3. **Year Emoji** (2025+): Various symbols indexed from year 2025
-4. **Hour Emoji** (0-23): Clock and time-related symbols
-5. **Minute Emoji** (0-59): Numbers and timing symbols
+**Special Character Categories:**
+1. **Day Characters** (1-60): Unicode range U+2300-U+233B (60 characters, only first 31 used for days 1-31)
+2. **Month Characters** (1-12): Unicode range U+233C-U+2347 (12 characters for months 1-12)
+3. **Year Characters** (2025+): Unicode range U+2348-U+23A9 (98 characters, indexed from year 2025)
+4. **Hour Characters** (0-23): Unicode range U+23AA-U+23C0 (23 characters for hours 0-22)
+5. **Minute Characters** (0-59): Unicode range U+23C1-U+23FB (59 characters for minutes 0-58)
 
 **To Pejelagarto - Insertion Algorithm:**
 
@@ -357,23 +369,23 @@ The translator embeds a UTC timestamp as 5 emojis representing date/time compone
    - Returns both cleaned input and found timestamp (or empty string if none)
 2. If timestamp parameter is empty: use current UTC time `time.Now().UTC()`
    - If timestamp parameter provided: parse it as RFC3339 format
-2. Convert to 0-indexed emoji indices:
+3. Convert to 0-indexed character array indices:
    - Day: `now.Day() - 1` 
    - Month: `int(now.Month()) - 1`
    - Year: `now.Year() - 2025`
    - Hour: `now.Hour()`
    - Minute: `now.Minute()`
-3. Validate all indices are within bounds (fallback to 0 if out of range)
-4. Find insertion positions: at start, next to spaces, and at newlines
-5. **Random placement:** Shuffle available positions and select up to 5 random spots
-6. **Guarantee all 5 emojis inserted:** If fewer than 5 positions available, remaining emojis are appended to the end
-7. Insert emojis from end to beginning (to maintain correct indices)
+4. Validate all indices are within bounds (fallback to 0 if out of range)
+5. Find insertion positions: at start, next to spaces, and at newlines
+6. **Random placement:** Shuffle available positions and select up to 5 random spots
+7. **Guarantee all 5 special characters inserted:** If fewer than 5 positions available, remaining characters are appended to the end
+8. Insert special characters from end to beginning (to maintain correct indices)
 
 **From Pejelagarto - Extraction Algorithm:**
 
-1. Search entire input string for presence of emojis from each category
+1. Search entire input string for presence of special characters from each category
 2. Find **first match** in each category (day, month, year, hour, minute)
-3. Convert emoji back to its index value
+3. Convert special character back to its index value
 4. **Optional hour/minute:** If day, month, and year are found but hour or minute are missing, default them to 0
 5. Reconstruct ISO 8601 timestamp: `YYYY-MM-DDTHH:MM:00Z`
 6. Return empty string if day, month, or year are missing (required components)
@@ -382,19 +394,25 @@ The translator embeds a UTC timestamp as 5 emojis representing date/time compone
 **Key Characteristics:**
 
 - **Timestamp Preservation:** If input contains an existing ISO 8601 timestamp, it's preserved through translation
-- **Random Placement:** Emoji positions are randomized for each translation
-- **Always 5 Emojis:** All date/time components are always inserted, even in short text
-- **Reversible with Tolerance:** Hour and minute can be reconstructed even if those emojis are missing (default to 00:00)
+- **Random Placement:** Special character positions are randomized for each translation
+- **Always 5 Special Characters:** All date/time components are always inserted, even in short text
+- **Reversible with Tolerance:** Hour and minute can be reconstructed even if those characters are missing (default to 00:00)
+- **Not Fully Reversible:** The timestamp encoding is **not 100% reversible** because:
+  - Special characters are randomly placed each time
+  - Reconstruction depends on finding these characters in the text
+  - If special characters are removed or modified, timestamp cannot be recovered
+  - Characters from range U+2300-U+23FB in the original text will be removed during encoding
 - **Fuzz Test Special Handling:** 
-  - Unlike other transformations, emoji encoding is tested differently in fuzzing
-  - Test verifies correctness by **removing emojis and timestamps** before comparison
+  - Unlike other transformations, special character encoding is tested differently in fuzzing
+  - Test verifies correctness by **removing special characters and timestamps** before comparison
   - This is because timestamps can vary between translation calls
   - See `FuzzEmojiDateTimeEncoding()` which cleans both input and output before comparing
 
 **Why Timestamp Might Not Be Fully Restored:**
-- Input doesn't contain day, month, or year emojis (required)
-- Emojis were removed or modified after translation
+- Input doesn't contain day, month, or year special characters (required)
+- Special characters were removed or modified after translation
 - Text was not previously translated to Pejelagarto
+- Original text contained characters in the U+2300-U+23FB range (these get removed)
 - In these cases, an empty timestamp is returned and no timestamp line is added back
 
 ## Testing
@@ -446,11 +464,15 @@ All transformations verified for reversibility with random inputs:
 
 ## Known Limitations
 
-- **Emoji Timestamp**: Translation includes a timestamp that changes with each translation, so direct string comparison will fail unless emojis are removed
+- **Special Character Timestamp Not Fully Reversible**: The datetime encoding using Unicode characters U+2300-U+23FB is **not 100% reversible** because:
+  - Special characters are randomly placed and cannot be exactly restored
+  - Original text containing these Unicode characters will have them removed
+  - Timestamp reconstruction relies on finding these characters (may fail if modified)
 - **UTF-8 Sanitization**: Invalid UTF-8 bytes are encoded using soft hyphens and private use area characters, which may not display correctly in all environments
 - **Case Preservation**: Some Unicode characters with complex case rules (e.g., Turkish İ, German ß) may not preserve case perfectly
 - **Word Boundary Detection**: Limited to 50 characters of backward scanning for performance reasons
 - **Punctuation**: Only specific punctuation marks are mapped; unmapped punctuation passes through unchanged
+- **Ngrok Token Security**: When using ngrok, be careful not to commit your token to version control
 
 ## Development
 
@@ -541,18 +563,19 @@ pejelagarto-translator/
 // Simple translation
 input := "hello world"
 result := TranslateToPejelagarto(input)
-// Output: "☀️'jhtxz🍏 'zcthx🐀" (with timestamp emojis)
+// Output: "'jhtxz 'zcthx" (with random special characters U+2300-U+23FB inserted)
 
 // With numbers
 input := "I have 42 apples"
 result := TranslateToPejelagarto(input)
-// Numbers converted to base-7
+// Positive numbers converted to base-8: 42 (decimal) → 52 (octal)
 
-// Full reversibility
+// Nearly full reversibility
 original := "The quick brown fox jumps over the lazy dog"
 pejelagarto := TranslateToPejelagarto(original)
 restored := TranslateFromPejelagarto(pejelagarto)
-// After cleaning emojis/timestamps: restored == original ✓
+// After cleaning special characters/timestamps: restored == original ✓
+// Note: Special character timestamp encoding is not fully reversible
 ```
 
 ## Contributing
