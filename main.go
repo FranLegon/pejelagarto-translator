@@ -253,7 +253,7 @@ var yearSpecialCharIndex = []string{
 var hourSpecialCharIndex = []string{
 	"\u23AA", "\u23AB", "\u23AC", "\u23AD", "\u23AE", "\u23AF", "\u23B0", "\u23B1", "\u23B2", "\u23B3",
 	"\u23B4", "\u23B5", "\u23B6", "\u23B7", "\u23B8", "\u23B9", "\u23BA", "\u23BB", "\u23BC", "\u23BD",
-	"\u23BE", "\u0F0B", "\u23C0", "\u23BF",
+	"\u23BE", "\u0F0B", "\u23C0", "\u02B9",
 }
 
 var minuteSpecialCharIndex = []string{
