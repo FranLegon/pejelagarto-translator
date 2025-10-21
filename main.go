@@ -247,13 +247,13 @@ var yearSpecialCharIndex = []string{
 	"\uA67A", "\uA67B", "\uA67C", "\uA67D", "\uA67E", "\uA67F", "\u3192", "\u3193", "\u3194", "\u3195",
 	"\u3196", "\u3197", "\u3198", "\u3199", "\u319A", "\u319B", "\u319C", "\u319D", "\u319E", "\u319F",
 	"\u2E2F", "\u2E30", "\u2E31", "\u2E32", "\u2E33", "\u2E34", "\u2E35", "\u2E44", "\u2E49", "\u2E4E",
-	"\u23A2", "\u23A3", "\u23A4", "\u23A5", "\u23A6", "\u23A7", "\u23A8", "\u23A9", "\u2DE0",
+	"\u23A2", "\u23A3", "\u23A4", "\u23A5", "\u23A6", "\u23A7", "\u23A8", "\u23A9", "\u2DE0", "\u23A0",
 }
 
 var hourSpecialCharIndex = []string{
 	"\u23AA", "\u23AB", "\u23AC", "\u23AD", "\u23AE", "\u23AF", "\u23B0", "\u23B1", "\u23B2", "\u23B3",
 	"\u23B4", "\u23B5", "\u23B6", "\u23B7", "\u23B8", "\u23B9", "\u23BA", "\u23BB", "\u23BC", "\u23BD",
-	"\u23BE", "\u0F0B", "\u23C0",
+	"\u23BE", "\u0F0B", "\u23C0", "\u23BF",
 }
 
 var minuteSpecialCharIndex = []string{
@@ -272,7 +272,7 @@ var minuteSpecialCharIndex = []string{
 		"\u24F6", "\u23F4", "\u23F5", "\u23F6", "\u23F7", "\u24F7", "\u24F8", "\u24F9", "\u24FA",
 	*/
 	"\u2427", "\u2428", "\u2429", "\u302A", "\u302B", "\u2FFC", "\u2FFD", "\u2FFE", "\u2FFF", "\u3099",
-	"\u309A", "\u309B", "\u309C", "\uA702", "\uAAB8", "\uFBB2", "\uA950", "\uA951", "\uA926",
+	"\u309A", "\u309B", "\u309C", "\uA702", "\uAAB8", "\uFBB2", "\uA950", "\uA951", "\uA926", "\uA952",
 }
 
 // validateMaps checks that all mappings have equal rune lengths for keys and values
