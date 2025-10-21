@@ -13,6 +13,7 @@
 
 # Build directory - keep scripts but not binaries
 bin/*.exe
+bin/runWithNgrok.ps1
 
 # Go workspace file
 go.work
