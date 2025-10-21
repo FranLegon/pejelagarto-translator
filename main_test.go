@@ -13,7 +13,9 @@ import (
 
 // FuzzApplyMapReplacements uses fuzzing to test map replacement reversibility with random inputs
 func FuzzApplyMapReplacements(f *testing.F) {
-	// No seed corpus - let fuzzer generate random inputs
+	// Seed corpus with basic cases
+	f.Add("")
+	f.Add("hello")
 	f.Fuzz(func(t *testing.T, input string) {
 		// Test: ToPejelagarto -> FromPejelagarto
 		translated := applyMapReplacementsToPejelagarto(input)
@@ -35,7 +37,9 @@ func FuzzApplyMapReplacements(f *testing.F) {
 
 // FuzzApplyNumbersLogic uses fuzzing to test number base conversion reversibility
 func FuzzApplyNumbersLogic(f *testing.F) {
-	// No seed corpus - let fuzzer generate random inputs
+	// Seed corpus with basic cases
+	f.Add("")
+	f.Add("123")
 	f.Fuzz(func(t *testing.T, input string) {
 		// Test: ToPejelagarto -> FromPejelagarto
 		pejelagarto := applyNumbersLogicToPejelagarto(input)
@@ -49,7 +53,9 @@ func FuzzApplyNumbersLogic(f *testing.F) {
 
 // FuzzApplyAccentReplacementLogic uses fuzzing to test accent replacement reversibility
 func FuzzApplyAccentReplacementLogic(f *testing.F) {
-	// No seed corpus - let fuzzer generate random inputs
+	// Seed corpus with basic cases
+	f.Add("")
+	f.Add("café")
 	f.Fuzz(func(t *testing.T, input string) {
 		// Test: ToPejelagarto -> FromPejelagarto
 		accented := applyAccentReplacementLogicToPejelagarto(input)
@@ -63,7 +69,9 @@ func FuzzApplyAccentReplacementLogic(f *testing.F) {
 
 // FuzzApplyPunctuationReplacements tests punctuation replacement reversibility
 func FuzzApplyPunctuationReplacements(f *testing.F) {
-	// No seed corpus - let fuzzer generate random inputs
+	// Seed corpus with basic cases
+	f.Add("")
+	f.Add("Hello, world!")
 	f.Fuzz(func(t *testing.T, input string) {
 		if !utf8.ValidString(input) {
 			t.Skip("invalid utf8")
@@ -89,7 +97,9 @@ func FuzzApplyPunctuationReplacements(f *testing.F) {
 
 // FuzzApplyCaseReplacementLogic tests case replacement logic reversibility
 func FuzzApplyCaseReplacementLogic(f *testing.F) {
-	// No seed corpus - let fuzzer generate random inputs
+	// Seed corpus with basic cases
+	f.Add("")
+	f.Add("Hello World")
 	f.Fuzz(func(t *testing.T, input string) {
 		if !utf8.ValidString(input) {
 			t.Skip("invalid utf8")
@@ -134,7 +144,9 @@ func countWordsInString(input string) int {
 
 // FuzzSpecialCharDateTimeEncoding tests special character datetime encoding with special non-reversibility handling
 func FuzzSpecialCharDateTimeEncoding(f *testing.F) {
-	// No seed corpus - let fuzzer generate random inputs
+	// Seed corpus with basic cases
+	f.Add("")
+	f.Add("test!@#")
 	f.Fuzz(func(t *testing.T, input string) {
 		// Skip invalid UTF-8 as Go's string handling will convert invalid bytes to replacement characters
 		if !utf8.ValidString(input) {
@@ -163,7 +175,9 @@ func FuzzSpecialCharDateTimeEncoding(f *testing.F) {
 
 // FuzzTranslatePejelagarto uses fuzzing to test full translation pipeline reversibility
 func FuzzTranslatePejelagarto(f *testing.F) {
-	// No seed corpus - let fuzzer generate random inputs
+	// Seed corpus with basic cases
+	f.Add("")
+	f.Add("Hello, World! 123")
 	f.Fuzz(func(t *testing.T, input string) {
 		// Skip invalid UTF-8 as Go's string handling will convert invalid bytes to replacement characters
 		if !utf8.ValidString(input) {
@@ -198,7 +212,9 @@ func FuzzTextToSpeech(f *testing.F) {
 		f.Skip("Voice model not found, skipping TTS test")
 	}
 
-	// No seed corpus - let fuzzer generate random inputs
+	// Seed corpus with basic cases
+	f.Add("")
+	f.Add("Hello world")
 	f.Fuzz(func(t *testing.T, input string) {
 		// Skip invalid UTF-8
 		if !utf8.ValidString(input) {
