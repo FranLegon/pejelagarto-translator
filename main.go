@@ -2024,7 +2024,7 @@ func main() {
 			config.HTTPEndpoint(),
 			ngrok.WithAuthtoken(*ngrokToken),
 		)
-		
+
 		if err != nil {
 			log.Fatalf("Failed to start ngrok listener: %v", err)
 		}
