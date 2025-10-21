@@ -26,6 +26,13 @@ The project demonstrates advanced string manipulation, bijective mappings, and c
 - ❗ **Punctuation Mapping**: Custom punctuation character replacements
 - 🛡️ **UTF-8 Sanitization**: Handles invalid UTF-8 bytes with invisible soft-hyphen encoding
 
+### Text-to-Speech (TTS)
+- 🗣️ **Multi-Language Support**: Portuguese, Spanish, English, and Russian
+- 🎙️ **Piper TTS Integration**: High-quality neural TTS using ONNX models
+- 🌍 **Language-Specific Preprocessing**: Automatic text cleaning based on pronunciation language
+- 🔀 **Per-Request Language Selection**: Override default language via HTTP API
+- 🎛️ **Configurable Default Language**: Set preferred language via command-line flag
+
 ### Web Interface
 - 🌐 **Local Web Server**: HTTP server on `localhost:8080`
 - 🎨 **Modern UI**: Single-file HTML with gradient design and responsive layout
@@ -37,9 +44,13 @@ The project demonstrates advanced string manipulation, bijective mappings, and c
 ## Requirements
 
 - **Go**: Version 1.24.2 or higher
-- **Dependencies**: `golang.org/x/text` (automatically installed via `go mod`)
+- **Dependencies**: 
+  - `golang.org/x/text` (automatically installed via `go mod`)
+  - `golang.ngrok.com/ngrok` for remote access (optional)
 - **Supported OS**: Windows, macOS, Linux
 - **Browser**: Any modern web browser for the UI
+- **TTS Models** (optional): Download from Hugging Face for Text-to-Speech functionality
+  - See `tts/requirements/piper/languages/README.md` for download instructions
 
 ## Installation & Usage
 
@@ -85,8 +96,37 @@ The interface provides:
 // Request body: plain text  
 // Response: translated text
 
+// POST /tts?lang=<language> - Text-to-Speech
+// Request body: plain text
+// Query param: lang (optional) - portuguese, spanish, english, or russian
+// Response: audio/wav file
+
 // GET / - Serve HTML UI
 ```
+
+### Text-to-Speech Usage
+
+```bash
+# Download TTS models (first time only)
+cd tts\requirements\piper\languages
+.\download_models.ps1
+
+# Run with default language (Portuguese)
+.\pejelagarto-translator.exe
+
+# Run with Spanish TTS
+.\pejelagarto-translator.exe -pronunciation_language=spanish
+
+# Use TTS API with different languages
+curl -X POST "http://localhost:8080/tts?lang=portuguese" -d "Olá mundo" -o audio.wav
+curl -X POST "http://localhost:8080/tts?lang=spanish" -d "Hola mundo" -o audio.wav
+curl -X POST "http://localhost:8080/tts?lang=english" -d "Hello world" -o audio.wav
+curl -X POST "http://localhost:8080/tts?lang=russian" -d "Привет мир" -o audio.wav
+```
+
+For detailed TTS documentation, see:
+- `tts/requirements/piper/languages/README.md` - Model download instructions
+- `tts/requirements/piper/languages/USAGE.md` - Complete usage guide
 
 ## Translation Pipeline
 
@@ -434,7 +474,7 @@ go test -fuzz=FuzzTranslatePejelagarto -fuzztime=30s
 ```
 
 ### Test Coverage
- 
+
 **Unit Tests:**
 - `TestTranslateToPejelagarto`: Full pipeline tests
 - `TestTranslateFromPejelagarto`: Reverse pipeline tests

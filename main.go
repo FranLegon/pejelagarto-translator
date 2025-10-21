@@ -2232,23 +2232,52 @@ func handleTranslateFrom(w http.ResponseWriter, r *http.Request) {
 // Package-level constants for Piper TTS configuration
 // The binary and model should be placed in the tts/requirements/ directory
 const (
-	piperBinaryPath = "tts/requirements/piper"      // Path to the Piper TTS binary (add .exe for Windows)
-	modelPath       = "tts/requirements/model.onnx" // Path to the voice model file
+	piperBinaryPath = "tts/requirements/piper" // Path to the Piper TTS binary (add .exe for Windows)
 )
 
-// preprocessTextForTTS prepares text for Portuguese TTS by:
-// 1. Removing non-Portuguese characters
-// 2. Limiting consonant clusters to max 2 adjacent consonants
-func preprocessTextForTTS(input string) string {
-	// Define Portuguese vowels and consonants
-	portugueseVowels := "aeiouáéíóúâêôãõàü"
-	portugueseConsonants := "bcdfghjklmnpqrstvwxyzç"
-	portugueseAllowed := portugueseVowels + portugueseConsonants + "AEIOUÁÉÍÓÚÂÊÔÃÕÀÜBCDFGHJKLMNPQRSTVWXYZÇ" + " .,!?;:'\"-()[]"
+// Global variable to store the pronunciation language flag
+var pronunciationLanguage string
 
-	// Step 1: Remove non-Portuguese characters
+// getModelPath returns the language-specific model path
+func getModelPath(language string) string {
+	return fmt.Sprintf("tts/requirements/piper/languages/%s/model.onnx", language)
+}
+
+// preprocessTextForTTS prepares text for TTS by:
+// 1. Removing non-language-specific characters
+// 2. Limiting consonant clusters to max 2 adjacent consonants
+func preprocessTextForTTS(input string, pronunciationLanguage string) string {
+	// Define language-specific vowels and consonants
+	var vowels, consonants, allowed string
+
+	switch pronunciationLanguage {
+	case "portuguese":
+		vowels = "aeiouáéíóúâêôãõàü"
+		consonants = "bcdfghjklmnpqrstvwxyzç"
+		allowed = vowels + consonants + "AEIOUÁÉÍÓÚÂÊÔÃÕÀÜBCDFGHJKLMNPQRSTVWXYZÇ" + " .,!?;:'\"-()[]"
+	case "spanish":
+		vowels = "aeiouáéíóúü"
+		consonants = "bcdfghjklmnñpqrstvwxyz"
+		allowed = vowels + consonants + "AEIOUÁÉÍÓÚÜBCDFGHJKLMNÑPQRSTVWXYZ" + " .,!?;¡¿:'\"-()[]"
+	case "english":
+		vowels = "aeiou"
+		consonants = "bcdfghjklmnpqrstvwxyz"
+		allowed = vowels + consonants + "AEIOUБCDFGHJKLMNPQRSTVWXYZ" + " .,!?;:'\"-()[]"
+	case "russian":
+		vowels = "аеёиоуыэюя"
+		consonants = "бвгджзйклмнпрстфхцчшщ"
+		allowed = vowels + consonants + "АЕЁИОУЫЭЮЯБВГДЖЗЙКЛМНПРСТФХЦЧШЩ" + " .,!?;:'\"-()[]ъьЪЬ"
+	default:
+		// Fallback to Portuguese
+		vowels = "aeiouáéíóúâêôãõàü"
+		consonants = "bcdfghjklmnpqrstvwxyzç"
+		allowed = vowels + consonants + "AEIOUÁÉÍÓÚÂÊÔÃÕÀÜBCDFGHJKLMNPQRSTVWXYZÇ" + " .,!?;:'\"-()[]"
+	}
+
+	// Step 1: Remove non-allowed characters
 	var cleaned strings.Builder
 	for _, r := range input {
-		if strings.ContainsRune(portugueseAllowed, r) {
+		if strings.ContainsRune(allowed, r) {
 			cleaned.WriteRune(r)
 		}
 	}
@@ -2264,7 +2293,7 @@ func preprocessTextForTTS(input string) string {
 		currentLower := unicode.ToLower(currentRune)
 
 		// Always write vowels and non-letters
-		if !unicode.IsLetter(currentRune) || strings.ContainsRune(portugueseVowels, currentLower) {
+		if !unicode.IsLetter(currentRune) || strings.ContainsRune(vowels, currentLower) {
 			final.WriteRune(currentRune)
 			continue
 		}
@@ -2280,7 +2309,7 @@ func preprocessTextForTTS(input string) string {
 			if !unicode.IsLetter(prevRune) {
 				break
 			}
-			if strings.ContainsRune(portugueseVowels, prevLower) {
+			if strings.ContainsRune(vowels, prevLower) {
 				break
 			}
 			consonantCount++
@@ -2301,11 +2330,16 @@ func preprocessTextForTTS(input string) string {
 	}
 
 	return finalResult
-} // textToSpeech executes the Piper Text-to-Speech binary to convert text to audio.
+}
+
+// textToSpeech executes the Piper Text-to-Speech binary to convert text to audio.
 // It generates a unique temporary WAV file for the output audio.
-func textToSpeech(input string) (outputPath string, err error) {
+func textToSpeech(input string, pronunciationLanguage string) (outputPath string, err error) {
 	// Preprocess text for better TTS pronunciation
-	input = preprocessTextForTTS(input)
+	input = preprocessTextForTTS(input, pronunciationLanguage)
+
+	// Get language-specific model path
+	modelPath := getModelPath(pronunciationLanguage)
 
 	// Determine the actual binary path based on OS
 	binaryPath := piperBinaryPath
@@ -2402,8 +2436,21 @@ func handleTextToSpeech(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get language from query parameter, default to global flag value
+	lang := r.URL.Query().Get("lang")
+	if lang == "" {
+		lang = pronunciationLanguage
+	}
+
+	// Validate language
+	validLanguages := map[string]bool{"portuguese": true, "spanish": true, "english": true, "russian": true}
+	if !validLanguages[lang] {
+		http.Error(w, fmt.Sprintf("Invalid language '%s'. Allowed: portuguese, spanish, english, russian", lang), http.StatusBadRequest)
+		return
+	}
+
 	input := string(body)
-	wavPath, err := textToSpeech(input)
+	wavPath, err := textToSpeech(input, lang)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("TTS error: %v", err), http.StatusInternalServerError)
 		return
@@ -2445,10 +2492,19 @@ func main() {
 	// Parse command-line flags
 	ngrokToken := flag.String("ngrok_token", "", "Optional ngrok auth token to expose server publicly")
 	ngrokDomain := flag.String("ngrok_domain", "", "Optional ngrok persistent domain (e.g., your-domain.ngrok-free.app)")
+	pronunciationLangFlag := flag.String("pronunciation_language", "portuguese", "TTS pronunciation language (portuguese, spanish, english, russian)")
 	if !strings.HasPrefix(*ngrokDomain, "http://") && !strings.HasPrefix(*ngrokDomain, "https://") {
 		*ngrokDomain = "https://" + *ngrokDomain
 	}
 	flag.Parse()
+
+	// Validate and set pronunciation language
+	validLanguages := map[string]bool{"portuguese": true, "spanish": true, "english": true, "russian": true}
+	if !validLanguages[*pronunciationLangFlag] {
+		log.Fatalf("Invalid pronunciation language '%s'. Allowed: portuguese, spanish, english, russian", *pronunciationLangFlag)
+	}
+	pronunciationLanguage = *pronunciationLangFlag
+	log.Printf("TTS pronunciation language set to: %s", pronunciationLanguage)
 
 	// Set up HTTP routes
 	http.HandleFunc("/", handleIndex)
