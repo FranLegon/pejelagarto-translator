@@ -116,9 +116,10 @@ The interface provides:
 // Request body: plain text  
 // Response: translated text
 
-// POST /tts?lang=<language> - Text-to-Speech
+// POST /tts?lang=<language>&slow=<true|false> - Text-to-Speech
 // Request body: plain text
 // Query param: lang (optional) - portuguese, spanish, english, or russian
+// Query param: slow (optional) - true to slow down audio playback by half
 // Response: audio/wav file
 
 // GET / - Serve HTML UI
@@ -137,10 +138,14 @@ The application includes multi-language TTS with automatic text preprocessing:
 
 **HTTP API:**
 ```bash
+# Normal speed
 curl -X POST "http://localhost:8080/tts?lang=portuguese" -d "Olá mundo" -o audio.wav
 curl -X POST "http://localhost:8080/tts?lang=spanish" -d "Hola mundo" -o audio.wav
 curl -X POST "http://localhost:8080/tts?lang=english" -d "Hello world" -o audio.wav
 curl -X POST "http://localhost:8080/tts?lang=russian" -d "Привет мир" -o audio.wav
+
+# Slowed down by half (0.5x speed)
+curl -X POST "http://localhost:8080/tts?lang=english&slow=true" -d "Hello world" -o audio-slow.wav
 ```
 
 For detailed TTS documentation, see `tts/README.md`
