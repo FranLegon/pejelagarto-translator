@@ -2,16 +2,26 @@
 
 This directory contains a complete, self-contained Golang implementation for executing the Piper Text-to-Speech binary.
 
-## ⚠️ IMPORTANT: Portuguese Language Required
+## 🌍 Multi-Language Support
 
-**This application is configured for Brazilian Portuguese (pt_BR) only.** The text preprocessing logic filters and optimizes text specifically for Portuguese pronunciation:
+**This application now supports multiple languages with automatic text preprocessing:**
 
-- ✅ **Required:** Brazilian Portuguese voice model (`pt_BR-faber-medium.onnx`)
-- ✅ **Automatic:** Removes non-Portuguese characters
-- ✅ **Automatic:** Limits consonant clusters to 2 for better pronunciation
-- ⚠️ **Not compatible:** English or other language models without modifying `preprocessTextForTTS()` function
+- ✅ **Portuguese** (Brazilian) - Default language
+- ✅ **Spanish** (Spain Spanish)
+- ✅ **English** (US English)
+- ✅ **Russian**
 
-**If you need a different language:** Follow the "Alternative Voice Models" section and modify the preprocessing function accordingly.
+Each language has:
+- ✅ **Automatic:** Language-specific character filtering
+- ✅ **Automatic:** Consonant cluster limiting (max 2) for better pronunciation
+- ✅ **Dynamic:** Model selection based on language parameter
+
+**Quick Start:**
+1. Download models: Run `tts/requirements/piper/languages/download_models.ps1`
+2. Run with language: `.\pejelagarto-translator.exe -pronunciation_language=spanish`
+3. Or use API: `curl -X POST "http://localhost:8080/tts?lang=english" -d "Hello" -o audio.wav`
+
+**See:** `requirements/piper/languages/README.md` for detailed multi-language setup.
 
 ---
 
@@ -244,16 +254,21 @@ go build
 
 ---
 
-## Portuguese Text Preprocessing
+## Multi-Language Text Preprocessing
 
-The application includes automatic text preprocessing specifically designed for Portuguese TTS. The `preprocessTextForTTS()` function in `main.go` performs two important operations:
+✅ **Now supports 4 languages:** Portuguese, Spanish, English, and Russian
 
-### 1. Remove Non-Portuguese Characters
+The application includes automatic text preprocessing that adapts to the selected language. The `preprocessTextForTTS(input, language)` function in `main.go` performs two important operations:
 
-The function filters out any characters that aren't part of the Portuguese alphabet or common punctuation:
-- **Keeps:** a-z, á, é, í, ó, ú, â, ê, ô, ã, õ, à, ü, ç (uppercase and lowercase)
-- **Keeps:** Common punctuation: `. , ! ? ; : ' " - ( ) [ ]`
-- **Removes:** Everything else (emoji, special symbols, unsupported accents, etc.)
+### 1. Remove Non-Language Characters
+
+The function automatically filters characters based on the selected language:
+
+- **Portuguese:** a-z, á, é, í, ó, ú, â, ê, ô, ã, õ, à, ü, ç + common punctuation
+- **Spanish:** a-z, á, é, í, ó, ú, ü, ñ + ¡, ¿
+- **English:** a-z + standard punctuation
+- **Russian:** Full Cyrillic alphabet (а-я, ь, ъ) + punctuation
+- **Removes:** Everything else (emoji, special symbols, unsupported characters)
 
 ### 2. Limit Consonant Clusters
 
@@ -274,7 +289,11 @@ This preprocessing prevents the TTS engine from spelling out unpronounceable let
 
 ## Alternative Voice Models
 
-**⚠️ Note:** If you change to a non-Portuguese model, you should modify the `preprocessTextForTTS()` function in `main.go` to match your chosen language's character set and pronunciation rules.
+✅ **Multi-language support is now built-in!** The application automatically adjusts preprocessing based on the `-pronunciation_language` flag.
+
+**Supported languages:** `portuguese`, `spanish`, `english`, `russian`
+
+To use different voice models, simply download them to the appropriate language directory. See `requirements/piper/languages/README.md` for details.
 
 ### Other Portuguese Voices
 
@@ -302,7 +321,9 @@ wget -O tts/requirements/model.onnx.json \
 
 ### English Voices
 
-**⚠️ Warning:** English models are NOT recommended for this application. The text preprocessing is designed for Portuguese and will remove English-specific characters. If you must use English, modify the `preprocessTextForTTS()` function first.
+✅ **English is now fully supported!** Use the `-pronunciation_language=english` flag or `?lang=english` API parameter.
+
+Models should be placed in: `tts/requirements/piper/languages/english/`
 
 **Windows (PowerShell):**
 ```powershell
@@ -605,37 +626,40 @@ By default, Piper uses **espeak-ng** for phonemization, which will spell out let
    - Try high-quality models like `libritts-high` which may handle edge cases better
    - Browse options at: [Piper Voices](https://github.com/rhasspy/piper/blob/master/VOICES.md)
 
-### Modifying the Preprocessing Function
+### Multi-Language Preprocessing Implementation
 
-The `preprocessTextForTTS()` function in `main.go` is currently configured for Brazilian Portuguese. If you need to use a different language, modify the character sets:
+The `preprocessTextForTTS(input, pronunciationLanguage)` function now accepts a language parameter and automatically switches character sets:
 
 ```go
-func preprocessTextForTTS(input string) string {
-    // Example 1: For Spanish, add Spanish-specific characters
-    spanishVowels := "aeiouáéíóúü"
-    spanishConsonants := "bcdfghjklmnpqrstvwxyzñ"
-    spanishAllowed := spanishVowels + spanishConsonants + "AEIOUÁÉÍÓÚÜÑ..." + " .,!?;:'\"-()[]"
-    
-    // Example 2: For French, add French-specific characters
-    frenchVowels := "aeiouàâæçéèêëïîôùûü"
-    frenchConsonants := "bcdfghjklmnpqrstvwxyzœ"
-    
-    // Example 3: For English (disable consonant cluster limiting)
-    // Simply remove the consonant cluster limiting logic
-    // and only filter unwanted characters
-    
-    // The current implementation:
-    // 1. Filters to Portuguese characters only
-    // 2. Limits consecutive consonants to maximum 2
-    
-    return input
+func preprocessTextForTTS(input string, pronunciationLanguage string) string {
+    switch pronunciationLanguage {
+    case "portuguese":
+        vowels = "aeiouáéíóúâêôãõàü"
+        consonants = "bcdfghjklmnpqrstvwxyzç"
+    case "spanish":
+        vowels = "aeiouáéíóúü"
+        consonants = "bcdfghjklmnñpqrstvwxyz"
+    case "english":
+        vowels = "aeiou"
+        consonants = "bcdfghjklmnpqrstvwxyz"
+    case "russian":
+        vowels = "аеёиоуыэюя"
+        consonants = "бвгджзйклмнпрстфхцчшщ"
+    }
+    // ... rest of preprocessing logic
 }
 ```
 
-**Current Implementation (Portuguese):**
-- Keeps: `a-z`, `á`, `é`, `í`, `ó`, `ú`, `â`, `ê`, `ô`, `ã`, `õ`, `à`, `ü`, `ç` + uppercase
-- Limits: Consonant clusters to max 2 consecutive
-- Removes: All other characters (emoji, unsupported accents, etc.)
+**To add a new language:**
+1. Add a new case in the switch statement
+2. Define vowels and consonants for that language
+3. Download the corresponding voice model
+4. Place model in `tts/requirements/piper/languages/{language}/`
+
+**Current Implementation:**
+- Automatically selects character set based on language parameter
+- Limits: Consonant clusters to max 2 consecutive (all languages)
+- Removes: All non-language-specific characters
 
 ---
 

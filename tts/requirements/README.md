@@ -1,21 +1,54 @@
 # Piper TTS Requirements
 
-This directory should contain the Piper TTS binary and voice model files.
+This directory should contain the Piper TTS binary and language-specific voice model files.
+
+## 🌍 Multi-Language Support
+
+This application now supports **Portuguese, Spanish, English, and Russian** with language-specific models stored in subdirectories.
 
 ## Required Files
 
 ### For Linux/macOS:
 ```
 tts/requirements/
-├── piper         (Piper TTS binary - must be executable)
-└── model.onnx    (Voice model file)
+├── piper                              (Piper TTS binary - must be executable)
+├── espeak-ng-data/                    (Phoneme data directory)
+└── piper/
+    └── languages/
+        ├── portuguese/
+        │   ├── model.onnx
+        │   └── model.onnx.json
+        ├── spanish/
+        │   ├── model.onnx
+        │   └── model.onnx.json
+        ├── english/
+        │   ├── model.onnx
+        │   └── model.onnx.json
+        └── russian/
+            ├── model.onnx
+            └── model.onnx.json
 ```
 
 ### For Windows:
 ```
 tts\requirements\
-├── piper.exe     (Piper TTS binary)
-└── model.onnx    (Voice model file)
+├── piper.exe                          (Piper TTS binary)
+├── espeak-ng-data\                    (Phoneme data directory)
+├── *.dll                              (Required DLL files)
+└── piper\
+    └── languages\
+        ├── portuguese\
+        │   ├── model.onnx
+        │   └── model.onnx.json
+        ├── spanish\
+        │   ├── model.onnx
+        │   └── model.onnx.json
+        ├── english\
+        │   ├── model.onnx
+        │   └── model.onnx.json
+        └── russian\
+            ├── model.onnx
+            └── model.onnx.json
 ```
 
 ## Installation Instructions
@@ -67,98 +100,130 @@ Or manually:
    - Windows: Copy `piper.exe` to `tts\requirements\piper.exe`
 5. Make executable (Linux/macOS only): `chmod +x tts/requirements/piper`
 
-### 2. Download Voice Model
+### 2. Download Voice Models
 
-**Any Platform:**
+**🚀 Quick Method (Recommended):**
 
-Visit [Piper Voices on Hugging Face](https://huggingface.co/rhasspy/piper-voices) and download a voice model.
+Use the automated download script to get all language models at once:
 
-**Recommended voice models:**
-- **English (US)**: `en_US-lessac-medium.onnx` - Clear, natural female voice
-- **English (US)**: `en_US-libritts-high.onnx` - High quality multi-speaker
-- **English (GB)**: `en_GB-alan-medium.onnx` - British English male voice
-
-**Download example (English US female voice):**
-
-**Linux/macOS:**
-```bash
-# Download voice model
-wget https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx
-
-# Rename and move to this directory
-mv en_US-lessac-medium.onnx tts/requirements/model.onnx
-```
-
-**Windows (PowerShell):**
 ```powershell
-# Download voice model
-$modelUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx"
-Invoke-WebRequest -Uri $modelUrl -OutFile en_US-lessac-medium.onnx
-
-# Rename and move to this directory
-Move-Item -Path en_US-lessac-medium.onnx -Destination tts\requirements\model.onnx
+cd tts\requirements\piper\languages
+.\download_models.ps1
 ```
 
-Or manually:
-1. Visit [Piper Voices on Hugging Face](https://huggingface.co/rhasspy/piper-voices)
-2. Navigate to a voice (e.g., `en/en_US/lessac/medium/`)
-3. Download the `.onnx` file
-4. Rename it to `model.onnx`
-5. Place it in this directory
+This will download:
+- **Portuguese** (pt_BR-faber-medium) - ~63 MB
+- **Spanish** (es_ES-davefx-medium) - ~63 MB
+- **English** (en_US-lessac-medium) - ~63 MB
+- **Russian** (ru_RU-irina-medium) - ~63 MB
+
+**Total**: ~252 MB for all languages
+
+---
+
+**📖 Manual Method:**
+
+See detailed instructions in: `piper/languages/README.md`
+
+Or manually download from [Piper Voices on Hugging Face](https://huggingface.co/rhasspy/piper-voices):
+1. Navigate to a voice (e.g., `pt/pt_BR/faber/medium/`)
+2. Download both the `.onnx` and `.onnx.json` files
+3. Place them in the appropriate language directory:
+   - Portuguese: `piper/languages/portuguese/model.onnx`
+   - Spanish: `piper/languages/spanish/model.onnx`
+   - English: `piper/languages/english/model.onnx`
+   - Russian: `piper/languages/russian/model.onnx`
 
 ## Verification
 
 After installation, verify the files are in place:
 
-**Linux/macOS:**
-```bash
-ls -lh tts/requirements/
-# Should show: piper (executable) and model.onnx
-```
-
 **Windows (PowerShell):**
 ```powershell
-Get-ChildItem tts\requirements\
-# Should show: piper.exe and model.onnx
+# Check binary
+Get-ChildItem tts\requirements\piper.exe
+
+# Check language models
+Get-ChildItem tts\requirements\piper\languages\*\model.onnx
+```
+
+**Linux/macOS:**
+```bash
+# Check binary
+ls -lh tts/requirements/piper
+
+# Check language models
+ls -lh tts/requirements/piper/languages/*/model.onnx
 ```
 
 **Test the installation:**
 
-**Linux/macOS:**
 ```bash
-./tts/requirements/piper -m tts/requirements/model.onnx --text "Hello world" --output_file test.wav
+# Test with default Portuguese
+.\pejelagarto-translator.exe -pronunciation_language=portuguese
+
+# Test with different languages
+.\pejelagarto-translator.exe -pronunciation_language=spanish
+.\pejelagarto-translator.exe -pronunciation_language=english
+.\pejelagarto-translator.exe -pronunciation_language=russian
 ```
 
-**Windows:**
+Or test via API:
 ```powershell
-.\tts\requirements\piper.exe -m tts\requirements\model.onnx --text "Hello world" --output_file test.wav
-```
+# Portuguese
+curl -X POST "http://localhost:8080/tts?lang=portuguese" -d "Olá mundo" -o test_pt.wav
 
-If successful, you'll have a `test.wav` file you can play to hear the generated speech.
+# Spanish
+curl -X POST "http://localhost:8080/tts?lang=spanish" -d "Hola mundo" -o test_es.wav
+
+# English
+curl -X POST "http://localhost:8080/tts?lang=english" -d "Hello world" -o test_en.wav
+
+# Russian
+curl -X POST "http://localhost:8080/tts?lang=russian" -d "Привет мир" -o test_ru.wav
+```
 
 ## File Sizes
 
 Typical file sizes:
 - **Piper binary**: 10-30 MB
-- **Voice models**: 
+- **Voice models** (per language): 
   - Low quality: ~5-10 MB
-  - Medium quality: ~20-50 MB
-  - High quality: ~50-100 MB
+  - Medium quality: ~60-65 MB
+  - High quality: ~100+ MB
+- **All 4 medium-quality models**: ~252 MB total
 
 ## Notes
 
-- The `.onnx` file must be named exactly `model.onnx`
+- Each language has its own subdirectory: `piper/languages/{language}/`
+- Model files must be named exactly `model.onnx` and `model.onnx.json`
 - The binary must be named `piper` (Linux/macOS) or `piper.exe` (Windows)
 - On Linux/macOS, the binary must have execute permissions
-- On Windows, you may need to unblock the file or allow it through Windows Defender
+- On Windows, you may need to unblock files or allow through Windows Defender
+
+## Multi-Language Usage
+
+**Command-line flag:**
+```bash
+.\pejelagarto-translator.exe -pronunciation_language=spanish
+```
+
+**HTTP API with query parameter:**
+```bash
+curl -X POST "http://localhost:8080/tts?lang=english" -d "Hello" -o audio.wav
+```
+
+**Supported languages:** portuguese, spanish, english, russian
 
 ## Alternative Voice Models
 
-You can use different voice models by replacing `model.onnx` with your preferred voice. Available options:
+You can replace any language model with different voices from [Piper Voices](https://huggingface.co/rhasspy/piper-voices):
 
-- Multiple languages supported (English, Spanish, French, German, etc.)
 - Different voice qualities (low, medium, high)
-- Different speakers (male, female, various tones)
+- Different speakers (male, female, various characteristics)
+- Alternative regional accents (e.g., es_MX for Mexican Spanish)
+
+Just download both `.onnx` and `.onnx.json` files and place them in the appropriate language directory.
 
 Browse all available voices at: https://github.com/rhasspy/piper/blob/master/VOICES.md
 
