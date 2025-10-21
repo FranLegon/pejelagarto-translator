@@ -1518,29 +1518,39 @@ func addEmojiDatetimeEncoding(input string, timestamp string) string {
 		return input
 	}
 
-	// Shuffle positions and pick the first 5
+	// Shuffle positions
 	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(positions), func(i, j int) {
 		positions[i], positions[j] = positions[j], positions[i]
 	})
 
-	// Insert emojis at random positions
-	// Sort positions to insert from end to beginning (to maintain correct indices)
-	if len(positions) > len(emojis) {
-		positions = positions[:len(emojis)]
-	}
-	sort.Ints(positions)
-
 	// Work with runes to avoid splitting UTF-8 sequences
 	resultRunes := runes
-	for i := len(positions) - 1; i >= 0 && i < len(emojis); i-- {
-		pos := positions[i]
+
+	// Insert as many emojis as we have positions
+	numToInsert := len(emojis)
+	if len(positions) < numToInsert {
+		numToInsert = len(positions)
+	}
+
+	// Sort the positions we'll use (insert from end to beginning)
+	selectedPositions := positions[:numToInsert]
+	sort.Ints(selectedPositions)
+
+	for i := len(selectedPositions) - 1; i >= 0; i-- {
+		pos := selectedPositions[i]
 		if pos > len(resultRunes) {
 			pos = len(resultRunes)
 		}
 		// Convert emoji to runes and insert
 		emojiRunes := []rune(emojis[i])
 		resultRunes = append(resultRunes[:pos], append(emojiRunes, resultRunes[pos:]...)...)
+	}
+
+	// If we couldn't insert all emojis, append the rest at the end
+	for i := numToInsert; i < len(emojis); i++ {
+		emojiRunes := []rune(emojis[i])
+		resultRunes = append(resultRunes, emojiRunes...)
 	}
 
 	return string(resultRunes)
