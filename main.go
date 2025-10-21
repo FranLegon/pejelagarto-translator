@@ -15,6 +15,7 @@ import (
 	"math/big"
 	"math/rand"
 	"net/http"
+	"os"
 	"os/exec"
 	"regexp"
 	"runtime"
@@ -1772,6 +1773,23 @@ const htmlUI = `<!DOCTYPE html>
             cursor: pointer;
         }
         
+        .play-btn {
+            background: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%);
+            padding: 8px 16px;
+            font-size: 18px;
+            box-shadow: 0 4px 15px rgba(86, 171, 47, 0.4);
+            min-width: auto;
+        }
+        
+        .play-btn:hover {
+            box-shadow: 0 6px 20px rgba(86, 171, 47, 0.6);
+        }
+        
+        .play-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
         .hidden {
             display: none !important;
         }
@@ -1813,12 +1831,12 @@ const htmlUI = `<!DOCTYPE html>
         
         <div class="translator-box">
             <div class="text-area-container">
-                <label id="input-label">Human:</label>
+                <label id="input-label">Human: <button class="play-btn" id="play-input" onclick="playAudio('input')">🔊 Play</button></label>
                 <textarea id="input-text" placeholder="Type your text here..."></textarea>
             </div>
             
             <div class="text-area-container">
-                <label id="output-label">Pejelagarto:</label>
+                <label id="output-label">Pejelagarto: <button class="play-btn" id="play-output" onclick="playAudio('output')">🔊 Play</button></label>
                 <textarea id="output-text" readonly placeholder="Translation will appear here..."></textarea>
             </div>
         </div>
@@ -1924,6 +1942,79 @@ const htmlUI = `<!DOCTYPE html>
                 console.error('Translation error:', error);
             });
         }
+        
+        // Play audio function - only called when play button is clicked
+        function playAudio(source) {
+            const inputText = document.getElementById('input-text');
+            const outputText = document.getElementById('output-text');
+            const playInputBtn = document.getElementById('play-input');
+            const playOutputBtn = document.getElementById('play-output');
+            
+            // Determine which text to convert to speech
+            let textToSpeak = '';
+            let button = null;
+            
+            if (source === 'input') {
+                textToSpeak = inputText.value;
+                button = playInputBtn;
+            } else {
+                textToSpeak = outputText.value;
+                button = playOutputBtn;
+            }
+            
+            // Check if there's text to speak
+            if (!textToSpeak || textToSpeak.trim() === '') {
+                alert('No text to convert to speech!');
+                return;
+            }
+            
+            // Disable button and show loading state
+            button.disabled = true;
+            const originalText = button.textContent;
+            button.textContent = '⏳ Loading...';
+            
+            // Send request to TTS endpoint
+            fetch('/tts', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain'
+                },
+                body: textToSpeak
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('TTS request failed: ' + response.statusText);
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                // Create an audio element and play it
+                const audioUrl = URL.createObjectURL(blob);
+                const audio = new Audio(audioUrl);
+                
+                audio.onended = function() {
+                    URL.revokeObjectURL(audioUrl);
+                    button.disabled = false;
+                    button.textContent = originalText;
+                };
+                
+                audio.onerror = function() {
+                    URL.revokeObjectURL(audioUrl);
+                    button.disabled = false;
+                    button.textContent = originalText;
+                    alert('Error playing audio');
+                };
+                
+                audio.play();
+                button.textContent = '▶️ Playing...';
+            })
+            .catch(error => {
+                console.error('TTS error:', error);
+                button.disabled = false;
+                button.textContent = originalText;
+                alert('Text-to-speech error: ' + error.message + '\n\nMake sure Piper TTS is installed in tts/requirements/');
+            });
+        }
     </script>
 </body>
 </html>`
@@ -1974,6 +2065,104 @@ func handleTranslateFrom(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, result)
 }
 
+// Package-level constants for Piper TTS configuration
+// The binary and model should be placed in the tts/requirements/ directory
+const (
+	piperBinaryPath = "tts/requirements/piper"       // Path to the Piper TTS binary (add .exe for Windows)
+	modelPath       = "tts/requirements/model.onnx"  // Path to the voice model file
+)
+
+// textToSpeech executes the Piper Text-to-Speech binary to convert text to audio.
+// It generates a unique temporary WAV file for the output audio.
+func textToSpeech(input string) (outputPath string, err error) {
+	// Determine the actual binary path based on OS
+	binaryPath := piperBinaryPath
+	if runtime.GOOS == "windows" {
+		binaryPath = piperBinaryPath + ".exe"
+	}
+
+	// Check if the Piper binary exists
+	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
+		return "", fmt.Errorf("piper binary not found at %s: %w", binaryPath, err)
+	}
+
+	// Check if the voice model exists
+	if _, err := os.Stat(modelPath); os.IsNotExist(err) {
+		return "", fmt.Errorf("voice model not found at %s: %w", modelPath, err)
+	}
+
+	// Create a unique temporary file for the output audio
+	tempFile, err := os.CreateTemp("", "piper-tts-*.wav")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temporary output file: %w", err)
+	}
+	outputPath = tempFile.Name()
+	tempFile.Close()
+
+	// Build the command to execute Piper
+	cmd := exec.Command(
+		binaryPath,
+		"-m", modelPath,
+		"--output_file", outputPath,
+		"--text", input,
+	)
+
+	// Capture both stdout and stderr for debugging
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		os.Remove(outputPath)
+		return "", fmt.Errorf("piper command failed: %w\nOutput: %s", err, string(output))
+	}
+
+	// Verify that the output file was created and has content
+	fileInfo, err := os.Stat(outputPath)
+	if err != nil {
+		return "", fmt.Errorf("output file not created: %w", err)
+	}
+	if fileInfo.Size() == 0 {
+		os.Remove(outputPath)
+		return "", fmt.Errorf("output file is empty")
+	}
+
+	return outputPath, nil
+}
+
+// HTTP handler for text-to-speech conversion
+func handleTextToSpeech(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Error reading request body", http.StatusBadRequest)
+		return
+	}
+
+	input := string(body)
+	wavPath, err := textToSpeech(input)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("TTS error: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Read the WAV file
+	wavData, err := os.ReadFile(wavPath)
+	if err != nil {
+		http.Error(w, "Error reading audio file", http.StatusInternalServerError)
+		return
+	}
+
+	// Clean up the temporary file
+	defer os.Remove(wavPath)
+
+	// Send the WAV file back to the client
+	w.Header().Set("Content-Type", "audio/wav")
+	w.Header().Set("Content-Disposition", "inline")
+	w.Write(wavData)
+}
+
 // openBrowser opens the default browser to the specified URL
 func openBrowser(url string) error {
 	var cmd *exec.Cmd
@@ -2003,6 +2192,7 @@ func main() {
 	http.HandleFunc("/", handleIndex)
 	http.HandleFunc("/to", handleTranslateTo)
 	http.HandleFunc("/from", handleTranslateFrom)
+	http.HandleFunc("/tts", handleTextToSpeech)
 
 	if *ngrokToken != "" {
 		// Use ngrok to expose server publicly

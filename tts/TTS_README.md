@@ -15,6 +15,19 @@ The TTS functionality provides a simple Go function to convert text to speech us
 
 ## Installation Requirements
 
+### Quick Setup
+
+The easiest way to set up Piper TTS is to place the binary and model files in the `tts/requirements/` directory:
+
+```
+pejelagarto-translator/
+└── tts/
+    └── requirements/
+        ├── piper           (Linux/macOS binary)
+        ├── piper.exe       (Windows binary)
+        └── model.onnx      (Voice model file)
+```
+
 ### 1. Install Piper TTS
 
 Follow the instructions at [Piper GitHub](https://github.com/rhasspy/piper) to install the Piper binary for your platform:
@@ -24,43 +37,103 @@ Follow the instructions at [Piper GitHub](https://github.com/rhasspy/piper) to i
 # Download pre-built binary
 wget https://github.com/rhasspy/piper/releases/latest/download/piper_linux_x86_64.tar.gz
 tar xzf piper_linux_x86_64.tar.gz
-sudo mv piper/piper /usr/local/bin/
+
+# Move to requirements directory
+mkdir -p tts/requirements
+mv piper/piper tts/requirements/
+chmod +x tts/requirements/piper
 ```
 
 **macOS:**
 ```bash
-# Using Homebrew
-brew install piper-tts
-
-# Or download manually
+# Download manually (Homebrew version may not work with relative paths)
 wget https://github.com/rhasspy/piper/releases/latest/download/piper_macos_x86_64.tar.gz
 tar xzf piper_macos_x86_64.tar.gz
-sudo mv piper/piper /usr/local/bin/
+
+# Move to requirements directory
+mkdir -p tts/requirements
+mv piper/piper tts/requirements/
+chmod +x tts/requirements/piper
 ```
 
 **Windows:**
-Download the Windows release from the [Piper releases page](https://github.com/rhasspy/piper/releases) and place it in a directory in your PATH.
+```powershell
+# Download from releases page or use PowerShell
+$url = "https://github.com/rhasspy/piper/releases/latest/download/piper_windows_amd64.zip"
+Invoke-WebRequest -Uri $url -OutFile piper_windows_amd64.zip
+
+# Extract the archive
+Expand-Archive -Path piper_windows_amd64.zip -DestinationPath piper
+
+# Move to requirements directory
+New-Item -ItemType Directory -Force -Path tts\requirements
+Move-Item -Path piper\piper.exe -Destination tts\requirements\
+```
+
+Alternatively on Windows, you can:
+1. Download the Windows release from [Piper releases page](https://github.com/rhasspy/piper/releases)
+2. Extract the `.zip` file
+3. Copy `piper.exe` to `tts\requirements\` directory
+4. Ensure the file is named `piper.exe` (the application automatically adds `.exe` on Windows)
 
 ### 2. Download a Voice Model
 
 Piper requires a voice model file (.onnx) to generate speech. Download one from the [Piper voices repository](https://github.com/rhasspy/piper/blob/master/VOICES.md):
 
+**Linux/macOS:**
 ```bash
 # Example: Download English US female voice
 wget https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx
-sudo mkdir -p /usr/local/share/piper
-sudo mv en_US-lessac-medium.onnx /usr/local/share/piper/model.onnx
+
+# Move to requirements directory
+mv en_US-lessac-medium.onnx tts/requirements/model.onnx
 ```
 
-### 3. Update Configuration
+**Windows (PowerShell):**
+```powershell
+# Download voice model
+$modelUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx"
+Invoke-WebRequest -Uri $modelUrl -OutFile en_US-lessac-medium.onnx
 
-Edit `tts.go` and update the constants to match your installation:
+# Move to requirements directory
+Move-Item -Path en_US-lessac-medium.onnx -Destination tts\requirements\model.onnx
+```
 
-```go
-const (
-    piperBinaryPath = "/usr/local/bin/piper"              // Update this path
-    modelPath       = "/usr/local/share/piper/model.onnx" // Update this path
-)
+Alternatively, you can:
+1. Visit [Piper voices on Hugging Face](https://huggingface.co/rhasspy/piper-voices)
+2. Browse available voices and download your preferred `.onnx` file
+3. Rename it to `model.onnx` and place it in `tts\requirements\`
+
+### 3. Verify Installation
+
+The application expects the following file structure:
+
+**Linux/macOS:**
+```
+tts/requirements/
+├── piper         (executable)
+└── model.onnx
+```
+
+**Windows:**
+```
+tts\requirements\
+├── piper.exe
+└── model.onnx
+```
+
+You can verify the setup by checking:
+
+**Linux/macOS:**
+```bash
+ls -l tts/requirements/
+# Should show: piper (executable) and model.onnx
+```
+
+**Windows (PowerShell):**
+```powershell
+Get-ChildItem tts\requirements\
+# Should show: piper.exe and model.onnx
 ```
 
 ## Usage
@@ -253,24 +326,62 @@ echo "Hello world" | piper -m model.onnx --output_file output.wav
 ## Troubleshooting
 
 ### "Piper binary not found"
-- Verify Piper is installed: `which piper` (Linux/macOS) or `where piper` (Windows)
-- Update `piperBinaryPath` constant to match your installation
-- Ensure the binary has execute permissions: `chmod +x /path/to/piper`
+
+**Linux/macOS:**
+- Verify Piper is in the requirements directory: `ls -l tts/requirements/piper`
+- Ensure the binary has execute permissions: `chmod +x tts/requirements/piper`
+- If you placed it elsewhere, update `piperBinaryPath` in the code
+
+**Windows:**
+- Verify `piper.exe` exists: `Get-ChildItem tts\requirements\piper.exe` (PowerShell)
+- Or check in File Explorer: Navigate to `tts\requirements\` and look for `piper.exe`
+- Make sure the file is named exactly `piper.exe` (not `piper.exe.exe`)
+- If Windows Defender blocked the file, you may need to allow it
 
 ### "Voice model not found"
-- Verify model file exists: `ls -l /path/to/model.onnx`
-- Update `modelPath` constant to match your model location
+- Verify model file exists in requirements directory:
+  - Linux/macOS: `ls -l tts/requirements/model.onnx`
+  - Windows: `Get-ChildItem tts\requirements\model.onnx` (PowerShell)
+- The file must be named exactly `model.onnx`
 - Download a model from [Piper voices](https://github.com/rhasspy/piper/blob/master/VOICES.md)
 
 ### "Output file is empty"
 - Check Piper error messages in the error output
 - Verify the model file is not corrupted
 - Ensure sufficient disk space in the temp directory
+- Try running Piper manually to test:
+  - Linux/macOS: `./tts/requirements/piper -m tts/requirements/model.onnx --text "test" --output_file test.wav`
+  - Windows: `.\tts\requirements\piper.exe -m tts\requirements\model.onnx --text "test" --output_file test.wav`
 
 ### Permission Errors
-- Ensure the binary has execute permissions
-- Verify write permissions for the temp directory
-- On Linux, you may need to run with appropriate user permissions
+
+**Linux/macOS:**
+- Ensure the binary has execute permissions: `chmod +x tts/requirements/piper`
+- Verify write permissions for the temp directory: `ls -ld /tmp`
+- Check file ownership if needed: `ls -l tts/requirements/`
+
+**Windows:**
+- Right-click `piper.exe` → Properties → Unblock (if present)
+- Run as Administrator if needed
+- Check Windows Defender or antivirus hasn't quarantined the file
+- Ensure your user has write permissions to the temp directory
+
+### Windows-Specific Issues
+
+**"This app can't run on your PC":**
+- Make sure you downloaded the correct architecture (amd64 for 64-bit Windows)
+- Try downloading a different release version
+- Check if you need Visual C++ Redistributable
+
+**File path issues:**
+- Use backslashes (`\`) in Windows paths, not forward slashes
+- Or use forward slashes throughout (Go handles both on Windows)
+- Avoid spaces in file paths or quote them properly
+
+**Antivirus blocking:**
+- Some antivirus software may block unknown executables
+- Add `piper.exe` to your antivirus whitelist/exceptions
+- Or temporarily disable antivirus to test (re-enable after confirming it works)
 
 ## Performance Considerations
 
