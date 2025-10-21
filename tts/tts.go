@@ -9,10 +9,10 @@ import (
 )
 
 // Package-level constants for Piper TTS configuration
-// Users must update these paths to match their system configuration
+// The binary and model should be placed in the tts/requirements/ directory
 const (
-	piperBinaryPath = "/usr/local/bin/piper"              // Full path to the Piper TTS binary
-	modelPath       = "/usr/local/share/piper/model.onnx" // Full path to the voice model file
+	piperBinaryPath = "tts/requirements/piper"       // Path to the Piper TTS binary
+	modelPath       = "tts/requirements/model.onnx"  // Path to the voice model file
 )
 
 // textToSpeech executes the Piper Text-to-Speech binary to convert text to audio.
