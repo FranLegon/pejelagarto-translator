@@ -241,8 +241,10 @@ func FuzzEmojiDateTimeEncoding(f *testing.F) {
 		restored := TranslateFromPejelagarto(translated)
 
 		// Clean both for comparison (remove emojis and timestamps)
-		inputCleaned := removeAllEmojies(removeISO8601timestamp(input))
-		restoredCleaned := removeAllEmojies(removeISO8601timestamp(restored))
+		inputCleanedTemp, _ := removeISO8601timestamp(input)
+		inputCleaned := removeAllEmojies(inputCleanedTemp)
+		restoredCleanedTemp, _ := removeISO8601timestamp(restored)
+		restoredCleaned := removeAllEmojies(restoredCleanedTemp)
 
 		if inputCleaned != restoredCleaned {
 			t.Errorf("Reversibility failed after cleaning.\nInput (cleaned):    %q\nRestored (cleaned): %q", inputCleaned, restoredCleaned)
@@ -280,8 +282,10 @@ func FuzzTranslatePejelagarto(f *testing.F) {
 		reversed := TranslateFromPejelagarto(pejelagarto)
 
 		// Since emoji/timestamp logic is now integrated, we need to clean for comparison
-		inputCleaned := removeAllEmojies(removeISO8601timestamp(input))
-		reversedCleaned := removeAllEmojies(removeISO8601timestamp(reversed))
+		inputCleanedTemp, _ := removeISO8601timestamp(input)
+		inputCleaned := removeAllEmojies(inputCleanedTemp)
+		reversedCleanedTemp, _ := removeISO8601timestamp(reversed)
+		reversedCleaned := removeAllEmojies(reversedCleanedTemp)
 
 		if reversedCleaned != inputCleaned {
 			t.Errorf("TranslateToPejelagarto->TranslateFromPejelagarto failed\nInput (cleaned):       %q\nPejelagarto: %q\nReversed (cleaned):    %q", inputCleaned, pejelagarto, reversedCleaned)
@@ -310,8 +314,10 @@ func TestTranslateToPejelagarto(t *testing.T) {
 			result := TranslateToPejelagarto(tt.input)
 			// Verify reversibility (with emoji/timestamp cleaning)
 			reversed := TranslateFromPejelagarto(result)
-			inputCleaned := removeAllEmojies(removeISO8601timestamp(tt.input))
-			reversedCleaned := removeAllEmojies(removeISO8601timestamp(reversed))
+			inputCleanedTemp, _ := removeISO8601timestamp(tt.input)
+			inputCleaned := removeAllEmojies(inputCleanedTemp)
+			reversedCleanedTemp, _ := removeISO8601timestamp(reversed)
+			reversedCleaned := removeAllEmojies(reversedCleanedTemp)
 			if reversedCleaned != inputCleaned {
 				t.Errorf("Reversibility failed: TranslateToPejelagarto(%q) = %q, but TranslateFromPejelagarto(%q) = %q",
 					tt.input, result, result, reversed)
@@ -341,8 +347,10 @@ func TestTranslateFromPejelagarto(t *testing.T) {
 			result := TranslateFromPejelagarto(tt.input)
 			// Verify reversibility (with emoji/timestamp cleaning)
 			reversed := TranslateToPejelagarto(result)
-			inputCleaned := removeAllEmojies(removeISO8601timestamp(tt.input))
-			reversedCleaned := removeAllEmojies(removeISO8601timestamp(reversed))
+			inputCleanedTemp, _ := removeISO8601timestamp(tt.input)
+			inputCleaned := removeAllEmojies(inputCleanedTemp)
+			reversedCleanedTemp, _ := removeISO8601timestamp(reversed)
+			reversedCleaned := removeAllEmojies(reversedCleanedTemp)
 			if reversedCleaned != inputCleaned {
 				t.Errorf("Reversibility failed: TranslateFromPejelagarto(%q) = %q, but TranslateToPejelagarto(%q) = %q",
 					tt.input, result, result, reversed)

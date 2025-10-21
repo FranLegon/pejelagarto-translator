@@ -1333,26 +1333,26 @@ func applyPunctuationReplacementsFromPejelagarto(input string) string {
 }
 
 // removeISO8601timestamp removes ISO 8601 timestamp from the last line if present
-func removeISO8601timestamp(input string) string {
+func removeISO8601timestamp(input string) (string, string) {
 	// ISO 8601 regex pattern for timestamps like 2025-10-19T14:30:00Z or 2025-10-19T14:30:00+00:00
 	iso8601Pattern := regexp.MustCompile(`(?m)^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})$`)
 
 	lines := strings.Split(input, "\n")
 	if len(lines) == 0 {
-		return input
+		return input, ""
 	}
 
 	// Check if last line matches ISO 8601 timestamp
 	lastLine := lines[len(lines)-1]
 	if iso8601Pattern.MatchString(lastLine) {
-		// Remove the last line
+		// Remove the last line and return the timestamp
 		if len(lines) == 1 {
-			return ""
+			return "", lastLine
 		}
-		return strings.Join(lines[:len(lines)-1], "\n")
+		return strings.Join(lines[:len(lines)-1], "\n"), lastLine
 	}
 
-	return input
+	return input, ""
 }
 
 // addISO8601timestamp adds timestamp as new last line to input
@@ -1399,7 +1399,7 @@ func removeAllEmojies(input string) string {
 // readTimestampUsingEmojiEncoding locates emojis and returns ISO 8601 timestamp
 func readTimestampUsingEmojiEncoding(input string) string {
 	// Find one emoji from each category
-	var day, month, year, hour, minute int = -1, -1, -1, -1, -1
+	var day, month, year, hour, minute int = -1, -1, -1, 0, 0
 
 	// Search for emojis in the input
 	for i, emoji := range dayEmojiIndex {
@@ -1437,8 +1437,9 @@ func readTimestampUsingEmojiEncoding(input string) string {
 		}
 	}
 
-	// Check if we found all components
-	if day == -1 || month == -1 || year == -1 || hour == -1 || minute == -1 {
+	// Check if we found required components (day, month, year)
+	// Hour and minute are optional and default to 0
+	if day == -1 || month == -1 || year == -1 {
 		return "" // Cannot determine datetime
 	}
 
@@ -1447,9 +1448,21 @@ func readTimestampUsingEmojiEncoding(input string) string {
 }
 
 // addEmojiDatetimeEncoding inserts datetime emojis at random positions
-func addEmojiDatetimeEncoding(input string) string {
-	// Get current UTC datetime
-	now := time.Now().UTC()
+func addEmojiDatetimeEncoding(input string, timestamp string) string {
+	// Use provided timestamp or current UTC datetime
+	var now time.Time
+	if timestamp == "" {
+		now = time.Now().UTC()
+	} else {
+		// Parse the ISO 8601 timestamp
+		parsedTime, err := time.Parse(time.RFC3339, timestamp)
+		if err != nil {
+			// If parsing fails, use current time
+			now = time.Now().UTC()
+		} else {
+			now = parsedTime.UTC()
+		}
+	}
 
 	// Get emoji indices
 	day := now.Day() - 1          // Convert to 0-indexed
@@ -1594,13 +1607,13 @@ func unsanitizeInvalidUTF8(input string) string {
 func TranslateToPejelagarto(input string) string {
 	input = sanitizeInvalidUTF8(input)
 	input = removeAllEmojies(input)
-	input = removeISO8601timestamp(input)
+	input, timestamp := removeISO8601timestamp(input)
 	input = applyNumbersLogicToPejelagarto(input)
 	input = applyPunctuationReplacementsToPejelagarto(input)
 	input = applyMapReplacementsToPejelagarto(input)
 	input = applyAccentReplacementLogicToPejelagarto(input)
 	input = applyCaseReplacementLogic(input)
-	input = addEmojiDatetimeEncoding(input)
+	input = addEmojiDatetimeEncoding(input, timestamp)
 	return input
 }
 
