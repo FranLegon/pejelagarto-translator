@@ -11,9 +11,8 @@
 # Output of the go coverage tool
 *.out
 
-# Build directory
-bin/
-bin/runWithNgrok.ps1
+# Build directory - keep scripts but not binaries
+bin/*.exe
 
 # Go workspace file
 go.work
@@ -29,3 +28,29 @@ go.work.sum
 # OS specific files
 .DS_Store
 Thumbs.db
+
+# TTS Requirements - Large files that can be regenerated with get-requirements.ps1
+# All these files are downloaded automatically and embedded in the final executable
+tts/requirements/*.zip
+tts/requirements/*.tar.gz
+tts/requirements/*.ort
+tts/requirements/temp_extract/
+
+# Piper TTS binary and dependencies
+tts/requirements/piper
+tts/requirements/piper.exe
+tts/requirements/espeak-ng.dll
+tts/requirements/onnxruntime.dll
+tts/requirements/onnxruntime_providers_shared.dll
+tts/requirements/piper_phonemize.dll
+tts/requirements/libtashkeel_model.ort
+
+# espeak-ng phoneme data (~2MB)
+tts/requirements/espeak-ng-data/
+
+# Language models (~63MB each, 252MB total for 4 languages)
+tts/requirements/piper/
+tts/requirements/piper/languages/
+
+# Coverage output
+coverage

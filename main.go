@@ -1,16 +1,24 @@
 // Pejelagarto Translator
+// IMPORTANT: Before building, run: .\get-requirements.ps1
+// This downloads all TTS dependencies which will be embedded into the binary
+//
 // Build command: go build -o pejelagarto-translator.exe main.go
 // Run command (local): .\pejelagarto-translator.exe
 // Run command (ngrok with random domain): .\pejelagarto-translator.exe -ngrok_token YOUR_TOKEN_HERE
 // Run command (ngrok with persistent domain): .\pejelagarto-translator.exe -ngrok_token YOUR_TOKEN_HERE -ngrok_domain your-domain.ngrok-free.app
+//
+// Note: All TTS dependencies (Piper binary, voice models, espeak-ng-data) are embedded in the executable.
+// They will be extracted to a temp directory at runtime (e.g., C:\Windows\Temp\pejelagarto-translator or /tmp/pejelagarto-translator)
 
 package main
 
 import (
 	"context"
+	"embed"
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"math/big"
 	"math/rand"
@@ -29,6 +37,103 @@ import (
 	"golang.ngrok.com/ngrok"
 	"golang.ngrok.com/ngrok/config"
 )
+
+//go:embed tts/requirements/*
+var embeddedRequirements embed.FS
+
+// tempRequirementsDir stores the path to extracted requirements
+var tempRequirementsDir string
+
+// extractEmbeddedRequirements extracts all embedded TTS requirements to a temp directory
+func extractEmbeddedRequirements() error {
+	// Determine temp directory based on OS
+	var baseDir string
+	if runtime.GOOS == "windows" {
+		baseDir = os.Getenv("TEMP")
+		if baseDir == "" {
+			baseDir = os.Getenv("TMP")
+		}
+		if baseDir == "" {
+			baseDir = "C:\\Windows\\Temp"
+		}
+	} else {
+		baseDir = "/tmp"
+	}
+
+	// Create a unique directory for this application
+	tempRequirementsDir = filepath.Join(baseDir, "pejelagarto-translator", "requirements")
+
+	// Check if already extracted (reuse if exists)
+	piperExe := filepath.Join(tempRequirementsDir, "piper")
+	if runtime.GOOS == "windows" {
+		piperExe += ".exe"
+	}
+	if _, err := os.Stat(piperExe); err == nil {
+		// Already extracted
+		log.Printf("Using cached TTS requirements at: %s", tempRequirementsDir)
+		return nil
+	}
+
+	log.Printf("Extracting embedded TTS requirements to: %s", tempRequirementsDir)
+
+	// Remove old directory if exists
+	if err := os.RemoveAll(tempRequirementsDir); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to clean temp directory: %w", err)
+	}
+
+	// Create temp directory
+	if err := os.MkdirAll(tempRequirementsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create temp directory: %w", err)
+	}
+
+	// Walk through embedded files and extract them
+	err := fs.WalkDir(embeddedRequirements, "tts/requirements", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Calculate relative path (remove "tts/requirements/" prefix)
+		relPath, err := filepath.Rel("tts/requirements", path)
+		if err != nil {
+			return fmt.Errorf("failed to get relative path: %w", err)
+		}
+
+		// Skip the root directory itself
+		if relPath == "." {
+			return nil
+		}
+
+		// Destination path
+		destPath := filepath.Join(tempRequirementsDir, relPath)
+
+		if d.IsDir() {
+			// Create directory
+			if err := os.MkdirAll(destPath, 0755); err != nil {
+				return fmt.Errorf("failed to create directory %s: %w", destPath, err)
+			}
+		} else {
+			// Read embedded file
+			data, err := embeddedRequirements.ReadFile(path)
+			if err != nil {
+				return fmt.Errorf("failed to read embedded file %s: %w", path, err)
+			}
+
+			// Write to destination
+			if err := os.WriteFile(destPath, data, 0755); err != nil {
+				return fmt.Errorf("failed to write file %s: %w", destPath, err)
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to extract embedded files: %w", err)
+	}
+
+	log.Printf("Successfully extracted TTS requirements")
+	return nil
+}
 
 // Translation maps for word/syllable replacements
 // NOTE: All values must have SAME length as keys (rune count)
@@ -93,13 +198,13 @@ var punctuationMap = map[string]string{
 	")":  "⦆",
 }
 
-// Special character encoding maps for datetime using Unicode range U+2300 to U+23FB
+// Special character encoding maps for datetime using Unicode range U+2300 to U+23FB (avoiding emojis)
 var daySpecialCharIndex = []string{
-	"\u2300", "\u2301", "\u2302", "\u2303", "\u2304", "\u2305", "\u2306", "\u2307", "\u2308", "\u2309",
+	"\u2300", "\u2301", "\u24FC", "\u2303", "\u2304", "\u2305", "\u2306", "\u2307", "\u2308", "\u2309",
 	"\u230A", "\u230B", "\u230C", "\u230D", "\u230E", "\u230F", "\u2310", "\u2311", "\u2312", "\u2313",
-	"\u2314", "\u2315", "\u2316", "\u2317", "\u2318", "\u2319", "\u231A", "\u231B", "\u231C", "\u231D",
+	"\u2314", "\u2315", "\u2316", "\u2317", "\u2318", "\u2319", "\u24EA", "\u24EB", "\u231C", "\u231D",
 	"\u231E", "\u231F", "\u2320", "\u2321", "\u2322", "\u2323", "\u2324", "\u2325", "\u2326", "\u2327",
-	"\u2328", "\u2329", "\u232A", "\u232B", "\u232C", "\u232D", "\u232E", "\u232F", "\u2330", "\u2331",
+	"\u24FB", "\u2329", "\u232A", "\u232B", "\u232C", "\u232D", "\u232E", "\u232F", "\u2330", "\u2331",
 	"\u2332", "\u2333", "\u2334", "\u2335", "\u2336", "\u2337", "\u2338", "\u2339", "\u233A", "\u233B",
 }
 
@@ -129,11 +234,11 @@ var hourSpecialCharIndex = []string{
 
 var minuteSpecialCharIndex = []string{
 	"\u23C1", "\u23C2", "\u23C3", "\u23C4", "\u23C5", "\u23C6", "\u23C7", "\u23C8", "\u23C9", "\u23CA",
-	"\u23CB", "\u23CC", "\u23CD", "\u23CE", "\u23CF", "\u23D0", "\u23D1", "\u23D2", "\u23D3", "\u23D4",
+	"\u23CB", "\u23CC", "\u23CD", "\u23CE", "\u24FD", "\u23D0", "\u23D1", "\u23D2", "\u23D3", "\u23D4",
 	"\u23D5", "\u23D6", "\u23D7", "\u23D8", "\u23D9", "\u23DA", "\u23DB", "\u23DC", "\u23DD", "\u23DE",
 	"\u23DF", "\u23E0", "\u23E1", "\u23E2", "\u23E3", "\u23E4", "\u23E5", "\u23E6", "\u23E7", "\u23E8",
-	"\u23E9", "\u23EA", "\u23EB", "\u23EC", "\u23ED", "\u23EE", "\u23EF", "\u23F0", "\u23F1", "\u23F2",
-	"\u23F3", "\u23F4", "\u23F5", "\u23F6", "\u23F7", "\u23F8", "\u23F9", "\u23FA", "\u23FB",
+	"\u24EC", "\u24ED", "\u24EE", "\u24EF", "\u24F0", "\u24F1", "\u24F2", "\u24F3", "\u24F4", "\u24F5",
+	"\u24F6", "\u23F4", "\u23F5", "\u23F6", "\u23F7", "\u24F7", "\u24F8", "\u24F9", "\u24FA",
 }
 
 // validateMaps checks that all mappings have equal rune lengths for keys and values
@@ -1436,13 +1541,33 @@ func addISO8601timestamp(input string, timestamp string) string {
 	return input + "\n" + timestamp
 }
 
-// removeTimestampSpecialCharacters removes all special characters in Unicode range U+2300 to U+23FB from the input
+// removeTimestampSpecialCharacters removes all special characters used for timestamp encoding
 func removeTimestampSpecialCharacters(input string) string {
+	// Build a map of all special characters used for timestamp encoding
+	specialCharsMap := make(map[string]bool)
+	for _, char := range daySpecialCharIndex {
+		specialCharsMap[char] = true
+	}
+	for _, char := range monthSpecialCharIndex {
+		specialCharsMap[char] = true
+	}
+	for _, char := range yearSpecialCharIndex {
+		specialCharsMap[char] = true
+	}
+	for _, char := range hourSpecialCharIndex {
+		specialCharsMap[char] = true
+	}
+	for _, char := range minuteSpecialCharIndex {
+		specialCharsMap[char] = true
+	}
+
 	var result strings.Builder
-	for _, r := range input {
-		// Keep character only if it's NOT in the range U+2300 to U+23FB
-		if r < 0x2300 || r > 0x23FB {
-			result.WriteRune(r)
+	runes := []rune(input)
+	for i := 0; i < len(runes); i++ {
+		char := string(runes[i])
+		// Keep character only if it's NOT in our special characters map
+		if !specialCharsMap[char] {
+			result.WriteString(char)
 		}
 	}
 	return result.String()
@@ -1828,6 +1953,10 @@ const htmlUI = `<!DOCTYPE html>
             color: var(--text-primary);
             font-size: 1.1em;
             transition: color 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 40px;
         }
         
         textarea {
@@ -1838,7 +1967,7 @@ const htmlUI = `<!DOCTYPE html>
             border-radius: 10px;
             font-size: 14px;
             font-family: 'Courier New', monospace;
-            resize: vertical;
+            resize: none;
             transition: all 0.3s ease;
             background-color: var(--textarea-bg);
             color: var(--text-primary);
@@ -1852,6 +1981,7 @@ const htmlUI = `<!DOCTYPE html>
         textarea[readonly] {
             background-color: var(--textarea-readonly-bg);
             cursor: not-allowed;
+            resize: none;
         }
         
         .controls {
@@ -1932,16 +2062,74 @@ const htmlUI = `<!DOCTYPE html>
         }
         
         @media (max-width: 768px) {
-            .translator-box {
-                grid-template-columns: 1fr;
-            }
-            
-            h1 {
-                font-size: 2em;
+            body {
+                padding: 10px;
+                align-items: flex-start;
             }
             
             .container {
-                padding: 20px;
+                padding: 15px;
+                border-radius: 15px;
+                margin-top: 10px;
+            }
+            
+            .translator-box {
+                grid-template-columns: 1fr;
+                gap: 15px;
+                margin-bottom: 15px;
+            }
+            
+            h1 {
+                font-size: 1.5em;
+                margin-bottom: 20px;
+                padding-right: 50px;
+            }
+            
+            .theme-toggle {
+                width: 40px;
+                height: 40px;
+                top: 15px;
+                right: 15px;
+                font-size: 20px;
+            }
+            
+            label {
+                font-size: 0.95em;
+                margin-bottom: 6px;
+            }
+            
+            textarea {
+                height: 120px;
+                padding: 10px;
+                font-size: 13px;
+            }
+            
+            button {
+                padding: 10px 20px;
+                font-size: 14px;
+            }
+            
+            .play-btn {
+                padding: 6px 12px;
+                font-size: 16px;
+            }
+            
+            .invert-btn {
+                padding: 10px 16px;
+                font-size: 18px;
+            }
+            
+            .controls {
+                gap: 10px;
+            }
+            
+            .checkbox-container {
+                font-size: 14px;
+            }
+            
+            input[type="checkbox"] {
+                width: 18px;
+                height: 18px;
             }
         }
         
@@ -2266,19 +2454,22 @@ func handleTranslateFrom(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, result)
 }
 
-// Package-level constants for Piper TTS configuration
-// The binary and model should be placed in the tts/requirements/ directory
-const (
-	piperBinaryPath = "tts/requirements/piper" // Path to the Piper TTS binary (add .exe for Windows)
-)
-
 // Global variable to store the pronunciation language flag
 var pronunciationLanguage string
 var pronunciationLanguageDropdown bool
 
+// getPiperBinaryPath returns the path to the Piper binary
+func getPiperBinaryPath() string {
+	binaryPath := filepath.Join(tempRequirementsDir, "piper")
+	if runtime.GOOS == "windows" {
+		binaryPath += ".exe"
+	}
+	return binaryPath
+}
+
 // getModelPath returns the language-specific model path
 func getModelPath(language string) string {
-	return fmt.Sprintf("tts/requirements/piper/languages/%s/model.onnx", language)
+	return filepath.Join(tempRequirementsDir, "piper", "languages", language, "model.onnx")
 }
 
 // preprocessTextForTTS prepares text for TTS by:
@@ -2292,31 +2483,36 @@ func preprocessTextForTTS(input string, pronunciationLanguage string) string {
 	case "portuguese":
 		vowels = "aeiouáéíóúâêôãõàü"
 		consonants = "bcdfghjklmnpqrstvwxyzç"
-		allowed = vowels + consonants + "AEIOUÁÉÍÓÚÂÊÔÃÕÀÜBCDFGHJKLMNPQRSTVWXYZÇ" + " .,!?;:'\"-()[]"
+		allowed = vowels + consonants + "AEIOUÁÉÍÓÚÂÊÔÃÕÀÜBCDFGHJKLMNPQRSTVWXYZÇ" + "0123456789" + " .,!?;:'\"-()[]"
 	case "spanish":
 		vowels = "aeiouáéíóúü"
 		consonants = "bcdfghjklmnñpqrstvwxyz"
-		allowed = vowels + consonants + "AEIOUÁÉÍÓÚÜBCDFGHJKLMNÑPQRSTVWXYZ" + " .,!?;¡¿:'\"-()[]"
+		allowed = vowels + consonants + "AEIOUÁÉÍÓÚÜBCDFGHJKLMNÑPQRSTVWXYZ" + "0123456789" + " .,!?;¡¿:'\"-()[]"
 	case "english":
 		vowels = "aeiou"
 		consonants = "bcdfghjklmnpqrstvwxyz"
-		allowed = vowels + consonants + "AEIOUБCDFGHJKLMNPQRSTVWXYZ" + " .,!?;:'\"-()[]"
+		allowed = vowels + consonants + "AEIOUБCDFGHJKLMNPQRSTVWXYZ" + "0123456789" + " .,!?;:'\"-()[]"
 	case "russian":
 		vowels = "аеёиоуыэюяaeiou"
 		consonants = "бвгджзйклмнпрстфхцчшщbcdfghjklmnpqrstvwxyz"
-		allowed = vowels + consonants + "АЕЁИОУЫЭЮЯБВГДЖЗЙКЛМНПРСТФХЦЧШЩAEIOUBCDFGHJKLMNPQRSTVWXYZ" + " .,!?;:'\"-()[]ъьЪЬ"
+		allowed = vowels + consonants + "АЕЁИОУЫЭЮЯБВГДЖЗЙКЛМНПРСТФХЦЧШЩAEIOUBCDFGHJKLMNPQRSTVWXYZ" + "0123456789" + " .,!?;:'\"-()[]ъьЪЬ"
 	default:
 		// Fallback to Portuguese
 		vowels = "aeiouáéíóúâêôãõàü"
 		consonants = "bcdfghjklmnpqrstvwxyzç"
-		allowed = vowels + consonants + "AEIOUÁÉÍÓÚÂÊÔÃÕÀÜBCDFGHJKLMNPQRSTVWXYZÇ" + " .,!?;:'\"-()[]"
+		allowed = vowels + consonants + "AEIOUÁÉÍÓÚÂÊÔÃÕÀÜBCDFGHJKLMNPQRSTVWXYZÇ" + "0123456789" + " .,!?;:'\"-()[]"
 	}
 
-	// Step 1: Remove non-allowed characters
+	// Step 1: Convert to lowercase and remove non-allowed characters
 	var cleaned strings.Builder
 	for _, r := range input {
 		if strings.ContainsRune(allowed, r) {
-			cleaned.WriteRune(r)
+			// Convert letters to lowercase, keep numbers and punctuation as-is
+			if unicode.IsLetter(r) {
+				cleaned.WriteRune(unicode.ToLower(r))
+			} else {
+				cleaned.WriteRune(r)
+			}
 		}
 	}
 	result := cleaned.String()
@@ -2379,11 +2575,8 @@ func textToSpeech(input string, pronunciationLanguage string) (outputPath string
 	// Get language-specific model path
 	modelPath := getModelPath(pronunciationLanguage)
 
-	// Determine the actual binary path based on OS
-	binaryPath := piperBinaryPath
-	if runtime.GOOS == "windows" {
-		binaryPath = piperBinaryPath + ".exe"
-	}
+	// Get the Piper binary path
+	binaryPath := getPiperBinaryPath()
 
 	// Check if the Piper binary exists
 	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
@@ -2420,10 +2613,7 @@ func textToSpeech(input string, pronunciationLanguage string) (outputPath string
 	}
 
 	// Get absolute path for the requirements directory
-	absRequirementsDir, err := filepath.Abs("tts/requirements")
-	if err != nil {
-		return "", fmt.Errorf("failed to get absolute path for requirements directory: %w", err)
-	}
+	absRequirementsDir := tempRequirementsDir
 
 	// Build the command to execute Piper
 	// Use absolute path to binary and run from its directory to find DLLs/espeak-ng-data
@@ -2536,6 +2726,12 @@ func main() {
 		*ngrokDomain = "https://" + *ngrokDomain
 	}
 	flag.Parse()
+
+	// Extract embedded TTS requirements to temp directory
+	log.Println("Initializing TTS requirements...")
+	if err := extractEmbeddedRequirements(); err != nil {
+		log.Fatalf("Failed to extract TTS requirements: %v", err)
+	}
 
 	// Validate and set pronunciation language
 	validLanguages := map[string]bool{"portuguese": true, "spanish": true, "english": true, "russian": true}

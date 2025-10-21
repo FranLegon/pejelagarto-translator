@@ -1,6 +1,6 @@
 # Pejelagarto Translator
 
-A complete bidirectional translator between Human and Pejelagarto, a fictional language with complex transformation rules. Includes a web-based UI with light/dark theme support and ngrok integration for remote access.
+A complete bidirectional translator between Human and Pejelagarto, a fictional language with complex transformation rules. Includes a web-based UI with text-to-speech support, light/dark theme, and ngrok integration for remote access.
 
 ## About
 
@@ -44,36 +44,56 @@ The project demonstrates advanced string manipulation, bijective mappings, and c
 ## Requirements
 
 - **Go**: Version 1.24.2 or higher
-- **Dependencies**: 
-  - `golang.org/x/text` (automatically installed via `go mod`)
-  - `golang.ngrok.com/ngrok` for remote access (optional)
+- **PowerShell**: For running build scripts (Windows)
+- **Dependencies**: All automatically embedded in the executable
+  - Piper TTS engine with 4 language models (Portuguese, Spanish, English, Russian)
+  - espeak-ng phoneme data
+  - ngrok library for remote access (optional)
 - **Supported OS**: Windows, macOS, Linux
 - **Browser**: Any modern web browser for the UI
-- **TTS Models** (optional): Download from Hugging Face for Text-to-Speech functionality
-  - See `tts/requirements/piper/languages/README.md` for download instructions
 
-## Installation & Usage
+## Quick Start
 
-### Build and Run
+### 1. Build the Application
 
-```bash
-# Build the executable
-go build -o pejelagarto-translator.exe main.go
-
-# Run the web server (local only)
-.\pejelagarto-translator.exe
-
-# Run with ngrok (random domain)
-.\pejelagarto-translator.exe -ngrok_token YOUR_TOKEN_HERE
-
-# Run with ngrok (persistent domain)
-.\pejelagarto-translator.exe -ngrok_domain your-domain.ngrok-free.app -ngrok_token YOUR_TOKEN_HERE
-
-# Or run directly
-go run main.go
+**Automated Build (Recommended):**
+```powershell
+.\build.ps1
 ```
 
-The server will start on `http://localhost:8080` and automatically open in your default browser. With ngrok enabled, you'll also get a public URL for remote access.
+This script will:
+- Download all TTS requirements (~260MB) if needed
+- Build the executable with all dependencies embedded (~312MB final size)
+- Display build status and file size
+
+**Note**: First build takes several minutes to download TTS models.
+
+**Manual Build:**
+```powershell
+.\get-requirements.ps1    # Download TTS dependencies
+go build -o pejelagarto-translator.exe main.go
+```
+
+### 2. Run the Application
+
+```bash
+# Local server only
+.\pejelagarto-translator.exe
+
+# With specific TTS language
+.\pejelagarto-translator.exe -pronunciation_language spanish
+
+# With ngrok for remote access
+.\pejelagarto-translator.exe -ngrok_token YOUR_TOKEN -ngrok_domain your-domain.ngrok-free.app
+```
+
+The server starts on `http://localhost:8080` and automatically opens your browser.
+
+**On First Run:**
+- Embedded dependencies extract to temp directory (2-3 seconds)
+  - Windows: `C:\Windows\Temp\pejelagarto-translator\`
+  - Linux/macOS: `/tmp/pejelagarto-translator/`
+- Subsequent runs use cached files and start instantly
 
 ### Web UI
 
@@ -106,27 +126,24 @@ The interface provides:
 
 ### Text-to-Speech Usage
 
+The application includes multi-language TTS with automatic text preprocessing:
+
+**Supported Languages:** Portuguese (default), Spanish, English, Russian
+
+**Command-line:**
 ```bash
-# Download TTS models (first time only)
-cd tts\requirements\piper\languages
-.\download_models.ps1
+.\pejelagarto-translator.exe -pronunciation_language spanish
+```
 
-# Run with default language (Portuguese)
-.\pejelagarto-translator.exe
-
-# Run with Spanish TTS
-.\pejelagarto-translator.exe -pronunciation_language=spanish
-
-# Use TTS API with different languages
+**HTTP API:**
+```bash
 curl -X POST "http://localhost:8080/tts?lang=portuguese" -d "Olá mundo" -o audio.wav
 curl -X POST "http://localhost:8080/tts?lang=spanish" -d "Hola mundo" -o audio.wav
 curl -X POST "http://localhost:8080/tts?lang=english" -d "Hello world" -o audio.wav
 curl -X POST "http://localhost:8080/tts?lang=russian" -d "Привет мир" -o audio.wav
 ```
 
-For detailed TTS documentation, see:
-- `tts/requirements/piper/languages/README.md` - Model download instructions
-- `tts/requirements/piper/languages/USAGE.md` - Complete usage guide
+For detailed TTS documentation, see `tts/README.md`
 
 ## Translation Pipeline
 
@@ -523,11 +540,11 @@ All transformations verified for reversibility with random inputs:
 git clone https://github.com/FranLegon/pejelagarto-translator.git
 cd pejelagarto-translator
 
-# Install dependencies
-go mod download
+# Download TTS dependencies
+.\get-requirements.ps1
 
 # Build the project
-go build -o bin/PejelagartoTranslator.exe main.go
+.\build.ps1
 
 # Run tests
 go test -v
@@ -566,16 +583,24 @@ Always ensure your changes maintain 100% reversibility.
 
 ```
 pejelagarto-translator/
-├── main.go           # Core translator + web server (~1800 lines)
-├── main_test.go      # Comprehensive test suite with fuzz testing
-├── README.md         # This file
-├── go.mod            # Go module definition
-├── bin/              # Compiled executables
-└── testdata/         # Fuzz test corpus
+├── main.go              # Core translator + web server (~2900 lines)
+├── main_test.go         # Comprehensive test suite with fuzz testing
+├── README.md            # Main documentation
+├── go.mod               # Go module definition
+├── build.ps1            # Automated build script
+├── get-requirements.ps1 # TTS dependency downloader
+├── bin/                 # Scripts and utilities
+│   └── runWithNgrok.ps1
+├── tts/                 # Text-to-speech module
+│   ├── README.md        # TTS documentation
+│   ├── tts.go           # TTS implementation
+│   ├── tts_test.go      # TTS tests
+│   └── requirements/    # Embedded TTS dependencies (~260MB)
+│       ├── piper.exe / piper
+│       ├── espeak-ng-data/
+│       └── piper/languages/  # 4 language models
+└── testdata/            # Fuzz test corpus
     └── fuzz/
-        ├── FuzzMapReplacements/
-        ├── FuzzNumberConversion/
-        └── FuzzReversibility/
 ```
 
 ### Unicode Markers (Private Use Area)
@@ -641,17 +666,28 @@ Contributions are welcome! To contribute:
 - Keep functions focused and testable
 - Follow existing code style and patterns
 
+## Distribution
+
+The built executable is **completely standalone and portable**:
+- ✅ No installation required
+- ✅ No external dependencies
+- ✅ All 4 TTS language models included
+- ✅ ~312MB single file
+- ✅ Copy to any machine and run
+- ✅ No internet required after building
+
+Just share the `pejelagarto-translator.exe` file!
+
 ## Future Enhancements
 
 Potential areas for expansion:
 
-- CLI interface for command-line translation
-- Batch file processing
-- Additional transformation rules (e.g., grammar-based patterns)
+- Additional TTS language models
 - Translation history and caching
-- Support for additional character sets
+- Batch file processing
+- Additional transformation rules
 - Performance optimizations for very large texts
-- Export/import translation dictionaries
+- CLI interface for command-line translation
 
 ## License
 
