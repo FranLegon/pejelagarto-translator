@@ -1976,7 +1976,7 @@ const htmlUI = `<!DOCTYPE html>
             </div>
             
             <div class="text-area-container">
-                <label id="output-label">Pejelagarto: <button class="play-btn" id="play-output" onclick="playAudio('output')">🔊 Play</button></label>
+                <label id="output-label">Pejelagarto: <button class="play-btn" id="play-output" onclick="playAudio('output')">🔊 Play</button>{{DROPDOWN_PLACEHOLDER}}</label>
                 <textarea id="output-text" readonly placeholder="Translation will appear here..."></textarea>
             </div>
         </div>
@@ -2048,15 +2048,20 @@ const htmlUI = `<!DOCTYPE html>
             
             // Swap labels and ensure Play button stays with Pejelagarto
             isInverted = !isInverted;
+            
+            // Get dropdown HTML if it exists
+            const dropdownHTML = document.getElementById('tts-language') ? 
+                ' <select id="tts-language" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-size: 14px;"><option value="portuguese">Portuguese</option><option value="spanish">Spanish</option><option value="english">English</option><option value="russian">Russian</option></select>' : '';
+            
             if (isInverted) {
                 // Input is now Pejelagarto, output is Human
-                inputLabel.innerHTML = 'Pejelagarto: <button class="play-btn" id="play-input" onclick="playAudio(\'input\')">🔊 Play</button>';
+                inputLabel.innerHTML = 'Pejelagarto: <button class="play-btn" id="play-input" onclick="playAudio(\'input\')">🔊 Play</button>' + dropdownHTML;
                 outputLabel.textContent = 'Human:';
                 translateBtn.textContent = 'Translate from Pejelagarto';
             } else {
                 // Input is Human, output is Pejelagarto
                 inputLabel.textContent = 'Human:';
-                outputLabel.innerHTML = 'Pejelagarto: <button class="play-btn" id="play-output" onclick="playAudio(\'output\')">🔊 Play</button>';
+                outputLabel.innerHTML = 'Pejelagarto: <button class="play-btn" id="play-output" onclick="playAudio(\'output\')">🔊 Play</button>' + dropdownHTML;
                 translateBtn.textContent = 'Translate to Pejelagarto';
             }
         }
@@ -2139,17 +2144,25 @@ const htmlUI = `<!DOCTYPE html>
             const originalText = button.textContent;
             button.textContent = '⏳ Loading...';
             
+            // Get selected language from dropdown if available
+            const languageDropdown = document.getElementById('tts-language');
+            const selectedLanguage = languageDropdown ? languageDropdown.value : '';
+            
+            // Build URL with language parameter
+            const url = selectedLanguage ? '/tts?lang=' + selectedLanguage : '/tts';
+            
             // Send request to TTS endpoint
-            fetch('/tts', {
+            fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'text/plain'
                 },
                 body: textToSpeak
             })
-            .then(response => {
+            .then(async response => {
                 if (!response.ok) {
-                    throw new Error('TTS request failed: ' + response.statusText);
+                    const errorText = await response.text();
+                    throw new Error(errorText || 'TTS request failed: ' + response.statusText);
                 }
                 return response.blob();
             })
@@ -2178,7 +2191,14 @@ const htmlUI = `<!DOCTYPE html>
                 console.error('TTS error:', error);
                 button.disabled = false;
                 button.textContent = originalText;
-                alert('Text-to-speech error: ' + error.message + '\n\nMake sure Piper TTS is installed in tts/requirements/');
+                
+                let errorMsg = error.message;
+                if (errorMsg.includes('voice model not found')) {
+                    const lang = selectedLanguage || 'portuguese';
+                    errorMsg = 'Language model not installed for: ' + lang + '\\n\\nTo install the model, run:\\ncd tts/requirements/piper/languages\\n.\\\\download_models.ps1\\n\\nOr download manually from:\\ntts/requirements/piper/languages/README.md';
+                }
+                
+                alert('Text-to-speech error:\\n\\n' + errorMsg);
             });
         }
     </script>
@@ -2188,7 +2208,22 @@ const htmlUI = `<!DOCTYPE html>
 // HTTP handler for the main UI
 func handleIndex(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprint(w, htmlUI)
+
+	// Conditionally inject the language dropdown
+	html := htmlUI
+	if pronunciationLanguageDropdown {
+		dropdownHTML := ` <select id="tts-language" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-size: 14px;">
+                    <option value="portuguese">Portuguese</option>
+                    <option value="spanish">Spanish</option>
+                    <option value="english">English</option>
+                    <option value="russian">Russian</option>
+                </select>`
+		html = strings.Replace(html, "{{DROPDOWN_PLACEHOLDER}}", dropdownHTML, 1)
+	} else {
+		html = strings.Replace(html, "{{DROPDOWN_PLACEHOLDER}}", "", 1)
+	}
+
+	fmt.Fprint(w, html)
 }
 
 // HTTP handler for translating to Pejelagarto
@@ -2239,6 +2274,7 @@ const (
 
 // Global variable to store the pronunciation language flag
 var pronunciationLanguage string
+var pronunciationLanguageDropdown bool
 
 // getModelPath returns the language-specific model path
 func getModelPath(language string) string {
@@ -2266,9 +2302,9 @@ func preprocessTextForTTS(input string, pronunciationLanguage string) string {
 		consonants = "bcdfghjklmnpqrstvwxyz"
 		allowed = vowels + consonants + "AEIOUБCDFGHJKLMNPQRSTVWXYZ" + " .,!?;:'\"-()[]"
 	case "russian":
-		vowels = "аеёиоуыэюя"
-		consonants = "бвгджзйклмнпрстфхцчшщ"
-		allowed = vowels + consonants + "АЕЁИОУЫЭЮЯБВГДЖЗЙКЛМНПРСТФХЦЧШЩ" + " .,!?;:'\"-()[]ъьЪЬ"
+		vowels = "аеёиоуыэюяaeiou"
+		consonants = "бвгджзйклмнпрстфхцчшщbcdfghjklmnpqrstvwxyz"
+		allowed = vowels + consonants + "АЕЁИОУЫЭЮЯБВГДЖЗЙКЛМНПРСТФХЦЧШЩAEIOUBCDFGHJKLMNPQRSTVWXYZ" + " .,!?;:'\"-()[]ъьЪЬ"
 	default:
 		// Fallback to Portuguese
 		vowels = "aeiouáéíóúâêôãõàü"
@@ -2495,6 +2531,7 @@ func main() {
 	ngrokToken := flag.String("ngrok_token", "", "Optional ngrok auth token to expose server publicly")
 	ngrokDomain := flag.String("ngrok_domain", "", "Optional ngrok persistent domain (e.g., your-domain.ngrok-free.app)")
 	pronunciationLangFlag := flag.String("pronunciation_language", "portuguese", "TTS pronunciation language (portuguese, spanish, english, russian)")
+	pronunciationLangDropdownFlag := flag.Bool("pronunciation_language_dropdown", true, "Show language dropdown in UI for TTS")
 	if !strings.HasPrefix(*ngrokDomain, "http://") && !strings.HasPrefix(*ngrokDomain, "https://") {
 		*ngrokDomain = "https://" + *ngrokDomain
 	}
@@ -2506,7 +2543,9 @@ func main() {
 		log.Fatalf("Invalid pronunciation language '%s'. Allowed: portuguese, spanish, english, russian", *pronunciationLangFlag)
 	}
 	pronunciationLanguage = *pronunciationLangFlag
+	pronunciationLanguageDropdown = *pronunciationLangDropdownFlag
 	log.Printf("TTS pronunciation language set to: %s", pronunciationLanguage)
+	log.Printf("TTS language dropdown enabled: %v", pronunciationLanguageDropdown)
 
 	// Set up HTTP routes
 	http.HandleFunc("/", handleIndex)
