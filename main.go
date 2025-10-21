@@ -2321,7 +2321,7 @@ const htmlUI = `<!DOCTYPE html>
             const selectedLang = oldDropdown ? oldDropdown.value : 'portuguese';
             
             const dropdownHTML = document.getElementById('tts-language') ? 
-                ' <select id="tts-language" onchange="watchOutputChanges()" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-size: 14px;"><option value="portuguese">Portuguese</option><option value="spanish">Spanish</option><option value="english">English</option><option value="russian">Russian</option></select>' : '';
+                ' <select id="tts-language" onchange="watchOutputChanges()" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--textarea-bg); color: var(--text-primary); font-size: 14px;"><option value="portuguese">East</option><option value="spanish">West</option><option value="english">South</option><option value="russian">North</option></select>' : '';
             
             // Always reset both labels to ensure clean state
             if (isInverted) {
@@ -2496,7 +2496,7 @@ const htmlUI = `<!DOCTYPE html>
             const selectedLang = oldDropdown ? oldDropdown.value : 'portuguese';
             
             const dropdownHTML = document.getElementById('tts-language') ? 
-                ' <select id="tts-language" onchange="watchOutputChanges()" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-size: 14px;"><option value="portuguese">Portuguese</option><option value="spanish">Spanish</option><option value="english">English</option><option value="russian">Russian</option></select>' : '';
+                ' <select id="tts-language" onchange="watchOutputChanges()" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--textarea-bg); color: var(--text-primary); font-size: 14px;"><option value="portuguese">East</option><option value="spanish">West</option><option value="english">South</option><option value="russian">North</option></select>' : '';
             
             const label = 'Pejelagarto:';
             const buttonId = source === 'input' ? 'play-input' : 'play-output';
@@ -2524,11 +2524,11 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 	// Conditionally inject the language dropdown
 	html := htmlUI
 	if pronunciationLanguageDropdown {
-		dropdownHTML := ` <select id="tts-language" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-size: 14px;">
-                    <option value="portuguese">Portuguese</option>
-                    <option value="spanish">Spanish</option>
-                    <option value="english">English</option>
-                    <option value="russian">Russian</option>
+		dropdownHTML := ` <select id="tts-language" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--textarea-bg); color: var(--text-primary); font-size: 14px;">
+                    <option value="portuguese">East</option>
+                    <option value="spanish">West</option>
+                    <option value="english">South</option>
+                    <option value="russian">North</option>
                 </select>`
 		html = strings.Replace(html, "{{DROPDOWN_PLACEHOLDER}}", dropdownHTML, 1)
 	} else {
