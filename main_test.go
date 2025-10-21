@@ -186,87 +186,63 @@ func FuzzTranslatePejelagarto(f *testing.F) {
 	})
 }
 
-// TestTextToSpeech tests the text-to-speech functionality
-func TestTextToSpeech(t *testing.T) {
+// FuzzTextToSpeech uses fuzzing to test text-to-speech functionality with random inputs
+func FuzzTextToSpeech(f *testing.F) {
 	// Check if Piper is installed
 	binaryPath := getPiperBinaryPath()
 	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
-		t.Skip("Piper binary not found, skipping TTS test")
+		f.Skip("Piper binary not found, skipping TTS test")
 	}
 	modelPath := getModelPath("english")
 	if _, err := os.Stat(modelPath); os.IsNotExist(err) {
-		t.Skip("Voice model not found, skipping TTS test")
+		f.Skip("Voice model not found, skipping TTS test")
 	}
 
-	tests := []struct {
-		name    string
-		input   string
-		wantErr bool
-	}{
-		{
-			name:    "Simple text",
-			input:   "Hello world",
-			wantErr: false,
-		},
-		{
-			name:    "Empty text",
-			input:   "",
-			wantErr: false,
-		},
-		{
-			name:    "Text with punctuation",
-			input:   "Hello, world! How are you?",
-			wantErr: false,
-		},
-		{
-			name:    "Pejelagarto text",
-			input:   "Ⱨėⱡⱡø₽ 𝔅𝔢₽𝔶𝔢ⱡª₽ℊ𝔩𝕣₮ⱡ₽",
-			wantErr: false,
-		},
-	}
+	// No seed corpus - let fuzzer generate random inputs
+	f.Fuzz(func(t *testing.T, input string) {
+		// Skip invalid UTF-8
+		if !utf8.ValidString(input) {
+			return
+		}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			outputPath, err := textToSpeech(tt.input, "english")
+		outputPath, err := textToSpeech(input, "english")
 
-			if (err != nil) != tt.wantErr {
-				t.Errorf("textToSpeech() error = %v, wantErr %v", err, tt.wantErr)
-				return
+		// TTS should never error for valid UTF-8 input
+		if err != nil {
+			t.Errorf("textToSpeech() unexpected error: %v\nInput: %q", err, input)
+			return
+		}
+
+		// Verify the output file exists
+		if _, err := os.Stat(outputPath); os.IsNotExist(err) {
+			t.Errorf("Output file not created: %s\nInput: %q", outputPath, input)
+		}
+
+		// Verify the output file has content
+		fileInfo, err := os.Stat(outputPath)
+		if err != nil {
+			t.Errorf("Failed to stat output file: %v\nInput: %q", err, input)
+		} else if fileInfo.Size() == 0 {
+			t.Errorf("Output file is empty\nInput: %q", input)
+		}
+
+		// Verify it's a WAV file (check for RIFF header)
+		file, err := os.Open(outputPath)
+		if err != nil {
+			t.Errorf("Failed to open output file: %v\nInput: %q", err, input)
+		} else {
+			defer file.Close()
+			header := make([]byte, 4)
+			if _, err := file.Read(header); err == nil {
+				if string(header) != "RIFF" {
+					t.Errorf("Output file is not a valid WAV file (missing RIFF header)\nInput: %q", input)
+				}
 			}
+		}
 
-			if err == nil {
-				// Verify the output file exists
-				if _, err := os.Stat(outputPath); os.IsNotExist(err) {
-					t.Errorf("Output file not created: %s", outputPath)
-				}
-
-				// Verify the output file has content
-				fileInfo, err := os.Stat(outputPath)
-				if err != nil {
-					t.Errorf("Failed to stat output file: %v", err)
-				} else if fileInfo.Size() == 0 {
-					t.Errorf("Output file is empty")
-				}
-
-				// Verify it's a WAV file (check for RIFF header)
-				file, err := os.Open(outputPath)
-				if err != nil {
-					t.Errorf("Failed to open output file: %v", err)
-				} else {
-					defer file.Close()
-					header := make([]byte, 4)
-					if _, err := file.Read(header); err == nil {
-						if string(header) != "RIFF" {
-							t.Errorf("Output file is not a valid WAV file (missing RIFF header)")
-						}
-					}
-				}
-
-				// Clean up
-				os.Remove(outputPath)
-			}
-		})
-	}
+		// Clean up
+		os.Remove(outputPath)
+	})
 }
 
 // TestHandleTextToSpeech tests the HTTP handler for text-to-speech
