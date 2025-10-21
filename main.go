@@ -2236,9 +2236,77 @@ const (
 	modelPath       = "tts/requirements/model.onnx" // Path to the voice model file
 )
 
-// textToSpeech executes the Piper Text-to-Speech binary to convert text to audio.
+// preprocessTextForTTS prepares text for Portuguese TTS by:
+// 1. Removing non-Portuguese characters
+// 2. Limiting consonant clusters to max 2 adjacent consonants
+func preprocessTextForTTS(input string) string {
+	// Define Portuguese vowels and consonants
+	portugueseVowels := "aeiouáéíóúâêôãõàü"
+	portugueseConsonants := "bcdfghjklmnpqrstvwxyzç"
+	portugueseAllowed := portugueseVowels + portugueseConsonants + "AEIOUÁÉÍÓÚÂÊÔÃÕÀÜBCDFGHJKLMNPQRSTVWXYZÇ" + " .,!?;:'\"-()[]"
+
+	// Step 1: Remove non-Portuguese characters
+	var cleaned strings.Builder
+	for _, r := range input {
+		if strings.ContainsRune(portugueseAllowed, r) {
+			cleaned.WriteRune(r)
+		}
+	}
+	result := cleaned.String()
+
+	// Step 2: Limit consonant clusters to max 2 adjacent consonants
+	// If 3 or more consonants found, remove third onwards
+	var final strings.Builder
+	runes := []rune(result)
+
+	for i := 0; i < len(runes); i++ {
+		currentRune := runes[i]
+		currentLower := unicode.ToLower(currentRune)
+
+		// Always write vowels and non-letters
+		if !unicode.IsLetter(currentRune) || strings.ContainsRune(portugueseVowels, currentLower) {
+			final.WriteRune(currentRune)
+			continue
+		}
+
+		// Current is a consonant - check how many consonants precede it
+		consonantCount := 1 // Current consonant
+
+		// Count preceding consecutive consonants
+		for j := i - 1; j >= 0; j-- {
+			prevRune := runes[j]
+			prevLower := unicode.ToLower(prevRune)
+
+			if !unicode.IsLetter(prevRune) {
+				break
+			}
+			if strings.ContainsRune(portugueseVowels, prevLower) {
+				break
+			}
+			consonantCount++
+		}
+
+		// Only write if we have 2 or fewer consecutive consonants
+		if consonantCount <= 2 {
+			final.WriteRune(currentRune)
+		}
+		// If consonantCount > 2, skip this consonant (remove third onwards)
+	}
+
+	finalResult := final.String()
+
+	// If the result is empty or only whitespace, return a space to prevent TTS errors
+	if strings.TrimSpace(finalResult) == "" {
+		return " "
+	}
+
+	return finalResult
+} // textToSpeech executes the Piper Text-to-Speech binary to convert text to audio.
 // It generates a unique temporary WAV file for the output audio.
 func textToSpeech(input string) (outputPath string, err error) {
+	// Preprocess text for better TTS pronunciation
+	input = preprocessTextForTTS(input)
+
 	// Determine the actual binary path based on OS
 	binaryPath := piperBinaryPath
 	if runtime.GOOS == "windows" {
