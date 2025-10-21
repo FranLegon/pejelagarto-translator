@@ -448,13 +448,54 @@ func matchCase(original, replacement string) string {
 	return string(result)
 }
 
+// escapeReservedMarkers escapes all reserved Unicode markers (U+FFF0 through U+FFFF) in the input
+// using a simple encoding scheme to preserve them through translation
+func escapeReservedMarkers(input string) string {
+	// Reserved markers range from U+FFF0 to U+FFFF
+	// We encode them as: U+FFFE followed by the last nibble (0-F)
+	const escapePrefix = "\uFFFE"
+	result := input
+
+	// Escape in reverse order (highest to lowest) to avoid double-escaping
+	for i := 0xFFFF; i >= 0xFFF0; i-- {
+		marker := string(rune(i))
+		nibble := string(rune('0' + (i & 0x0F)))
+		result = strings.ReplaceAll(result, marker, escapePrefix+nibble)
+	}
+
+	return result
+}
+
+// unescapeReservedMarkers reverses the escaping done by escapeReservedMarkers
+func unescapeReservedMarkers(input string) string {
+	const escapePrefix = "\uFFFE"
+	result := input
+
+	// Unescape in forward order (lowest to highest)
+	for i := 0xFFF0; i <= 0xFFFF; i++ {
+		marker := string(rune(i))
+		nibble := string(rune('0' + (i & 0x0F)))
+		result = strings.ReplaceAll(result, escapePrefix+nibble, marker)
+	}
+
+	return result
+}
+
 // applyReplacements applies replacements from the bijective map in the specified order
 func applyReplacements(input string, bijectiveMap map[int32]map[string]string, indices []int32) string {
 	// Use special Unicode characters as markers that won't be in normal text
 	const startMarker = "\uFFF0"
 	const endMarker = "\uFFF1"
+	const escapedStartMarker = "\uFFF3"
+	const escapedEndMarker = "\uFFF4"
+	const escapePrefix = "\uFFF5"
 
-	result := input
+	// Escape any markers (including escaped markers) that appear in the input to preserve them
+	result := strings.ReplaceAll(input, escapePrefix, escapePrefix+escapePrefix)
+	result = strings.ReplaceAll(result, escapedStartMarker, escapePrefix+escapedStartMarker)
+	result = strings.ReplaceAll(result, escapedEndMarker, escapePrefix+escapedEndMarker)
+	result = strings.ReplaceAll(result, startMarker, escapedStartMarker)
+	result = strings.ReplaceAll(result, endMarker, escapedEndMarker)
 
 	for _, index := range indices {
 		replacements := bijectiveMap[index]
@@ -631,9 +672,16 @@ func applyReplacements(input string, bijectiveMap map[int32]map[string]string, i
 		}
 	}
 
-	// Remove all markers
+	// Remove all working markers
 	result = strings.ReplaceAll(result, startMarker, "")
 	result = strings.ReplaceAll(result, endMarker, "")
+
+	// Restore escaped markers to original characters (reverse order of escaping)
+	result = strings.ReplaceAll(result, escapedStartMarker, startMarker)
+	result = strings.ReplaceAll(result, escapedEndMarker, endMarker)
+	result = strings.ReplaceAll(result, escapePrefix+startMarker, escapedStartMarker)
+	result = strings.ReplaceAll(result, escapePrefix+endMarker, escapedEndMarker)
+	result = strings.ReplaceAll(result, escapePrefix+escapePrefix, escapePrefix)
 
 	return result
 }
@@ -647,6 +695,9 @@ func applyMapReplacementsToPejelagarto(input string) string {
 	// Use a special marker for literal quotes in input to avoid ambiguity
 	// with quote prefixes used in Pejelagarto output
 	const quoteMarker = "\uFFF2"
+
+	// Recursively escape all reserved markers (FFF0-FFF6) in the input
+	input = escapeReservedMarkers(input)
 	input = strings.ReplaceAll(input, "'", quoteMarker)
 
 	bijectiveMap := createBijectiveMap()
@@ -655,6 +706,8 @@ func applyMapReplacementsToPejelagarto(input string) string {
 
 	// Restore literal quotes as doubled quotes in the output
 	result = strings.ReplaceAll(result, quoteMarker, "''")
+	// Restore escaped markers
+	result = unescapeReservedMarkers(result)
 	return result
 }
 
@@ -666,6 +719,9 @@ func applyMapReplacementsFromPejelagarto(input string) string {
 	}
 	// Convert doubled quotes (escaped literals) to temporary marker
 	const quoteMarker = "\uFFF2"
+
+	// Recursively escape all reserved markers (FFF0-FFFF) in the input
+	input = escapeReservedMarkers(input)
 	input = strings.ReplaceAll(input, "''", quoteMarker)
 
 	bijectiveMap := createBijectiveMap()
@@ -674,6 +730,8 @@ func applyMapReplacementsFromPejelagarto(input string) string {
 
 	// Restore literal quotes from marker
 	result = strings.ReplaceAll(result, quoteMarker, "'")
+	// Restore escaped markers
+	result = unescapeReservedMarkers(result)
 	return result
 }
 
