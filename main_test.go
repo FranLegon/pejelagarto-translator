@@ -1,6 +1,11 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"unicode"
 	"unicode/utf8"
@@ -179,4 +184,248 @@ func FuzzTranslatePejelagarto(f *testing.F) {
 			t.Errorf("TranslateToPejelagarto->TranslateFromPejelagarto failed\nInput (cleaned):       %q\nPejelagarto: %q\nReversed (cleaned):    %q", inputCleaned, pejelagarto, reversedCleaned)
 		}
 	})
+}
+
+// TestTextToSpeech tests the text-to-speech functionality
+func TestTextToSpeech(t *testing.T) {
+	// Check if Piper is installed
+	binaryPath := piperBinaryPath
+	if _, err := os.Stat(binaryPath + ".exe"); os.IsNotExist(err) {
+		t.Skip("Piper binary not found, skipping TTS test")
+	}
+	if _, err := os.Stat(modelPath); os.IsNotExist(err) {
+		t.Skip("Voice model not found, skipping TTS test")
+	}
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{
+			name:    "Simple text",
+			input:   "Hello world",
+			wantErr: false,
+		},
+		{
+			name:    "Empty text",
+			input:   "",
+			wantErr: false,
+		},
+		{
+			name:    "Text with punctuation",
+			input:   "Hello, world! How are you?",
+			wantErr: false,
+		},
+		{
+			name:    "Pejelagarto text",
+			input:   "Ⱨėⱡⱡø₽ 𝔅𝔢₽𝔶𝔢ⱡª₽ℊ𝔩𝕣₮ⱡ₽",
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			outputPath, err := textToSpeech(tt.input)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("textToSpeech() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if err == nil {
+				// Verify the output file exists
+				if _, err := os.Stat(outputPath); os.IsNotExist(err) {
+					t.Errorf("Output file not created: %s", outputPath)
+				}
+
+				// Verify the output file has content
+				fileInfo, err := os.Stat(outputPath)
+				if err != nil {
+					t.Errorf("Failed to stat output file: %v", err)
+				} else if fileInfo.Size() == 0 {
+					t.Errorf("Output file is empty")
+				}
+
+				// Verify it's a WAV file (check for RIFF header)
+				file, err := os.Open(outputPath)
+				if err != nil {
+					t.Errorf("Failed to open output file: %v", err)
+				} else {
+					defer file.Close()
+					header := make([]byte, 4)
+					if _, err := file.Read(header); err == nil {
+						if string(header) != "RIFF" {
+							t.Errorf("Output file is not a valid WAV file (missing RIFF header)")
+						}
+					}
+				}
+
+				// Clean up
+				os.Remove(outputPath)
+			}
+		})
+	}
+}
+
+// TestHandleTextToSpeech tests the HTTP handler for text-to-speech
+func TestHandleTextToSpeech(t *testing.T) {
+	// Check if Piper is installed
+	binaryPath := piperBinaryPath
+	if _, err := os.Stat(binaryPath + ".exe"); os.IsNotExist(err) {
+		t.Skip("Piper binary not found, skipping TTS handler test")
+	}
+	if _, err := os.Stat(modelPath); os.IsNotExist(err) {
+		t.Skip("Voice model not found, skipping TTS handler test")
+	}
+
+	tests := []struct {
+		name           string
+		method         string
+		body           string
+		expectedStatus int
+		checkResponse  func(*testing.T, *httptest.ResponseRecorder)
+	}{
+		{
+			name:           "Valid POST request",
+			method:         http.MethodPost,
+			body:           "Hello world",
+			expectedStatus: http.StatusOK,
+			checkResponse: func(t *testing.T, rr *httptest.ResponseRecorder) {
+				// Check content type
+				contentType := rr.Header().Get("Content-Type")
+				if contentType != "audio/wav" {
+					t.Errorf("Expected Content-Type audio/wav, got %s", contentType)
+				}
+
+				// Check that we got audio data
+				if rr.Body.Len() == 0 {
+					t.Errorf("Expected audio data in response body, got empty")
+				}
+
+				// Verify it's a WAV file (check for RIFF header)
+				body := rr.Body.Bytes()
+				if len(body) >= 4 && string(body[:4]) != "RIFF" {
+					t.Errorf("Response is not a valid WAV file (missing RIFF header)")
+				}
+			},
+		},
+		{
+			name:           "GET request (should fail)",
+			method:         http.MethodGet,
+			body:           "",
+			expectedStatus: http.StatusMethodNotAllowed,
+			checkResponse:  nil,
+		},
+		{
+			name:           "Empty text",
+			method:         http.MethodPost,
+			body:           " ",
+			expectedStatus: http.StatusOK,
+			checkResponse: func(t *testing.T, rr *httptest.ResponseRecorder) {
+				// With a space, Piper should generate minimal audio
+				if rr.Body.Len() == 0 {
+					t.Errorf("Expected audio data for minimal text")
+				}
+			},
+		},
+		{
+			name:           "Pejelagarto text",
+			method:         http.MethodPost,
+			body:           "Ⱨėⱡⱡø₽ 𝔅𝔢₽𝔶𝔢ⱡª₽ℊ𝔩𝕣₮ⱡ₽",
+			expectedStatus: http.StatusOK,
+			checkResponse: func(t *testing.T, rr *httptest.ResponseRecorder) {
+				if rr.Body.Len() == 0 {
+					t.Errorf("Expected audio data for Pejelagarto text")
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, "/tts", strings.NewReader(tt.body))
+			rr := httptest.NewRecorder()
+
+			handleTextToSpeech(rr, req)
+
+			if rr.Code != tt.expectedStatus {
+				t.Errorf("Expected status %d, got %d", tt.expectedStatus, rr.Code)
+				if rr.Code == http.StatusInternalServerError {
+					t.Errorf("Error response: %s", rr.Body.String())
+				}
+			}
+
+			if tt.checkResponse != nil {
+				tt.checkResponse(t, rr)
+			}
+		})
+	}
+}
+
+// TestTextToSpeechWithCleanup tests that temporary files are cleaned up
+func TestTextToSpeechWithCleanup(t *testing.T) {
+	// Check if Piper is installed
+	binaryPath := piperBinaryPath
+	if _, err := os.Stat(binaryPath + ".exe"); os.IsNotExist(err) {
+		t.Skip("Piper binary not found, skipping TTS cleanup test")
+	}
+	if _, err := os.Stat(modelPath); os.IsNotExist(err) {
+		t.Skip("Voice model not found, skipping TTS cleanup test")
+	}
+
+	// Get temp directory
+	tempDir := os.TempDir()
+
+	// Count existing piper-tts files
+	beforeFiles, _ := filepath.Glob(filepath.Join(tempDir, "piper-tts-*.wav"))
+	beforeCount := len(beforeFiles)
+
+	// Generate audio
+	outputPath, err := textToSpeech("Test cleanup")
+	if err != nil {
+		t.Fatalf("textToSpeech failed: %v", err)
+	}
+
+	// Verify file was created
+	if _, err := os.Stat(outputPath); os.IsNotExist(err) {
+		t.Fatalf("Output file not created: %s", outputPath)
+	}
+
+	// Delete the file (simulating cleanup)
+	if err := os.Remove(outputPath); err != nil {
+		t.Errorf("Failed to clean up temp file: %v", err)
+	}
+
+	// Count files again
+	afterFiles, _ := filepath.Glob(filepath.Join(tempDir, "piper-tts-*.wav"))
+	afterCount := len(afterFiles)
+
+	// Should have same count as before (or fewer if we successfully cleaned up)
+	if afterCount > beforeCount {
+		t.Errorf("Temp file not cleaned up properly. Before: %d, After: %d", beforeCount, afterCount)
+	}
+}
+
+// BenchmarkTextToSpeech benchmarks the TTS performance
+func BenchmarkTextToSpeech(b *testing.B) {
+	// Check if Piper is installed
+	binaryPath := piperBinaryPath
+	if _, err := os.Stat(binaryPath + ".exe"); os.IsNotExist(err) {
+		b.Skip("Piper binary not found, skipping TTS benchmark")
+	}
+	if _, err := os.Stat(modelPath); os.IsNotExist(err) {
+		b.Skip("Voice model not found, skipping TTS benchmark")
+	}
+
+	testText := "Hello world, this is a benchmark test."
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		outputPath, err := textToSpeech(testText)
+		if err != nil {
+			b.Fatalf("textToSpeech failed: %v", err)
+		}
+		os.Remove(outputPath)
+	}
 }

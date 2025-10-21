@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"sort"
@@ -2231,8 +2232,8 @@ func handleTranslateFrom(w http.ResponseWriter, r *http.Request) {
 // Package-level constants for Piper TTS configuration
 // The binary and model should be placed in the tts/requirements/ directory
 const (
-	piperBinaryPath = "tts/requirements/piper"       // Path to the Piper TTS binary (add .exe for Windows)
-	modelPath       = "tts/requirements/model.onnx"  // Path to the voice model file
+	piperBinaryPath = "tts/requirements/piper"      // Path to the Piper TTS binary (add .exe for Windows)
+	modelPath       = "tts/requirements/model.onnx" // Path to the voice model file
 )
 
 // textToSpeech executes the Piper Text-to-Speech binary to convert text to audio.
@@ -2262,13 +2263,43 @@ func textToSpeech(input string) (outputPath string, err error) {
 	outputPath = tempFile.Name()
 	tempFile.Close()
 
+	// Get absolute paths for the output file and model
+	absOutputPath, err := filepath.Abs(outputPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path for output: %w", err)
+	}
+	absModelPath, err := filepath.Abs(modelPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path for model: %w", err)
+	}
+
+	// Get absolute path for the binary (don't rely on PATH environment variable)
+	absBinaryPath, err := filepath.Abs(binaryPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path for binary: %w", err)
+	}
+
+	// Get absolute path for the requirements directory
+	absRequirementsDir, err := filepath.Abs("tts/requirements")
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path for requirements directory: %w", err)
+	}
+
 	// Build the command to execute Piper
+	// Use absolute path to binary and run from its directory to find DLLs/espeak-ng-data
+	// Note: We use stdin instead of --text argument for better handling of special characters
 	cmd := exec.Command(
-		binaryPath,
-		"-m", modelPath,
-		"--output_file", outputPath,
-		"--text", input,
+		absBinaryPath,
+		"-m", absModelPath,
+		"--output_file", absOutputPath,
 	)
+
+	// Set working directory to the Piper requirements directory (absolute path)
+	// This is needed so Piper can find DLLs and espeak-ng-data folder
+	cmd.Dir = absRequirementsDir
+
+	// Send text via stdin (better for special characters and Unicode)
+	cmd.Stdin = strings.NewReader(input)
 
 	// Capture both stdout and stderr for debugging
 	output, err := cmd.CombinedOutput()
@@ -2284,7 +2315,7 @@ func textToSpeech(input string) (outputPath string, err error) {
 	}
 	if fileInfo.Size() == 0 {
 		os.Remove(outputPath)
-		return "", fmt.Errorf("output file is empty")
+		return "", fmt.Errorf("output file is empty (piper output: %s)", string(output))
 	}
 
 	return outputPath, nil

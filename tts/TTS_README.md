@@ -15,126 +15,240 @@ The TTS functionality provides a simple Go function to convert text to speech us
 
 ## Installation Requirements
 
-### Quick Setup
+### Quick Setup Summary
 
-The easiest way to set up Piper TTS is to place the binary and model files in the `tts/requirements/` directory:
+The Piper TTS requires the following files in the `tts/requirements/` directory:
 
+**Windows:**
 ```
 pejelagarto-translator/
 └── tts/
     └── requirements/
-        ├── piper           (Linux/macOS binary)
-        ├── piper.exe       (Windows binary)
-        └── model.onnx      (Voice model file)
+        ├── piper.exe                    (Main executable)
+        ├── model.onnx                   (Voice model file)
+        ├── model.onnx.json             (Model configuration)
+        ├── espeak-ng.dll               (Phoneme library)
+        ├── onnxruntime.dll             (ONNX runtime)
+        ├── piper_phonemize.dll         (Phonemization library)
+        ├── onnxruntime_providers_shared.dll
+        ├── libtashkeel_model.ort
+        └── espeak-ng-data/             (Phoneme data directory)
 ```
 
-### 1. Install Piper TTS
+**Linux/macOS:**
+```
+pejelagarto-translator/
+└── tts/
+    └── requirements/
+        ├── piper                       (Main executable)
+        ├── model.onnx                  (Voice model file)
+        ├── model.onnx.json            (Model configuration)
+        └── espeak-ng-data/            (Phoneme data directory)
+```
 
-Follow the instructions at [Piper GitHub](https://github.com/rhasspy/piper) to install the Piper binary for your platform:
+---
+
+## Complete Installation Steps
+
+### Step 1: Download and Extract Piper TTS
+
+**Windows (PowerShell):**
+```powershell
+# Navigate to project root
+cd path\to\pejelagarto-translator
+
+# Download Piper
+$url = "https://github.com/rhasspy/piper/releases/latest/download/piper_windows_amd64.zip"
+Invoke-WebRequest -Uri $url -OutFile "tts\requirements\piper_windows_amd64.zip"
+
+# Extract to requirements directory
+Expand-Archive -Path "tts\requirements\piper_windows_amd64.zip" -DestinationPath "tts\requirements" -Force
+
+# Copy all DLLs and dependencies from extracted folder to requirements root
+Copy-Item "tts\requirements\piper\*.dll" -Destination "tts\requirements\" -Force
+Copy-Item "tts\requirements\piper\*.ort" -Destination "tts\requirements\" -Force
+Copy-Item "tts\requirements\piper\espeak-ng-data" -Destination "tts\requirements\" -Recurse -Force
+
+# Copy the executable
+Copy-Item "tts\requirements\piper\piper.exe" -Destination "tts\requirements\" -Force
+```
 
 **Linux:**
 ```bash
-# Download pre-built binary
+# Navigate to project root
+cd /path/to/pejelagarto-translator
+
+# Download Piper
 wget https://github.com/rhasspy/piper/releases/latest/download/piper_linux_x86_64.tar.gz
+
+# Extract
 tar xzf piper_linux_x86_64.tar.gz
 
-# Move to requirements directory
+# Move files to requirements directory
 mkdir -p tts/requirements
 mv piper/piper tts/requirements/
+mv piper/espeak-ng-data tts/requirements/
 chmod +x tts/requirements/piper
+
+# Clean up
+rm -rf piper piper_linux_x86_64.tar.gz
 ```
 
 **macOS:**
 ```bash
-# Download manually (Homebrew version may not work with relative paths)
+# Navigate to project root
+cd /path/to/pejelagarto-translator
+
+# Download Piper
 wget https://github.com/rhasspy/piper/releases/latest/download/piper_macos_x86_64.tar.gz
+
+# Extract
 tar xzf piper_macos_x86_64.tar.gz
 
-# Move to requirements directory
+# Move files to requirements directory
 mkdir -p tts/requirements
 mv piper/piper tts/requirements/
+mv piper/espeak-ng-data tts/requirements/
 chmod +x tts/requirements/piper
+
+# Clean up
+rm -rf piper piper_macos_x86_64.tar.gz
 ```
 
-**Windows:**
-```powershell
-# Download from releases page or use PowerShell
-$url = "https://github.com/rhasspy/piper/releases/latest/download/piper_windows_amd64.zip"
-Invoke-WebRequest -Uri $url -OutFile piper_windows_amd64.zip
+---
 
-# Extract the archive
-Expand-Archive -Path piper_windows_amd64.zip -DestinationPath piper
-
-# Move to requirements directory
-New-Item -ItemType Directory -Force -Path tts\requirements
-Move-Item -Path piper\piper.exe -Destination tts\requirements\
-```
-
-Alternatively on Windows, you can:
-1. Download the Windows release from [Piper releases page](https://github.com/rhasspy/piper/releases)
-2. Extract the `.zip` file
-3. Copy `piper.exe` to `tts\requirements\` directory
-4. Ensure the file is named `piper.exe` (the application automatically adds `.exe` on Windows)
-
-### 2. Download a Voice Model
-
-Piper requires a voice model file (.onnx) to generate speech. Download one from the [Piper voices repository](https://github.com/rhasspy/piper/blob/master/VOICES.md):
-
-**Linux/macOS:**
-```bash
-# Example: Download English US female voice
-wget https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx
-
-# Move to requirements directory
-mv en_US-lessac-medium.onnx tts/requirements/model.onnx
-```
+### Step 2: Download Voice Model and Configuration
 
 **Windows (PowerShell):**
 ```powershell
-# Download voice model
+# Download voice model (English US female voice - medium quality)
 $modelUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx"
-Invoke-WebRequest -Uri $modelUrl -OutFile en_US-lessac-medium.onnx
+Invoke-WebRequest -Uri $modelUrl -OutFile "tts\requirements\model.onnx"
 
-# Move to requirements directory
-Move-Item -Path en_US-lessac-medium.onnx -Destination tts\requirements\model.onnx
+# Download model configuration (REQUIRED)
+$configUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json"
+Invoke-WebRequest -Uri $configUrl -OutFile "tts\requirements\model.onnx.json"
 ```
-
-Alternatively, you can:
-1. Visit [Piper voices on Hugging Face](https://huggingface.co/rhasspy/piper-voices)
-2. Browse available voices and download your preferred `.onnx` file
-3. Rename it to `model.onnx` and place it in `tts\requirements\`
-
-### 3. Verify Installation
-
-The application expects the following file structure:
-
-**Linux/macOS:**
-```
-tts/requirements/
-├── piper         (executable)
-└── model.onnx
-```
-
-**Windows:**
-```
-tts\requirements\
-├── piper.exe
-└── model.onnx
-```
-
-You can verify the setup by checking:
 
 **Linux/macOS:**
 ```bash
-ls -l tts/requirements/
-# Should show: piper (executable) and model.onnx
+# Download voice model (English US female voice - medium quality)
+wget -O tts/requirements/model.onnx \
+  https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx
+
+# Download model configuration (REQUIRED)
+wget -O tts/requirements/model.onnx.json \
+  https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json
 ```
+
+**⚠️ Important:** Both the `.onnx` model file AND the `.onnx.json` config file are required!
+
+---
+
+### Step 3: Verify Installation
 
 **Windows (PowerShell):**
 ```powershell
-Get-ChildItem tts\requirements\
-# Should show: piper.exe and model.onnx
+# Check all required files exist
+Get-ChildItem tts\requirements\ | Select-Object Name
+
+# Expected output should include:
+# - piper.exe
+# - model.onnx
+# - model.onnx.json
+# - espeak-ng.dll
+# - onnxruntime.dll
+# - piper_phonemize.dll
+# - espeak-ng-data (directory)
+
+# Test Piper execution
+cd tts\requirements
+echo "test" | .\piper.exe --model model.onnx --output_file test.wav
+cd ..\..
+
+# If successful, you should see a test.wav file created
+# Play it to verify: start test.wav (in Windows)
 ```
+
+**Linux/macOS:**
+```bash
+# Check all required files exist
+ls -la tts/requirements/
+
+# Expected output should include:
+# - piper (executable)
+# - model.onnx
+# - model.onnx.json
+# - espeak-ng-data/ (directory)
+
+# Test Piper execution
+cd tts/requirements
+echo "test" | ./piper --model model.onnx --output_file test.wav
+cd ../..
+
+# If successful, you should see a test.wav file created
+# Play it to verify:
+# Linux: aplay test.wav
+# macOS: afplay test.wav
+```
+
+---
+
+### Step 4: Test with the Application
+
+**Run the tests:**
+```bash
+# Windows/Linux/macOS
+go test -v -run TestHandleTextToSpeech
+```
+
+**All tests should pass:**
+- ✅ Valid POST request
+- ✅ GET request (should fail)
+- ✅ Empty/minimal text
+- ✅ Pejelagarto text with special characters
+
+**Start the server:**
+```bash
+# Windows
+go build
+.\pejelagarto-translator.exe
+
+# Linux/macOS
+go build
+./pejelagarto-translator
+```
+
+**Test in browser:**
+1. Open http://localhost:8080
+2. Type some text (e.g., "Hello world")
+3. Click the "Play" button (speaker icon)
+4. You should hear the text spoken aloud!
+
+---
+
+## Alternative Voice Models
+
+You can use different voice models by replacing `model.onnx` and `model.onnx.json`:
+
+**Other English voices:**
+```powershell
+# Windows - High quality male voice
+$modelUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/libritts/high/en_US-libritts-high.onnx"
+$configUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/libritts/high/en_US-libritts-high.onnx.json"
+Invoke-WebRequest -Uri $modelUrl -OutFile "tts\requirements\model.onnx"
+Invoke-WebRequest -Uri $configUrl -OutFile "tts\requirements\model.onnx.json"
+
+# British English
+$modelUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/alan/medium/en_GB-alan-medium.onnx"
+$configUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/alan/medium/en_GB-alan-medium.onnx.json"
+Invoke-WebRequest -Uri $modelUrl -OutFile "tts\requirements\model.onnx"
+Invoke-WebRequest -Uri $configUrl -OutFile "tts\requirements\model.onnx.json"
+```
+
+Browse all available voices: [Piper Voices](https://github.com/rhasspy/piper/blob/master/VOICES.md)
+
+**Remember:** Always download BOTH the `.onnx` and `.onnx.json` files for any voice model!
 
 ## Usage
 
