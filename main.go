@@ -1,7 +1,8 @@
 // Pejelagarto Translator
 // Build command: go build -o pejelagarto-translator.exe main.go
 // Run command (local): .\pejelagarto-translator.exe
-// Run command (ngrok): .\pejelagarto-translator.exe -ngrok_token YOUR_TOKEN_HERE
+// Run command (ngrok with random domain): .\pejelagarto-translator.exe -ngrok_token YOUR_TOKEN_HERE
+// Run command (ngrok with persistent domain): .\pejelagarto-translator.exe -ngrok_token YOUR_TOKEN_HERE -ngrok_domain your-domain.ngrok-free.app
 
 package main
 
@@ -1992,6 +1993,10 @@ func openBrowser(url string) error {
 func main() {
 	// Parse command-line flags
 	ngrokToken := flag.String("ngrok_token", "", "Optional ngrok auth token to expose server publicly")
+	ngrokDomain := flag.String("ngrok_domain", "", "Optional ngrok persistent domain (e.g., your-domain.ngrok-free.app)")
+	if !strings.HasPrefix(*ngrokDomain, "http://") && !strings.HasPrefix(*ngrokDomain, "https://") {
+		*ngrokDomain = "https://" + *ngrokDomain
+	}
 	flag.Parse()
 
 	// Set up HTTP routes
@@ -2005,11 +2010,71 @@ func main() {
 		log.Printf("Using auth token: %s...\n", (*ngrokToken)[:10])
 
 		log.Println("Connecting to ngrok service...")
-		// Use background context that never times out
-		listener, err := ngrok.Listen(context.Background(),
-			config.HTTPEndpoint(),
-			ngrok.WithAuthtoken(*ngrokToken),
-		)
+
+		// Configure endpoint with optional domain
+		var listener ngrok.Tunnel
+		var err error
+
+		if *ngrokDomain != "" {
+			// Strip scheme from domain for WithDomain (it expects just hostname)
+			domain := *ngrokDomain
+			domain = strings.TrimPrefix(domain, "https://")
+			domain = strings.TrimPrefix(domain, "http://")
+
+			log.Printf("Using persistent domain: %s\n", domain)
+			log.Println("Establishing tunnel (this may take a few seconds)...")
+
+			// Use a channel to receive the result with timeout
+			type result struct {
+				listener ngrok.Tunnel
+				err      error
+			}
+			resultChan := make(chan result)
+			go func() {
+				l, e := ngrok.Listen(context.Background(),
+					config.HTTPEndpoint(
+						config.WithDomain(domain),
+					),
+					ngrok.WithAuthtoken(*ngrokToken),
+				)
+				resultChan <- result{listener: l, err: e}
+			}()
+
+			// Wait for completion or timeout
+			select {
+			case res := <-resultChan:
+				listener = res.listener
+				err = res.err
+			case <-time.After(30 * time.Second):
+				log.Fatalf("Failed to start ngrok listener: connection timeout after 30 seconds")
+			}
+		} else {
+			log.Println("Using random ngrok domain")
+			log.Println("Establishing tunnel (this may take a few seconds)...")
+
+			// Use a channel to receive the result with timeout
+			type result struct {
+				listener ngrok.Tunnel
+				err      error
+			}
+			resultChan := make(chan result)
+			go func() {
+				l, e := ngrok.Listen(context.Background(),
+					config.HTTPEndpoint(),
+					ngrok.WithAuthtoken(*ngrokToken),
+				)
+				resultChan <- result{listener: l, err: e}
+			}()
+
+			// Wait for completion or timeout
+			select {
+			case res := <-resultChan:
+				listener = res.listener
+				err = res.err
+			case <-time.After(10 * time.Second):
+				log.Fatalf("Failed to start ngrok listener: connection timeout after 10 seconds")
+			}
+		}
 
 		if err != nil {
 			log.Fatalf("Failed to start ngrok listener: %v", err)
