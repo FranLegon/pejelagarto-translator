@@ -1,16 +1,3 @@
-// Pejelagarto Translator
-// The get-requirements.ps1 script is embedded in the binary and will automatically
-// download TTS dependencies on first run (or when dependencies are missing).
-//
-// Build command: go build -o bin/pejelagarto-translator.exe main.go
-// Run command (local): .\pejelagarto-translator.exe
-// Run command (ngrok with random domain): .\pejelagarto-translator.exe -ngrok_token YOUR_TOKEN_HERE
-// Run command (ngrok with persistent domain): .\pejelagarto-translator.exe -ngrok_token YOUR_TOKEN_HERE -ngrok_domain your-domain.ngrok-free.app
-//
-// Note: TTS dependencies (Piper binary, voice models, espeak-ng-data) are downloaded automatically
-// on first run to a temp directory (e.g., C:\Windows\Temp\pejelagarto-translator or /tmp/pejelagarto-translator).
-// Subsequent runs will use cached dependencies unless they're missing.
-
 package main
 
 import (
@@ -37,6 +24,8 @@ import (
 
 	"golang.ngrok.com/ngrok"
 	"golang.ngrok.com/ngrok/config"
+
+	"pejelagarto-translator/obfuscation"
 )
 
 //go:embed get-requirements.ps1
@@ -62,7 +51,7 @@ func extractEmbeddedRequirements() error {
 	}
 
 	// Create a unique directory for this application
-	tempRequirementsDir = filepath.Join(baseDir, "pejelagarto-translator", "requirements")
+	tempRequirementsDir = filepath.Join(baseDir, obfuscation.ProjectName(), "requirements")
 
 	// Check what dependencies are missing
 	piperExe := filepath.Join(tempRequirementsDir, "piper")
@@ -128,7 +117,7 @@ func extractEmbeddedRequirements() error {
 	}
 
 	// Write the modified script to a temporary file
-	scriptPath := filepath.Join(baseDir, "pejelagarto-get-requirements.ps1")
+	scriptPath := filepath.Join(baseDir, obfuscation.ScriptSuffix()+".ps1")
 	if err := os.WriteFile(scriptPath, []byte(modifiedScript), 0755); err != nil {
 		return fmt.Errorf("failed to write temporary PowerShell script: %w", err)
 	}
@@ -2496,7 +2485,7 @@ const htmlUI = `<!DOCTYPE html>
             const selectedLang = oldDropdown ? oldDropdown.value : 'russian';
             
             const dropdownHTML = document.getElementById('tts-language') ? 
-                ' <select id="tts-language" onchange="watchOutputChanges()" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--textarea-bg); color: var(--text-primary); font-size: 14px;"><option value="russian">North</option><option value="german">North-East</option><option value="turkish">North-East-East</option><option value="portuguese">East</option><option value="french">Center</option><option value="hindi">South-East</option><option value="romanian">South</option><option value="icelandic">South-South-East</option><option value="swahili">South-West</option><option value="swedish">South-West-West</option><option value="vietnamese">South-South-West</option><option value="czech">West</option><option value="chinese">North-West-West</option><option value="norwegian">North-West</option><option value="hungarian">North-North-West</option><option value="kazakh">North-North-East</option></select>' : '';
+                ' <select id="tts-language" onchange="watchOutputChanges()" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--textarea-bg); color: var(--text-primary); font-size: 14px;"><option value="russian">North</option><option value="kazakh">North-North-East</option><option value="german">North-East</option><option value="turkish">North-East-East</option><option value="portuguese">East</option><option value="french">South-East-East</option><option value="hindi">South-East</option><option value="icelandic">South-South-East</option><option value="romanian">South</option><option value="vietnamese">South-South-West</option><option value="swahili">South-West</option><option value="swedish">South-West-West</option><option value="czech">West</option><option value="chinese">North-West-West</option><option value="norwegian">North-West</option><option value="hungarian">North-North-West</option></select>' : '';
             
             // Always reset both labels to ensure clean state
             if (isInverted) {
@@ -2671,7 +2660,7 @@ const htmlUI = `<!DOCTYPE html>
             const selectedLang = oldDropdown ? oldDropdown.value : 'russian';
             
             const dropdownHTML = document.getElementById('tts-language') ? 
-                ' <select id="tts-language" onchange="watchOutputChanges()" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--textarea-bg); color: var(--text-primary); font-size: 14px;"><option value="russian">North</option><option value="german">North-East</option><option value="turkish">North-East-East</option><option value="portuguese">East</option><option value="french">Center</option><option value="hindi">South-East</option><option value="romanian">South</option><option value="icelandic">South-South-East</option><option value="swahili">South-West</option><option value="swedish">South-West-West</option><option value="vietnamese">South-South-West</option><option value="czech">West</option><option value="chinese">North-West-West</option><option value="norwegian">North-West</option><option value="hungarian">North-North-West</option><option value="kazakh">North-North-East</option></select>' : '';
+                ' <select id="tts-language" onchange="watchOutputChanges()" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--textarea-bg); color: var(--text-primary); font-size: 14px;"><option value="russian">North</option><option value="kazakh">North-North-East</option><option value="german">North-East</option><option value="turkish">North-East-East</option><option value="portuguese">East</option><option value="french">South-East-East</option><option value="hindi">South-East</option><option value="icelandic">South-South-East</option><option value="romanian">South</option><option value="vietnamese">South-South-West</option><option value="swahili">South-West</option><option value="swedish">South-West-West</option><option value="czech">West</option><option value="chinese">North-West-West</option><option value="norwegian">North-West</option><option value="hungarian">North-North-West</option></select>' : '';
             
             const label = 'Pejelagarto:';
             const buttonId = source === 'input' ? 'play-input' : 'play-output';
@@ -2701,21 +2690,21 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 	if pronunciationLanguageDropdown {
 		dropdownHTML := ` <select id="tts-language" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--textarea-bg); color: var(--text-primary); font-size: 14px;">
                     <option value="russian">North</option>
+                    <option value="kazakh">North-North-East</option>
                     <option value="german">North-East</option>
                     <option value="turkish">North-East-East</option>
                     <option value="portuguese">East</option>
-                    <option value="french">Center</option>
+                    <option value="french">South-East-East</option>
                     <option value="hindi">South-East</option>
-                    <option value="romanian">South</option>
                     <option value="icelandic">South-South-East</option>
+                    <option value="romanian">South</option>
+                    <option value="vietnamese">South-South-West</option>
                     <option value="swahili">South-West</option>
                     <option value="swedish">South-West-West</option>
-                    <option value="vietnamese">South-South-West</option>
                     <option value="czech">West</option>
                     <option value="chinese">North-West-West</option>
                     <option value="norwegian">North-West</option>
                     <option value="hungarian">North-North-West</option>
-                    <option value="kazakh">North-North-East</option>
                 </select>`
 		html = strings.Replace(html, "{{DROPDOWN_PLACEHOLDER}}", dropdownHTML, 1)
 	} else {

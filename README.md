@@ -28,7 +28,7 @@ The project demonstrates advanced string manipulation, bijective mappings, and c
 - 🛡️ **UTF-8 Sanitization**: Handles invalid UTF-8 bytes with invisible soft-hyphen encoding
 
 ### Text-to-Speech (TTS)
-- 🗣️ **18 Languages**: Russian (North), German (North-East), Turkish (East-North-East), Portuguese (East), French (Center), Hindi (South-East), Romanian (South), Icelandic (South-South-East), Swahili (South-West), Swedish (South-West-West), Vietnamese (West-South-West), Czech (West), Chinese (North-West), Norwegian (North-West), Hungarian (North-North-West), Kazakh (North-North-East), plus Spanish and English
+- 🗣️ **18 Languages**: Russian (North), German (North-East), Turkish (East-North-East), Portuguese (East), French (South-East-East), Hindi (South-East), Romanian (South), Icelandic (South-South-East), Swahili (South-West), Swedish (South-West-West), Vietnamese (West-South-West), Czech (West), Chinese (North-West), Norwegian (North-West), Hungarian (North-North-West), Kazakh (North-North-East), plus Spanish and English
 - 🎙️ **Piper TTS Integration**: High-quality neural TTS using ONNX models
 - 🌍 **Language-Specific Preprocessing**: Automatic text cleaning based on pronunciation language
 - 🔀 **Per-Request Language Selection**: Override default language via HTTP API or dropdown
@@ -61,19 +61,36 @@ The project demonstrates advanced string manipulation, bijective mappings, and c
 
 ### 1. Build the Application
 
-**Simple Build:**
+**Normal Build:**
 ```powershell
 go build -o bin/pejelagarto-translator.exe main.go
 ```
 
+**Obfuscated Build** (for server deployment):
+```powershell
+# Using build script (requires garble installed)
+.\obfuscation\build-obfuscated.ps1
+
+# Or manually with Go (no obfuscation)
+go build -tags obfuscated -o bin/piper-server.exe main.go
+```
+
 The binary will automatically download all TTS requirements (~1.1GB) on first run.
 
-**Note**: 
-- Build creates a **~12MB executable** (99% smaller than previous v2.4.7)
+**Build Notes**: 
+- Normal build creates **~12MB executable** named `pejelagarto-translator.exe`
+- Obfuscated build uses different internal names (`piper-server` instead of `pejelagarto-translator`)
 - First run downloads 16 TTS language models (takes several minutes)
 - Dependencies are cached in temp directory for subsequent runs
 - Embedded PowerShell script (`get-requirements.ps1`) handles all downloads automatically
 - No manual dependency management needed!
+
+**Obfuscation Details:**
+- Uses [garble](https://github.com/burrowers/garble) for code obfuscation (`-literals -tiny` flags)
+- Build tags switch between normal and obfuscated constants
+- Normal build: uses `pejelagarto-translator` for temp directories and scripts
+- Obfuscated build: uses `piper-server` for temp directories and scripts
+- Output binary named `piper-server.exe` (Windows) or `piper-server` (Unix)
 
 ### 2. Run the Application
 
@@ -154,7 +171,7 @@ The application includes multi-language TTS with automatic text preprocessing fo
 | North-East | German | `german` | de_DE-thorsten-medium |
 | North-East-East | Turkish | `turkish` | tr_TR-dfki-medium |
 | East | Portuguese | `portuguese` | pt_BR-faber-medium |
-| Center | French | `french` | fr_FR-siwis-medium |
+| South-East-East | French | `french` | fr_FR-siwis-medium |
 | South-East | Hindi | `hindi` | hi_HI-medium |
 | South | Romanian | `romanian` | ro_RO-mihai-medium |
 | South-South-East | Icelandic | `icelandic` | is_IS-bui-medium |
@@ -730,9 +747,15 @@ pejelagarto-translator/
 ├── get-requirements.ps1 # Embedded in binary - downloads TTS dependencies
 ├── .gitignore           # Git ignore patterns
 ├── coverage/            # Test coverage reports
+├── obfuscation/         # Obfuscation and service deployment scripts
+│   ├── constants_normal.go              # Constants for normal build
+│   ├── constants_obfuscated.go          # Constants for obfuscated build
+│   ├── build-obfuscated.ps1             # Build script with garble
+│   └── create-obfuscated-server-service.ps1  # Service creation script
 ├── bin/                 # Built executables and scripts
 │   ├── pejelagarto-translator.exe  # Main executable (~12MB)
-│   └── runWithNgrok.ps1             # Helper script for ngrok
+│   ├── piper-server.exe            # Obfuscated executable (optional)
+│   └── runWithNgrok.ps1            # Helper script for ngrok
 ├── testdata/            # Fuzz test corpus
 │   └── fuzz/            # Fuzz testing data
 └── tts/requirements/    # Auto-downloaded at runtime to temp directory
@@ -834,6 +857,8 @@ The built executable is **lightweight and portable**:
 - ✅ Dependencies cached in temp directory for offline use afterward
 - ✅ Embedded PowerShell script handles all downloads automatically
 
+### Normal Distribution
+
 Just share the `bin\pejelagarto-translator.exe` file!
 
 **First Run Requirements:**
@@ -846,6 +871,72 @@ Just share the `bin\pejelagarto-translator.exe` file!
 - Starts instantly
 
 **Note**: For slow audio playback feature, FFmpeg must be installed separately and available in system PATH.
+
+### Server Deployment (Obfuscated)
+
+For production server deployment with obfuscation:
+
+1. **Build the obfuscated binary:**
+   ```powershell
+   .\obfuscation\build-obfuscated.ps1
+   ```
+   This creates `bin\piper-server.exe` with obfuscated code and different internal names.
+
+2. **Copy to server:**
+   ```powershell
+   # Copy the obfuscated binary
+   Copy-Item bin\piper-server.exe \\server\path\
+   
+   # Copy the service creation script
+   Copy-Item obfuscation\create-obfuscated-server-service.ps1 \\server\path\
+   ```
+
+3. **Create system service on server:**
+   ```powershell
+   # Windows (run as Administrator)
+   cd \\server\path
+   .\create-obfuscated-server-service.ps1
+   
+   # Linux (run with sudo)
+   cd /server/path
+   sudo pwsh create-obfuscated-server-service.ps1
+   
+   # macOS (run with sudo)
+   cd /server/path
+   sudo pwsh create-obfuscated-server-service.ps1
+   ```
+
+The service creation script automatically:
+- Detects the operating system (Windows/Linux/macOS)
+- Finds the `piper-server` binary in the current directory
+- Creates appropriate service configuration:
+  - **Windows**: Scheduled Task running at startup with SYSTEM privileges
+  - **Linux**: systemd service with automatic restart
+  - **macOS**: LaunchDaemon with KeepAlive
+- Enables and starts the service automatically
+
+**Service Management:**
+
+Windows:
+```powershell
+Start-ScheduledTask -TaskName "PiperServer"
+Stop-ScheduledTask -TaskName "PiperServer"
+Unregister-ScheduledTask -TaskName "PiperServer"
+```
+
+Linux:
+```bash
+sudo systemctl status PiperServer.service
+sudo systemctl restart PiperServer.service
+journalctl -u PiperServer.service -f
+```
+
+macOS:
+```bash
+sudo launchctl list | grep PiperServer
+sudo launchctl unload /Library/LaunchDaemons/com.PiperServer.plist
+tail -f /var/log/PiperServer.log
+```
 
 ## Future Enhancements
 
