@@ -471,37 +471,95 @@ func matchCase(original, replacement string) string {
 	return string(result)
 }
 
-// escapeReservedMarkers escapes all reserved Unicode markers (U+FFF0 through U+FFFF) in the input
-// using a simple encoding scheme to preserve them through translation
-func escapeReservedMarkers(input string) string {
-	// Reserved markers range from U+FFF0 to U+FFFF
-	// We encode them as: U+FFFE followed by the last nibble (0-F)
-	const escapePrefix = "\uFFFE"
-	result := input
+// internalEscape escapes characters using backslash prefix (internal use only, removed before output)
+// This is used to protect characters during translation processing
+// Escapes the escape character itself first to avoid conflicts
+func internalEscape(input string, charsToEscape string) string {
+	const escapeChar = '\\'
+	var result strings.Builder
+	result.Grow(len(input) * 2)
 
-	// Escape in reverse order (highest to lowest) to avoid double-escaping
-	for i := 0xFFFF; i >= 0xFFF0; i-- {
-		marker := string(rune(i))
-		nibble := string(rune('0' + (i & 0x0F)))
-		result = strings.ReplaceAll(result, marker, escapePrefix+nibble)
+	// Build a map for quick lookup
+	escapeMap := make(map[rune]bool)
+	for _, r := range charsToEscape {
+		escapeMap[r] = true
+	}
+	// Always escape the escape character itself
+	escapeMap[escapeChar] = true
+
+	for _, r := range input {
+		if escapeMap[r] {
+			result.WriteRune(escapeChar)
+		}
+		result.WriteRune(r)
 	}
 
-	return result
+	return result.String()
 }
 
-// unescapeReservedMarkers reverses the escaping done by escapeReservedMarkers
-func unescapeReservedMarkers(input string) string {
-	const escapePrefix = "\uFFFE"
-	result := input
+// internalUnescape removes backslash escaping (reverses internalEscape)
+func internalUnescape(input string) string {
+	const escapeChar = '\\'
+	var result strings.Builder
+	result.Grow(len(input))
 
-	// Unescape in forward order (lowest to highest)
-	for i := 0xFFF0; i <= 0xFFFF; i++ {
-		marker := string(rune(i))
-		nibble := string(rune('0' + (i & 0x0F)))
-		result = strings.ReplaceAll(result, escapePrefix+nibble, marker)
+	runes := []rune(input)
+	for i := 0; i < len(runes); i++ {
+		if runes[i] == escapeChar && i+1 < len(runes) {
+			// Skip the escape character, add the next character
+			i++
+			result.WriteRune(runes[i])
+		} else {
+			result.WriteRune(runes[i])
+		}
 	}
 
-	return result
+	return result.String()
+}
+
+// outputEscape escapes characters using soft hyphen prefix (present in Pejelagarto output)
+// This escaping is visible in the translated text
+func outputEscape(input string, charsToEscape string) string {
+	const escapeChar = '\u00AD' // Soft hyphen
+	var result strings.Builder
+	result.Grow(len(input) * 2)
+
+	// Build a map for quick lookup
+	escapeMap := make(map[rune]bool)
+	for _, r := range charsToEscape {
+		escapeMap[r] = true
+	}
+	// Always escape the escape character itself
+	escapeMap[escapeChar] = true
+
+	for _, r := range input {
+		if escapeMap[r] {
+			result.WriteRune(escapeChar)
+		}
+		result.WriteRune(r)
+	}
+
+	return result.String()
+}
+
+// outputUnescape removes soft hyphen escaping (reverses outputEscape)
+func outputUnescape(input string) string {
+	const escapeChar = '\u00AD' // Soft hyphen
+	var result strings.Builder
+	result.Grow(len(input))
+
+	runes := []rune(input)
+	for i := 0; i < len(runes); i++ {
+		if runes[i] == escapeChar && i+1 < len(runes) {
+			// Skip the escape character, add the next character
+			i++
+			result.WriteRune(runes[i])
+		} else {
+			result.WriteRune(runes[i])
+		}
+	}
+
+	return result.String()
 }
 
 // applyReplacements applies replacements from the bijective map in the specified order
@@ -509,16 +567,12 @@ func applyReplacements(input string, bijectiveMap map[int32]map[string]string, i
 	// Use special Unicode characters as markers that won't be in normal text
 	const startMarker = "\uFFF0"
 	const endMarker = "\uFFF1"
-	const escapedStartMarker = "\uFFF3"
-	const escapedEndMarker = "\uFFF4"
-	const escapePrefix = "\uFFF5"
 
-	// Escape any markers (including escaped markers) that appear in the input to preserve them
-	result := strings.ReplaceAll(input, escapePrefix, escapePrefix+escapePrefix)
-	result = strings.ReplaceAll(result, escapedStartMarker, escapePrefix+escapedStartMarker)
-	result = strings.ReplaceAll(result, escapedEndMarker, escapePrefix+escapedEndMarker)
-	result = strings.ReplaceAll(result, startMarker, escapedStartMarker)
-	result = strings.ReplaceAll(result, endMarker, escapedEndMarker)
+	// Escape any markers that appear in the input to preserve them
+	// Convert markers to runes for proper escaping
+	startMarkerRune := []rune(startMarker)[0]
+	endMarkerRune := []rune(endMarker)[0]
+	result := internalEscape(input, string([]rune{startMarkerRune, endMarkerRune}))
 
 	for _, index := range indices {
 		replacements := bijectiveMap[index]
@@ -553,21 +607,43 @@ func applyReplacements(input string, bijectiveMap map[int32]map[string]string, i
 			resultRunes := []rune(result)
 			keyRunes := []rune(key)
 
-			// Pre-calculate marker positions for O(n) performance instead of O(n²)
-			markerMap := make(map[int]int) // pos -> marker depth at that position
+			// Pre-calculate marker positions and escape positions for O(n) performance
+			markerMap := make(map[int]int)   // pos -> marker depth at that position
+			escapedMap := make(map[int]bool) // pos -> is this position escaped
 			depth := 0
 			startMarkerRune := []rune(startMarker)[0]
 			endMarkerRune := []rune(endMarker)[0]
+
+			// First pass: identify escaped characters
+			for i := 0; i < len(resultRunes); i++ {
+				if resultRunes[i] == '\\' && i+1 < len(resultRunes) {
+					escapedMap[i+1] = true
+				}
+			}
+
+			// Second pass: calculate marker depth, skipping escaped characters
 			for i := 0; i < len(resultRunes); i++ {
 				markerMap[i] = depth
-				if resultRunes[i] == startMarkerRune {
-					depth++
-				} else if resultRunes[i] == endMarkerRune {
-					depth--
+
+				// Only count as marker if not escaped
+				if !escapedMap[i] {
+					if resultRunes[i] == startMarkerRune {
+						depth++
+					} else if resultRunes[i] == endMarkerRune {
+						depth--
+					}
 				}
 			}
 
 			for pos < len(resultRunes) {
+				// Check if current character is escaped
+				if escapedMap[pos] {
+					// This character is escaped, just copy it
+					newResult.WriteRune(resultRunes[pos])
+					pos++
+					continue
+				}
+
 				// Check if we're inside markers using pre-calculated map
 				if markerMap[pos] > 0 {
 					// Skip characters inside markers
@@ -695,16 +771,25 @@ func applyReplacements(input string, bijectiveMap map[int32]map[string]string, i
 		}
 	}
 
-	// Remove all working markers
-	result = strings.ReplaceAll(result, startMarker, "")
-	result = strings.ReplaceAll(result, endMarker, "")
+	// Remove all working markers, but NOT escaped ones
+	// We need to manually iterate to skip escaped markers
+	var cleanResult strings.Builder
+	resultRunes := []rune(result)
+	for i := 0; i < len(resultRunes); i++ {
+		// Check if this is an escaped character (preceded by backslash)
+		isEscaped := i > 0 && resultRunes[i-1] == '\\'
 
-	// Restore escaped markers to original characters (reverse order of escaping)
-	result = strings.ReplaceAll(result, escapedStartMarker, startMarker)
-	result = strings.ReplaceAll(result, escapedEndMarker, endMarker)
-	result = strings.ReplaceAll(result, escapePrefix+startMarker, escapedStartMarker)
-	result = strings.ReplaceAll(result, escapePrefix+endMarker, escapedEndMarker)
-	result = strings.ReplaceAll(result, escapePrefix+escapePrefix, escapePrefix)
+		// Skip unescaped markers
+		if !isEscaped && (resultRunes[i] == startMarkerRune || resultRunes[i] == endMarkerRune) {
+			continue
+		}
+
+		cleanResult.WriteRune(resultRunes[i])
+	}
+	result = cleanResult.String()
+
+	// THEN restore escaped characters (this restores original markers that were in the input)
+	result = internalUnescape(result)
 
 	return result
 }
@@ -715,22 +800,15 @@ func applyMapReplacementsToPejelagarto(input string) string {
 	if !utf8.ValidString(input) {
 		return input
 	}
-	// Use a special marker for literal quotes in input to avoid ambiguity
-	// with quote prefixes used in Pejelagarto output
-	const quoteMarker = "\uFFF2"
 
-	// Recursively escape all reserved markers (FFF0-FFF6) in the input
-	input = escapeReservedMarkers(input)
-	input = strings.ReplaceAll(input, "'", quoteMarker)
+	// Escape quotes in input using output escaping (soft hyphen prefix)
+	// This will be visible in the Pejelagarto output
+	input = outputEscape(input, "'")
 
 	bijectiveMap := createBijectiveMap()
-	indices := getSortedIndices(bijectiveMap, true) // to Pejelagarto
+	indices := getSortedIndices(bijectiveMap, true)
 	result := applyReplacements(input, bijectiveMap, indices)
 
-	// Restore literal quotes as doubled quotes in the output
-	result = strings.ReplaceAll(result, quoteMarker, "''")
-	// Restore escaped markers
-	result = unescapeReservedMarkers(result)
 	return result
 }
 
@@ -740,21 +818,14 @@ func applyMapReplacementsFromPejelagarto(input string) string {
 	if !utf8.ValidString(input) {
 		return input
 	}
-	// Convert doubled quotes (escaped literals) to temporary marker
-	const quoteMarker = "\uFFF2"
-
-	// Recursively escape all reserved markers (FFF0-FFFF) in the input
-	input = escapeReservedMarkers(input)
-	input = strings.ReplaceAll(input, "''", quoteMarker)
 
 	bijectiveMap := createBijectiveMap()
 	indices := getSortedIndices(bijectiveMap, false) // from Pejelagarto
 	result := applyReplacements(input, bijectiveMap, indices)
 
-	// Restore literal quotes from marker
-	result = strings.ReplaceAll(result, quoteMarker, "'")
-	// Restore escaped markers
-	result = unescapeReservedMarkers(result)
+	// Unescape output-escaped quotes (soft hyphen prefix)
+	result = outputUnescape(result)
+
 	return result
 }
 
@@ -1585,16 +1656,12 @@ func applyPunctuationReplacementsToPejelagarto(input string) string {
 		return input
 	}
 
-	// Use a special marker for literal quotes to avoid ambiguity
-	const quoteMarker = "\uFFF3"
-	input = strings.ReplaceAll(input, "'", quoteMarker)
+	// Escape quotes using output escaping (soft hyphen prefix)
+	input = outputEscape(input, "'")
 
 	bijectiveMap := createPunctuationBijectiveMap()
 	indices := getSortedPunctuationIndices(bijectiveMap, true)
 	result := applyReplacements(input, bijectiveMap, indices)
-
-	// Restore literal quotes as doubled quotes in the output
-	result = strings.ReplaceAll(result, quoteMarker, "''")
 
 	return result
 }
@@ -1605,16 +1672,12 @@ func applyPunctuationReplacementsFromPejelagarto(input string) string {
 		return input
 	}
 
-	// Convert doubled quotes (escaped literals) to temporary marker
-	const quoteMarker = "\uFFF3"
-	input = strings.ReplaceAll(input, "''", quoteMarker)
-
 	bijectiveMap := createPunctuationBijectiveMap()
 	indices := getSortedPunctuationIndices(bijectiveMap, false)
 	result := applyReplacements(input, bijectiveMap, indices)
 
-	// Restore literal quotes from marker
-	result = strings.ReplaceAll(result, quoteMarker, "'")
+	// Unescape output-escaped quotes (soft hyphen prefix)
+	result = outputUnescape(result)
 
 	return result
 }
@@ -1847,14 +1910,14 @@ func addSpecialCharDatetimeEncoding(input string, timestamp string) string {
 	return string(resultRunes)
 }
 
-// sanitizeInvalidUTF8 replaces invalid UTF-8 bytes with soft hyphens + Private Use Area characters
+// sanitizeInvalidUTF8 replaces invalid UTF-8 bytes with Hangul Filler + Private Use Area characters
 // Uses a bijective mapping to maintain reversibility
-// Soft hyphens (U+00AD) are invisible in most contexts, making the output cleaner
+// Hangul Filler (U+3164) is invisible in most contexts, making the output cleaner
 func sanitizeInvalidUTF8(input string) string {
 	// Use Private Use Area characters - they won't be affected by any translation logic
 	// Map each of 256 possible bytes to a unique character in range U+E000-U+E0FF
 	const privateUseStart = 0xE000
-	const softHyphen = '\u00AD' // Soft hyphen - invisible in most contexts
+	const hangulFiller = '\u3164' // Hangul Filler - invisible in most contexts
 
 	var result strings.Builder
 	result.Grow(len(input) * 2) // Reserve extra space
@@ -1862,9 +1925,9 @@ func sanitizeInvalidUTF8(input string) string {
 	for i := 0; i < len(input); {
 		r, size := utf8.DecodeRuneInString(input[i:])
 		if r == utf8.RuneError && size == 1 {
-			// Invalid UTF-8 byte - encode it invisibly using soft hyphen + private use character
+			// Invalid UTF-8 byte - encode it invisibly using Hangul Filler + private use character
 			invalidByte := input[i]
-			result.WriteRune(softHyphen) // Invisible marker
+			result.WriteRune(hangulFiller) // Invisible marker
 			result.WriteRune(rune(privateUseStart + int(invalidByte)))
 			i++
 		} else {
@@ -1879,14 +1942,14 @@ func sanitizeInvalidUTF8(input string) string {
 // unsanitizeInvalidUTF8 is the reverse of sanitizeInvalidUTF8
 func unsanitizeInvalidUTF8(input string) string {
 	const privateUseStart = 0xE000
-	const softHyphen = '\u00AD'
+	const hangulFiller = '\u3164'
 
 	var result []byte
 	runes := []rune(input)
 
 	for i := 0; i < len(runes); i++ {
 		r := runes[i]
-		if r == softHyphen && i+1 < len(runes) {
+		if r == hangulFiller && i+1 < len(runes) {
 			// Check if next character is in our private use range
 			nextRune := runes[i+1]
 			if nextRune >= privateUseStart && nextRune < privateUseStart+256 {
