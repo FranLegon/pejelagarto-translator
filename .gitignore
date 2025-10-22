@@ -11,9 +11,9 @@
 # Output of the go coverage tool
 *.out
 
-# Build directory - keep scripts but not binaries
+# Build directory - ignore all executables
 bin/*.exe
-bin/runWithNgrok.ps1
+bin/*.exe~
 
 # Go workspace file
 go.work
