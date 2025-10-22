@@ -1446,19 +1446,18 @@ func applyCaseReplacementLogic(input string) string {
 
 	for i := range result {
 		if positionsToInvert[i] {
-			if unicode.IsUpper(result[i]) {
-				lower := unicode.ToLower(result[i])
-				// Check reversibility: if converting back doesn't give original, skip
-				if unicode.ToUpper(lower) != result[i] {
-					continue
-				}
+			// Try converting to lowercase first
+			lower := unicode.ToLower(result[i])
+			if lower != result[i] && unicode.ToUpper(lower) == result[i] {
+				// Character can be lowercased and conversion is reversible
 				result[i] = lower
-			} else if unicode.IsLower(result[i]) {
-				upper := unicode.ToUpper(result[i])
-				// Check reversibility: if converting back doesn't give original, skip
-				if unicode.ToLower(upper) != result[i] {
-					continue
-				}
+				continue
+			}
+
+			// Try converting to uppercase
+			upper := unicode.ToUpper(result[i])
+			if upper != result[i] && unicode.ToLower(upper) == result[i] {
+				// Character can be uppercased and conversion is reversible
 				result[i] = upper
 			}
 		}
