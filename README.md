@@ -306,10 +306,9 @@ The number conversion transforms base-10 numbers using different bases depending
 
 **Bijective Map Structure:**
 
-The translator uses three tiers of character mappings with sophisticated indexing:
+The translator uses two tiers of character mappings with sophisticated indexing:
 
-- `wordMap`: Multi-character words (e.g., `"hello"` → `"jhtxz"`)
-- `conjunctionMap`: Letter pairs (e.g., `"ch"` → `"jc"`)  
+- `conjunctionMap`: Multi-character words and letter pairs (e.g., `"hello"` → `"arakan"`, `"ch"` → `"jc"`)  
 - `letterMap`: Single letters (e.g., `"a"` → `"i"`)
 
 **Index-Based Ordering:**
@@ -320,7 +319,7 @@ The bijective map uses **positive and negative indices** to determine processing
 - Index = length of source text in runes
 - Processed in descending order: longer patterns matched first
 - Multi-rune target values are prefixed with `'` (e.g., `"hello"` → `"'jhtxz"`)
-- Processing order: wordMap → conjunctionMap → letterMap (by descending length)
+- Processing order: conjunctionMap → letterMap (by descending length)
 
 **Negative Indices (From Pejelagarto):**
 - Index = -(length of Pejelagarto pattern including quote prefix)
@@ -712,7 +711,7 @@ go run main.go
 
 To extend the translator with new rules:
 
-1. **Word/Letter Mappings**: Edit `wordMap`, `conjunctionMap`, or `letterMap` in `main.go`
+1. **Word/Letter Mappings**: Edit `conjunctionMap` or `letterMap` in `main.go`
    - Ensure all mappings are bijective (one-to-one)
    - Keys and values must have the same rune count
    - Avoid collisions between different map types
