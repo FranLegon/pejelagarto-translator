@@ -1,14 +1,15 @@
 // Pejelagarto Translator
-// IMPORTANT: Before building, run: .\get-requirements.ps1
-// This downloads all TTS dependencies which will be embedded into the binary
+// The get-requirements.ps1 script is embedded in the binary and will automatically
+// download TTS dependencies on first run (or when dependencies are missing).
 //
-// Build command: go build -o pejelagarto-translator.exe main.go
+// Build command: go build -o bin/pejelagarto-translator.exe main.go
 // Run command (local): .\pejelagarto-translator.exe
 // Run command (ngrok with random domain): .\pejelagarto-translator.exe -ngrok_token YOUR_TOKEN_HERE
 // Run command (ngrok with persistent domain): .\pejelagarto-translator.exe -ngrok_token YOUR_TOKEN_HERE -ngrok_domain your-domain.ngrok-free.app
 //
-// Note: All TTS dependencies (Piper binary, voice models, espeak-ng-data) are embedded in the executable.
-// They will be extracted to a temp directory at runtime (e.g., C:\Windows\Temp\pejelagarto-translator or /tmp/pejelagarto-translator)
+// Note: TTS dependencies (Piper binary, voice models, espeak-ng-data) are downloaded automatically
+// on first run to a temp directory (e.g., C:\Windows\Temp\pejelagarto-translator or /tmp/pejelagarto-translator).
+// Subsequent runs will use cached dependencies unless they're missing.
 
 package main
 
@@ -18,7 +19,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/fs"
 	"log"
 	"math/big"
 	"math/rand"
@@ -39,13 +39,13 @@ import (
 	"golang.ngrok.com/ngrok/config"
 )
 
-//go:embed tts/requirements/*
-var embeddedRequirements embed.FS
+//go:embed get-requirements.ps1
+var embeddedGetRequirements embed.FS
 
 // tempRequirementsDir stores the path to extracted requirements
 var tempRequirementsDir string
 
-// extractEmbeddedRequirements extracts all embedded TTS requirements to a temp directory
+// extractEmbeddedRequirements downloads TTS requirements by running the embedded PowerShell script
 func extractEmbeddedRequirements() error {
 	// Determine temp directory based on OS
 	var baseDir string
@@ -64,75 +64,98 @@ func extractEmbeddedRequirements() error {
 	// Create a unique directory for this application
 	tempRequirementsDir = filepath.Join(baseDir, "pejelagarto-translator", "requirements")
 
-	// Check if already extracted (reuse if exists)
+	// Check what dependencies are missing
 	piperExe := filepath.Join(tempRequirementsDir, "piper")
 	if runtime.GOOS == "windows" {
 		piperExe += ".exe"
 	}
+
+	espeakData := filepath.Join(tempRequirementsDir, "espeak-ng-data")
+	piperDir := filepath.Join(tempRequirementsDir, "piper")
+
+	// Check if all critical components exist
+	piperExists := false
+	espeakExists := false
+	piperDirExists := false
+
 	if _, err := os.Stat(piperExe); err == nil {
-		// Already extracted
+		piperExists = true
+	}
+	if info, err := os.Stat(espeakData); err == nil && info.IsDir() {
+		espeakExists = true
+	}
+	if info, err := os.Stat(piperDir); err == nil && info.IsDir() {
+		piperDirExists = true
+	}
+
+	// If all dependencies exist, no need to download
+	if piperExists && espeakExists && piperDirExists {
 		log.Printf("Using cached TTS requirements at: %s", tempRequirementsDir)
 		return nil
 	}
 
-	log.Printf("Extracting embedded TTS requirements to: %s", tempRequirementsDir)
-
-	// Remove old directory if exists
-	if err := os.RemoveAll(tempRequirementsDir); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to clean temp directory: %w", err)
+	log.Printf("Downloading TTS requirements to: %s", tempRequirementsDir)
+	if !piperExists {
+		log.Printf("  - Missing: piper binary")
+	}
+	if !espeakExists {
+		log.Printf("  - Missing: espeak-ng-data")
+	}
+	if !piperDirExists {
+		log.Printf("  - Missing: piper directory (language models)")
 	}
 
-	// Create temp directory
+	// Only run on Windows for now
+	if runtime.GOOS != "windows" {
+		return fmt.Errorf("automatic dependency download is currently only supported on Windows. Please manually download Piper TTS dependencies")
+	}
+
+	// Read the embedded PowerShell script
+	scriptContent, err := embeddedGetRequirements.ReadFile("get-requirements.ps1")
+	if err != nil {
+		return fmt.Errorf("failed to read embedded PowerShell script: %w", err)
+	}
+
+	// Create a modified version of the script that uses tempRequirementsDir
+	modifiedScript := strings.Replace(string(scriptContent),
+		`$RequirementsDir = Join-Path $PSScriptRoot "tts\requirements"`,
+		`$RequirementsDir = "`+tempRequirementsDir+`"`,
+		1)
+
+	// Create temp directory if it doesn't exist
 	if err := os.MkdirAll(tempRequirementsDir, 0755); err != nil {
 		return fmt.Errorf("failed to create temp directory: %w", err)
 	}
 
-	// Walk through embedded files and extract them
-	err := fs.WalkDir(embeddedRequirements, "tts/requirements", func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
+	// Write the modified script to a temporary file
+	scriptPath := filepath.Join(baseDir, "pejelagarto-get-requirements.ps1")
+	if err := os.WriteFile(scriptPath, []byte(modifiedScript), 0755); err != nil {
+		return fmt.Errorf("failed to write temporary PowerShell script: %w", err)
+	}
+	defer os.Remove(scriptPath) // Clean up script after execution
 
-		// Calculate relative path (remove "tts/requirements/" prefix)
-		relPath, err := filepath.Rel("tts/requirements", path)
-		if err != nil {
-			return fmt.Errorf("failed to get relative path: %w", err)
-		}
+	// Execute the PowerShell script
+	log.Println("Running PowerShell script to download dependencies...")
+	cmd := exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 
-		// Skip the root directory itself
-		if relPath == "." {
-			return nil
-		}
-
-		// Destination path
-		destPath := filepath.Join(tempRequirementsDir, relPath)
-
-		if d.IsDir() {
-			// Create directory
-			if err := os.MkdirAll(destPath, 0755); err != nil {
-				return fmt.Errorf("failed to create directory %s: %w", destPath, err)
-			}
-		} else {
-			// Read embedded file
-			data, err := embeddedRequirements.ReadFile(path)
-			if err != nil {
-				return fmt.Errorf("failed to read embedded file %s: %w", path, err)
-			}
-
-			// Write to destination
-			if err := os.WriteFile(destPath, data, 0755); err != nil {
-				return fmt.Errorf("failed to write file %s: %w", destPath, err)
-			}
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return fmt.Errorf("failed to extract embedded files: %w", err)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to execute PowerShell script: %w", err)
 	}
 
-	log.Printf("Successfully extracted TTS requirements")
+	// Verify that the dependencies were downloaded
+	if _, err := os.Stat(piperExe); err != nil {
+		return fmt.Errorf("piper binary not found after download: %w", err)
+	}
+	if _, err := os.Stat(espeakData); err != nil {
+		return fmt.Errorf("espeak-ng-data not found after download: %w", err)
+	}
+	if _, err := os.Stat(piperDir); err != nil {
+		return fmt.Errorf("piper directory not found after download: %w", err)
+	}
+
+	log.Printf("Successfully downloaded TTS requirements")
 	return nil
 }
 
@@ -2411,7 +2434,7 @@ const htmlUI = `<!DOCTYPE html>
             const selectedLang = oldDropdown ? oldDropdown.value : 'russian';
             
             const dropdownHTML = document.getElementById('tts-language') ? 
-                ' <select id="tts-language" onchange="watchOutputChanges()" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--textarea-bg); color: var(--text-primary); font-size: 14px;"><option value="russian">North</option><option value="german">North-East</option><option value="turkish">North-East-East</option><option value="portuguese">East</option><option value="french">Center</option><option value="hindi">South-East</option><option value="romanian">South</option><option value="icelandic">South-South-East</option><option value="arabic">South-West</option><option value="swedish">South-West-West</option><option value="vietnamese">South-South-West</option><option value="czech">West</option><option value="chinese">North-West-West</option><option value="norwegian">North-West</option><option value="hungarian">North-North-West</option><option value="kazakh">North-North-East</option></select>' : '';
+                ' <select id="tts-language" onchange="watchOutputChanges()" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--textarea-bg); color: var(--text-primary); font-size: 14px;"><option value="russian">North</option><option value="german">North-East</option><option value="turkish">North-East-East</option><option value="portuguese">East</option><option value="french">Center</option><option value="hindi">South-East</option><option value="romanian">South</option><option value="icelandic">South-South-East</option><option value="swahili">South-West</option><option value="swedish">South-West-West</option><option value="vietnamese">South-South-West</option><option value="czech">West</option><option value="chinese">North-West-West</option><option value="norwegian">North-West</option><option value="hungarian">North-North-West</option><option value="kazakh">North-North-East</option></select>' : '';
             
             // Always reset both labels to ensure clean state
             if (isInverted) {
@@ -2586,7 +2609,7 @@ const htmlUI = `<!DOCTYPE html>
             const selectedLang = oldDropdown ? oldDropdown.value : 'russian';
             
             const dropdownHTML = document.getElementById('tts-language') ? 
-                ' <select id="tts-language" onchange="watchOutputChanges()" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--textarea-bg); color: var(--text-primary); font-size: 14px;"><option value="russian">North</option><option value="german">North-East</option><option value="turkish">North-East-East</option><option value="portuguese">East</option><option value="french">Center</option><option value="hindi">South-East</option><option value="romanian">South</option><option value="icelandic">South-South-East</option><option value="arabic">South-West</option><option value="swedish">South-West-West</option><option value="vietnamese">South-South-West</option><option value="czech">West</option><option value="chinese">North-West-West</option><option value="norwegian">North-West</option><option value="hungarian">North-North-West</option><option value="kazakh">North-North-East</option></select>' : '';
+                ' <select id="tts-language" onchange="watchOutputChanges()" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--textarea-bg); color: var(--text-primary); font-size: 14px;"><option value="russian">North</option><option value="german">North-East</option><option value="turkish">North-East-East</option><option value="portuguese">East</option><option value="french">Center</option><option value="hindi">South-East</option><option value="romanian">South</option><option value="icelandic">South-South-East</option><option value="swahili">South-West</option><option value="swedish">South-West-West</option><option value="vietnamese">South-South-West</option><option value="czech">West</option><option value="chinese">North-West-West</option><option value="norwegian">North-West</option><option value="hungarian">North-North-West</option><option value="kazakh">North-North-East</option></select>' : '';
             
             const label = 'Pejelagarto:';
             const buttonId = source === 'input' ? 'play-input' : 'play-output';
@@ -2623,7 +2646,7 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
                     <option value="hindi">South-East</option>
                     <option value="romanian">South</option>
                     <option value="icelandic">South-South-East</option>
-                    <option value="arabic">South-West</option>
+                    <option value="swahili">South-West</option>
                     <option value="swedish">South-West-West</option>
                     <option value="vietnamese">South-South-West</option>
                     <option value="czech">West</option>
@@ -2754,10 +2777,10 @@ func preprocessTextForTTS(input string, pronunciationLanguage string) string {
 		vowels = "अआइईउऊऋएऐओऔaeiou"
 		consonants = "कखगघङचछजझञटठडढणतथदधनपफबभमयरलवशषसहaeioukcghnjṭḍnṇtdpbmyrlvśṣsh"
 		allowed = vowels + consonants + "अआइईउऊऋएऐओऔकखगघङचछजझञटठडढणतथदधनपफबभमयरलवशषसहािीुूृेैोौंःँ" + "0123456789" + " .,!?;:'\"-()[]"
-	case "arabic":
-		vowels = "اأإآةويىاeiou"
-		consonants = "بتثجحخدذرزسشصضطظعغفقكلمنهىي"
-		allowed = vowels + consonants + "اأإآةويىبتثجحخدذرزسشصضطظعغفقكلمنهىيًٌٍَُِّْٰ" + "0123456789" + " .,!?;:'\"-()[]"
+	case "swahili":
+		vowels = "aeiou"
+		consonants = "bcdfghjklmnpqrstvwxyz"
+		allowed = vowels + consonants + "AEIOUБCDFGHJKLMNPQRSTVWXYZ" + "0123456789" + " .,!?;:'\"-()[]"
 	case "icelandic":
 		vowels = "aeiouyáéíóúýæöAEIOUYÁÉÍÓÚÝÆÖ"
 		consonants = "bcdfghjklmnpqrstvwxzþðBCDFGHJKLMNPQRSTVWXZÞÐ"
@@ -3019,12 +3042,12 @@ func handleTextToSpeech(w http.ResponseWriter, r *http.Request) {
 	// Validate language
 	validLanguages := map[string]bool{
 		"russian": true, "portuguese": true, "french": true, "german": true,
-		"hindi": true, "romanian": true, "arabic": true, "czech": true,
+		"hindi": true, "romanian": true, "swahili": true, "czech": true,
 		"icelandic": true, "kazakh": true, "norwegian": true, "swedish": true,
 		"turkish": true, "vietnamese": true, "hungarian": true, "chinese": true,
 	}
 	if !validLanguages[lang] {
-		http.Error(w, fmt.Sprintf("Invalid language '%s'. Allowed: russian, portuguese, french, german, hindi, romanian, arabic, czech, icelandic, kazakh, norwegian, swedish, turkish, vietnamese, hungarian, chinese", lang), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Invalid language '%s'. Allowed: russian, portuguese, french, german, hindi, romanian, swahili, czech, icelandic, kazakh, norwegian, swedish, turkish, vietnamese, hungarian, chinese", lang), http.StatusBadRequest)
 		return
 	}
 
@@ -3189,7 +3212,7 @@ func main() {
 	// Validate and set pronunciation language
 	validLanguages := map[string]bool{
 		"russian": true, "portuguese": true, "french": true, "german": true,
-		"hindi": true, "romanian": true, "arabic": true, "czech": true,
+		"hindi": true, "romanian": true, "swahili": true, "czech": true,
 		"icelandic": true, "kazakh": true, "norwegian": true, "swedish": true,
 		"turkish": true, "vietnamese": true, "hungarian": true, "chinese": true,
 	}
