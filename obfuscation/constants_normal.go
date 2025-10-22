@@ -22,7 +22,7 @@ func ShouldOpenBrowser() bool {
 	return true
 }
 
-// ShouldLogVerbose returns whether verbose logging should be enabled
-func ShouldLogVerbose() bool {
+// NotObfuscated returns whether this is a non-obfuscated build
+func NotObfuscated() bool {
 	return true
 }
