@@ -156,50 +156,47 @@ func extractEmbeddedRequirements() error {
 	return nil
 }
 
-// Translation maps for word/syllable replacements
-// NOTE: All values must have SAME length as keys (rune count)
-// NOTE: Values should use ONLY letters NOT in letterMap (c,h,j,s,t,x,z) to avoid collisions
-// NOTE: Values should NOT contain substrings that match conjunction patterns
-var wordMap = map[string]string{
-	"hello": "jhtxz",
-	"world": "zcthx",
-	"the":   "zjc",
-}
-
 // Translation maps for conjunction (letter pair) replacements
 // NOTE: All values must have SAME length as keys (rune count)
 // NOTE: Output values use ONLY letters NOT in letterMap (c,h,j,s,t,x,z) to avoid collisions
 // NOTE: Avoid repeated characters to prevent ambiguity (e.g., "zz" could be confused with "z"+"z")
 var conjunctionMap = map[string]string{
-	"ch": "jc",
-	"sh": "xs",
-	"th": "zt",
+	"hello": "araka",
+	"hola":  "arak",
+	"fran":  "filo",
+	"the":   "ele",
+	"el":    "le",
+	"la":    "al",
+	"leg":   "ady",
+	"ch":    "jc",
+	"sh":    "xs",
+	"th":    "zt",
 }
 
 // Translation maps for single letter replacements (must be invertible)
 // NOTE: All values must have SAME length as keys (rune count)
 // NOTE: Avoid letters that appear in conjunction patterns (c, h, j, s, t, x, z)
 // to prevent collisions between letter outputs and conjunction inputs
+// NOTE: Consonants map to consonants, vowels map to vowels (y and w are vowels)
 var letterMap = map[string]string{
 	"a": "i",
 	"b": "p",
 	"d": "f",
-	"e": "o",
+	"e": "y",
 	"f": "d",
 	"g": "l",
-	"k": "w",
+	"k": "r",
 	"l": "g",
 	"m": "n",
 	"n": "m",
-	"o": "e",
+	"o": "u",
 	"p": "b",
 	"q": "v",
-	"r": "y",
-	"u": "r",
+	"r": "k",
+	"u": "o",
 	"v": "q",
-	"w": "k",
-	"y": "u",
-	// Letters c, h, i, j, s, t, x, z are NOT mapped to avoid conjunction collisions
+	"w": "e",
+	"y": "w",
 }
 
 // Punctuation replacement map
@@ -300,7 +297,6 @@ func validateMaps() error {
 		name string
 		m    map[string]string
 	}{
-		{"wordMap", wordMap},
 		{"conjunctionMap", conjunctionMap},
 		{"letterMap", letterMap},
 	}
@@ -374,12 +370,10 @@ func createBijectiveMap() map[int32]map[string]string {
 	}
 
 	// Add positive entries (key -> value)
-	addEntries(wordMap, true)
 	addEntries(conjunctionMap, true)
 	addEntries(letterMap, true)
 
 	// Add inverse entries (-index: value -> key)
-	addEntries(wordMap, false)
 	addEntries(conjunctionMap, false)
 	addEntries(letterMap, false)
 
@@ -609,11 +603,14 @@ func applyReplacements(input string, bijectiveMap map[int32]map[string]string, i
 			depth := 0
 			startMarkerRune := []rune(startMarker)[0]
 			endMarkerRune := []rune(endMarker)[0]
+			const softHyphen = '\u00AD'
 
 			// First pass: identify escaped characters
+			// We need to check for BOTH backslash escapes (internal) and soft hyphen escapes (output)
 			for i := 0; i < len(resultRunes); i++ {
-				if resultRunes[i] == '\\' && i+1 < len(resultRunes) {
+				if (resultRunes[i] == '\\' || resultRunes[i] == softHyphen) && i+1 < len(resultRunes) {
 					escapedMap[i+1] = true
+					escapedMap[i] = true // Mark the escape character itself as escaped too
 				}
 			}
 
@@ -2788,10 +2785,52 @@ func getModelPath(language string) string {
 	return filepath.Join(tempRequirementsDir, "piper", "languages", language, "model.onnx")
 }
 
+// getBaseVowelForTTS returns the base (unaccented) vowel for a given character
+// Returns 0 if the character is not a vowel
+func getBaseVowelForTTS(r rune) rune {
+	// Map of accented vowels to their base forms
+	accentMap := map[rune]rune{
+		// a variations
+		'á': 'a', 'à': 'a', 'â': 'a', 'ä': 'a', 'ã': 'a', 'å': 'a', 'ā': 'a', 'ă': 'a', 'ą': 'a', 'ǎ': 'a', 'ắ': 'a', 'ằ': 'a', 'ẳ': 'a', 'ẵ': 'a', 'ặ': 'a', 'ấ': 'a', 'ầ': 'a', 'ẩ': 'a', 'ẫ': 'a', 'ậ': 'a',
+		// e variations
+		'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e', 'ē': 'e', 'ĕ': 'e', 'ė': 'e', 'ę': 'e', 'ě': 'e', 'ế': 'e', 'ề': 'e', 'ể': 'e', 'ễ': 'e', 'ệ': 'e',
+		// i variations
+		'í': 'i', 'ì': 'i', 'î': 'i', 'ï': 'i', 'ĩ': 'i', 'ī': 'i', 'ĭ': 'i', 'į': 'i', 'ı': 'i', 'ǐ': 'i', 'ỉ': 'i', 'ị': 'i',
+		// o variations
+		'ó': 'o', 'ò': 'o', 'ô': 'o', 'ö': 'o', 'õ': 'o', 'ō': 'o', 'ŏ': 'o', 'ő': 'o', 'ø': 'o', 'ǒ': 'o', 'ơ': 'o', 'ố': 'o', 'ồ': 'o', 'ổ': 'o', 'ỗ': 'o', 'ộ': 'o', 'ớ': 'o', 'ờ': 'o', 'ở': 'o', 'ỡ': 'o', 'ợ': 'o',
+		// u variations
+		'ú': 'u', 'ù': 'u', 'û': 'u', 'ü': 'u', 'ũ': 'u', 'ū': 'u', 'ŭ': 'u', 'ů': 'u', 'ű': 'u', 'ų': 'u', 'ư': 'u', 'ǔ': 'u', 'ǖ': 'u', 'ǘ': 'u', 'ǚ': 'u', 'ǜ': 'u', 'ứ': 'u', 'ừ': 'u', 'ử': 'u', 'ữ': 'u', 'ự': 'u',
+		// y variations
+		'ý': 'y', 'ỳ': 'y', 'ŷ': 'y', 'ÿ': 'y', 'ȳ': 'y', 'ỷ': 'y', 'ỹ': 'y', 'ỵ': 'y',
+		// w variations (less common but included for completeness)
+		'ẃ': 'w', 'ẁ': 'w', 'ŵ': 'w', 'ẅ': 'w',
+		// Special characters
+		'æ': 'e', 'œ': 'e', 'ð': 'e', 'þ': 'e',
+		// Cyrillic vowels (for Russian, Kazakh, etc.)
+		'а': 'a', 'е': 'e', 'ё': 'e', 'и': 'i', 'о': 'o', 'у': 'u', 'ы': 'y', 'э': 'e', 'ю': 'u', 'я': 'a',
+		'ә': 'a', 'ө': 'o', 'ұ': 'u', 'ү': 'u', 'і': 'i',
+	}
+
+	// Check if it's already a base vowel
+	baseVowels := "aeiouywaeiouyw"
+	if strings.ContainsRune(baseVowels, r) {
+		return r
+	}
+
+	// Check if we have a mapping for this accented vowel
+	if base, ok := accentMap[r]; ok {
+		return base
+	}
+
+	// Not a vowel
+	return 0
+}
+
 // preprocessTextForTTS prepares text for TTS by:
 // 1. Converting numbers from Pejelagarto format to standard format
-// 2. Removing non-language-specific characters
-// 3. Limiting consonant clusters to max 2 adjacent consonants
+// 2. Converting accented vowels to base vowels when accent not available in language
+// 3. Removing non-language-specific characters
+// 4. Limiting consonant clusters to max 2 adjacent consonants
 func preprocessTextForTTS(input string, pronunciationLanguage string) string {
 	// Step 1: Apply number conversion from Pejelagarto format
 	input = applyNumbersLogicFromPejelagarto(input)
@@ -2879,7 +2918,7 @@ func preprocessTextForTTS(input string, pronunciationLanguage string) string {
 		allowed = vowels + consonants + "АЕЁИОУЫЭЮЯБВГДЖЗЙКЛМНПРСТФХЦЧШЩAEIOUBCDFGHJKLMNPQRSTVWXYZ" + "0123456789" + " .,!?;:'\"-()[]ъьЪЬ"
 	}
 
-	// Step 1: Convert to lowercase and remove non-allowed characters
+	// Step 1: Convert to lowercase and handle characters
 	var cleaned strings.Builder
 	for _, r := range input {
 		if strings.ContainsRune(allowed, r) {
@@ -2887,6 +2926,22 @@ func preprocessTextForTTS(input string, pronunciationLanguage string) string {
 			if unicode.IsLetter(r) {
 				cleaned.WriteRune(unicode.ToLower(r))
 			} else {
+				cleaned.WriteRune(r)
+			}
+		} else if unicode.IsLetter(r) {
+			// Check if it's a vowel (accented or not)
+			lowerR := unicode.ToLower(r)
+			baseVowel := getBaseVowelForTTS(lowerR)
+
+			// If it's a vowel and the base vowel is allowed, use the base vowel
+			if baseVowel != 0 && strings.ContainsRune(vowels, baseVowel) {
+				cleaned.WriteRune(baseVowel)
+			}
+			// Otherwise, skip this character (consonant not in allowed set)
+		} else if !unicode.IsLetter(r) {
+			// For non-letter characters (punctuation, numbers, spaces)
+			// only include if they're in the allowed set
+			if strings.ContainsRune(allowed, r) {
 				cleaned.WriteRune(r)
 			}
 		}
