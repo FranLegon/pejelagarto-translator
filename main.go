@@ -83,7 +83,7 @@ func extractEmbeddedRequirements() error {
 		return nil
 	}
 
-	if obfuscation.ShouldLogVerbose() {
+	if obfuscation.NotObfuscated() {
 		log.Printf("Downloading TTS requirements to: %s", tempRequirementsDir)
 		if !piperExists {
 			log.Printf("  - Missing: piper binary")
@@ -126,11 +126,11 @@ func extractEmbeddedRequirements() error {
 	defer os.Remove(scriptPath) // Clean up script after execution
 
 	// Execute the PowerShell script
-	if obfuscation.ShouldLogVerbose() {
+	if obfuscation.NotObfuscated() {
 		log.Println("Running PowerShell script to download dependencies...")
 	}
 	cmd := exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath)
-	if obfuscation.ShouldLogVerbose() {
+	if obfuscation.NotObfuscated() {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 	}
@@ -150,7 +150,7 @@ func extractEmbeddedRequirements() error {
 		return fmt.Errorf("piper directory not found after download: %w", err)
 	}
 
-	if obfuscation.ShouldLogVerbose() {
+	if obfuscation.NotObfuscated() {
 		log.Printf("Successfully downloaded TTS requirements")
 	}
 	return nil
@@ -214,6 +214,12 @@ var punctuationMap = map[string]string{
 	"(":  "⦅",
 	")":  "⦆",
 }
+
+// Escape characters for internal and output escaping
+const (
+	internalEscapeChar = '\\'     // Backslash - used internally, removed before output
+	outputEscapeChar   = '\u00AD' // Soft hyphen - used in output, visible in Pejelagarto text
+)
 
 // Special character encoding maps for datetime using Unicode range U+2300 to U+23FB (avoiding emojis)
 var daySpecialCharIndex = []string{
@@ -288,7 +294,7 @@ var minuteSpecialCharIndex = []string{
 		"\u24F6", "\u23F4", "\u23F5", "\u23F6", "\u23F7", "\u24F7", "\u24F8", "\u24F9", "\u24FA",
 	*/
 	"\u2427", "\u2428", "\u2429", "\u302A", "\u302B", "\u2FFC", "\u2FFD", "\u2FFE", "\u2FFF", "\u3099",
-	"\u309A", "\u309B", "\u309C", "\uA702", "\uAAB8", "\uFBB2", "\uA950", "\uA951", "\uA926", "\uA952",
+	"\u309A", "\u309B", "\u309C", "\uA702", "\uAAB8", "\u061C", "\uA950", "\uA951", "\uA926", "\uA952",
 }
 
 // validateMaps checks that all mappings have equal rune lengths for keys and values
@@ -465,7 +471,6 @@ func matchCase(original, replacement string) string {
 // This is used to protect characters during translation processing
 // Escapes the escape character itself first to avoid conflicts
 func internalEscape(input string, charsToEscape string) string {
-	const escapeChar = '\\'
 	var result strings.Builder
 	result.Grow(len(input) * 2)
 
@@ -475,11 +480,11 @@ func internalEscape(input string, charsToEscape string) string {
 		escapeMap[r] = true
 	}
 	// Always escape the escape character itself
-	escapeMap[escapeChar] = true
+	escapeMap[internalEscapeChar] = true
 
 	for _, r := range input {
 		if escapeMap[r] {
-			result.WriteRune(escapeChar)
+			result.WriteRune(internalEscapeChar)
 		}
 		result.WriteRune(r)
 	}
@@ -489,13 +494,12 @@ func internalEscape(input string, charsToEscape string) string {
 
 // internalUnescape removes backslash escaping (reverses internalEscape)
 func internalUnescape(input string) string {
-	const escapeChar = '\\'
 	var result strings.Builder
 	result.Grow(len(input))
 
 	runes := []rune(input)
 	for i := 0; i < len(runes); i++ {
-		if runes[i] == escapeChar && i+1 < len(runes) {
+		if runes[i] == internalEscapeChar && i+1 < len(runes) {
 			// Skip the escape character, add the next character
 			i++
 			result.WriteRune(runes[i])
@@ -510,7 +514,6 @@ func internalUnescape(input string) string {
 // outputEscape escapes characters using soft hyphen prefix (present in Pejelagarto output)
 // This escaping is visible in the translated text
 func outputEscape(input string, charsToEscape string) string {
-	const escapeChar = '\u00AD' // Soft hyphen
 	var result strings.Builder
 	result.Grow(len(input) * 2)
 
@@ -520,11 +523,11 @@ func outputEscape(input string, charsToEscape string) string {
 		escapeMap[r] = true
 	}
 	// Always escape the escape character itself
-	escapeMap[escapeChar] = true
+	escapeMap[outputEscapeChar] = true
 
 	for _, r := range input {
 		if escapeMap[r] {
-			result.WriteRune(escapeChar)
+			result.WriteRune(outputEscapeChar)
 		}
 		result.WriteRune(r)
 	}
@@ -534,13 +537,12 @@ func outputEscape(input string, charsToEscape string) string {
 
 // outputUnescape removes soft hyphen escaping (reverses outputEscape)
 func outputUnescape(input string) string {
-	const escapeChar = '\u00AD' // Soft hyphen
 	var result strings.Builder
 	result.Grow(len(input))
 
 	runes := []rune(input)
 	for i := 0; i < len(runes); i++ {
-		if runes[i] == escapeChar && i+1 < len(runes) {
+		if runes[i] == outputEscapeChar && i+1 < len(runes) {
 			// Skip the escape character, add the next character
 			i++
 			result.WriteRune(runes[i])
@@ -603,12 +605,11 @@ func applyReplacements(input string, bijectiveMap map[int32]map[string]string, i
 			depth := 0
 			startMarkerRune := []rune(startMarker)[0]
 			endMarkerRune := []rune(endMarker)[0]
-			const softHyphen = '\u00AD'
 
 			// First pass: identify escaped characters
 			// We need to check for BOTH backslash escapes (internal) and soft hyphen escapes (output)
 			for i := 0; i < len(resultRunes); i++ {
-				if (resultRunes[i] == '\\' || resultRunes[i] == softHyphen) && i+1 < len(resultRunes) {
+				if (resultRunes[i] == internalEscapeChar || resultRunes[i] == outputEscapeChar) && i+1 < len(resultRunes) {
 					escapedMap[i+1] = true
 					escapedMap[i] = true // Mark the escape character itself as escaped too
 				}
@@ -770,7 +771,7 @@ func applyReplacements(input string, bijectiveMap map[int32]map[string]string, i
 	resultRunes := []rune(result)
 	for i := 0; i < len(resultRunes); i++ {
 		// Check if this is an escaped character (preceded by backslash)
-		isEscaped := i > 0 && resultRunes[i-1] == '\\'
+		isEscaped := i > 0 && resultRunes[i-1] == internalEscapeChar
 
 		// Skip unescaped markers
 		if !isEscaped && (resultRunes[i] == startMarkerRune || resultRunes[i] == endMarkerRune) {
@@ -3306,12 +3307,190 @@ func openBrowser(url string) error {
 	return cmd.Start()
 }
 
+// validateConstants performs comprehensive validation of all translation constants
+// This function should be called before starting the server to ensure data integrity
+func validateConstants() error {
+	// 1. Validate conjunctionMap: len(key) == len(value) for every pair
+	for key, value := range conjunctionMap {
+		keyLen := utf8.RuneCountInString(key)
+		valueLen := utf8.RuneCountInString(value)
+		if keyLen != valueLen {
+			return fmt.Errorf("conjunctionMap: key %q (len=%d) and value %q (len=%d) must have equal rune lengths",
+				key, keyLen, value, valueLen)
+		}
+	}
+
+	// 2. Validate letterMap: len(key) == 1 && len(value) == 1
+	for key, value := range letterMap {
+		keyLen := utf8.RuneCountInString(key)
+		valueLen := utf8.RuneCountInString(value)
+		if keyLen != 1 {
+			return fmt.Errorf("letterMap: key %q must be exactly 1 rune, got %d", key, keyLen)
+		}
+		if valueLen != 1 {
+			return fmt.Errorf("letterMap: value %q for key %q must be exactly 1 rune, got %d", value, key, valueLen)
+		}
+	}
+
+	// 3. Validate escape characters are not in punctuationMap
+	// Build a set of all characters in punctuationMap (keys and values)
+	punctuationChars := make(map[rune]bool)
+	for key, value := range punctuationMap {
+		for _, r := range key {
+			punctuationChars[r] = true
+		}
+		for _, r := range value {
+			punctuationChars[r] = true
+		}
+	}
+
+	if punctuationChars[internalEscapeChar] {
+		return fmt.Errorf("internalEscapeChar %q found in punctuationMap (not allowed)", internalEscapeChar)
+	}
+	if punctuationChars[outputEscapeChar] {
+		return fmt.Errorf("outputEscapeChar %q found in punctuationMap (not allowed)", outputEscapeChar)
+	}
+
+	// 4. Validate special char indices: no repeated characters
+	// Collect all special characters into a single map to check for duplicates
+	allSpecialChars := make(map[string]string) // map[character]source (e.g., "daySpecialCharIndex[3]")
+
+	// Helper function to check for duplicates in an array
+	checkDuplicates := func(arr []string, arrayName string) error {
+		for i, char := range arr {
+			if existingSource, exists := allSpecialChars[char]; exists {
+				return fmt.Errorf("duplicate character %q found in %s[%d] and %s",
+					char, arrayName, i, existingSource)
+			}
+			allSpecialChars[char] = fmt.Sprintf("%s[%d]", arrayName, i)
+		}
+		return nil
+	}
+
+	if err := checkDuplicates(daySpecialCharIndex, "daySpecialCharIndex"); err != nil {
+		return err
+	}
+	if err := checkDuplicates(monthSpecialCharIndex, "monthSpecialCharIndex"); err != nil {
+		return err
+	}
+	if err := checkDuplicates(yearSpecialCharIndex, "yearSpecialCharIndex"); err != nil {
+		return err
+	}
+	if err := checkDuplicates(hourSpecialCharIndex, "hourSpecialCharIndex"); err != nil {
+		return err
+	}
+	if err := checkDuplicates(minuteSpecialCharIndex, "minuteSpecialCharIndex"); err != nil {
+		return err
+	}
+
+	// 5. Validate escape characters are not in special char indices
+	if _, exists := allSpecialChars[string(internalEscapeChar)]; exists {
+		return fmt.Errorf("internalEscapeChar %q found in special char indices (not allowed)", internalEscapeChar)
+	}
+	if _, exists := allSpecialChars[string(outputEscapeChar)]; exists {
+		return fmt.Errorf("outputEscapeChar %q found in special char indices (not allowed)", outputEscapeChar)
+	}
+
+	// 6. Validate languages are correctly mapped to their labels in HTML dropdown
+	// Extract the dropdown HTML to parse language mappings
+	dropdownHTML := `<option value="russian">North</option>
+                    <option value="kazakh">North-North-East</option>
+                    <option value="german">North-East</option>
+                    <option value="turkish">North-East-East</option>
+                    <option value="portuguese">East</option>
+                    <option value="french">South-East-East</option>
+                    <option value="hindi">South-East</option>
+                    <option value="icelandic">South-South-East</option>
+                    <option value="romanian">South</option>
+                    <option value="vietnamese">South-South-West</option>
+                    <option value="swahili">South-West</option>
+                    <option value="swedish">South-West-West</option>
+                    <option value="czech">West</option>
+                    <option value="chinese">North-West-West</option>
+                    <option value="norwegian">North-West</option>
+                    <option value="hungarian">North-North-West</option>`
+
+	// Define expected language mappings (value -> label)
+	expectedLanguageMappings := map[string]string{
+		"russian":    "North",
+		"kazakh":     "North-North-East",
+		"german":     "North-East",
+		"turkish":    "North-East-East",
+		"portuguese": "East",
+		"french":     "South-East-East",
+		"hindi":      "South-East",
+		"icelandic":  "South-South-East",
+		"romanian":   "South",
+		"vietnamese": "South-South-West",
+		"swahili":    "South-West",
+		"swedish":    "South-West-West",
+		"czech":      "West",
+		"chinese":    "North-West-West",
+		"norwegian":  "North-West",
+		"hungarian":  "North-North-West",
+	}
+
+	// Parse dropdown HTML to extract actual mappings
+	optionPattern := regexp.MustCompile(`<option value="([^"]+)">([^<]+)</option>`)
+	matches := optionPattern.FindAllStringSubmatch(dropdownHTML, -1)
+
+	actualMappings := make(map[string]string)
+	for _, match := range matches {
+		if len(match) == 3 {
+			value := match[1]
+			label := match[2]
+			actualMappings[value] = label
+		}
+	}
+
+	// Compare expected vs actual mappings
+	for lang, expectedLabel := range expectedLanguageMappings {
+		actualLabel, exists := actualMappings[lang]
+		if !exists {
+			return fmt.Errorf("language %q missing from HTML dropdown", lang)
+		}
+		if actualLabel != expectedLabel {
+			return fmt.Errorf("language %q has incorrect label in HTML dropdown: expected %q, got %q",
+				lang, expectedLabel, actualLabel)
+		}
+	}
+
+	// Check for extra languages in dropdown that shouldn't be there
+	for lang := range actualMappings {
+		if _, expected := expectedLanguageMappings[lang]; !expected {
+			return fmt.Errorf("unexpected language %q found in HTML dropdown", lang)
+		}
+	}
+
+	return nil
+}
+
+// getFlagUsage returns the usage string for flags based on build mode
+// Returns the actual usage for normal builds, empty string for obfuscated builds
+func getFlagUsage(usage string) string {
+	if obfuscation.NotObfuscated() {
+		return usage
+	}
+	return ""
+}
+
 func main() {
+	// Disable -help flag for obfuscated builds
+	if !obfuscation.NotObfuscated() {
+		flag.Usage = func() {}
+	}
+
+	// Validate all constants before starting the server
+	if err := validateConstants(); err != nil {
+		log.Fatalf("Constants validation failed: %v", err)
+	}
+	log.Println("✓ Constants validation passed")
+
 	// Parse command-line flags
-	ngrokToken := flag.String("ngrok_token", "", "Optional ngrok auth token to expose server publicly")
-	ngrokDomain := flag.String("ngrok_domain", "", "Optional ngrok persistent domain (e.g., your-domain.ngrok-free.app)")
-	pronunciationLangFlag := flag.String("pronunciation_language", "russian", "TTS pronunciation language (russian, portuguese, romanian, czech)")
-	pronunciationLangDropdownFlag := flag.Bool("pronunciation_language_dropdown", true, "Show language dropdown in UI for TTS")
+	ngrokToken := flag.String("ngrok_token", "", getFlagUsage("Optional ngrok auth token to expose server publicly"))
+	ngrokDomain := flag.String("ngrok_domain", "", getFlagUsage("Optional ngrok persistent domain (e.g., your-domain.ngrok-free.app)"))
+	pronunciationLangFlag := flag.String("pronunciation_language", "russian", getFlagUsage("TTS pronunciation language (russian, portuguese, romanian, czech)"))
+	pronunciationLangDropdownFlag := flag.Bool("pronunciation_language_dropdown", true, getFlagUsage("Show language dropdown in UI for TTS"))
 	if !strings.HasPrefix(*ngrokDomain, "http://") && !strings.HasPrefix(*ngrokDomain, "https://") {
 		*ngrokDomain = "https://" + *ngrokDomain
 	}
@@ -3335,7 +3514,7 @@ func main() {
 	}
 	pronunciationLanguage = *pronunciationLangFlag
 	pronunciationLanguageDropdown = *pronunciationLangDropdownFlag
-	if obfuscation.ShouldLogVerbose() {
+	if obfuscation.NotObfuscated() {
 		log.Printf("TTS pronunciation language set to: %s", pronunciationLanguage)
 		log.Printf("TTS language dropdown enabled: %v", pronunciationLanguageDropdown)
 	}
@@ -3349,7 +3528,7 @@ func main() {
 
 	if *ngrokToken != "" {
 		// Use ngrok to expose server publicly
-		if obfuscation.ShouldLogVerbose() {
+		if obfuscation.NotObfuscated() {
 			log.Println("Initializing ngrok tunnel...")
 			log.Printf("Using auth token: %s...\n", (*ngrokToken)[:10])
 			log.Println("Connecting to ngrok service...")
@@ -3365,7 +3544,7 @@ func main() {
 			domain = strings.TrimPrefix(domain, "https://")
 			domain = strings.TrimPrefix(domain, "http://")
 
-			if obfuscation.ShouldLogVerbose() {
+			if obfuscation.NotObfuscated() {
 				log.Printf("Using persistent domain: %s\n", domain)
 				log.Println("Establishing tunnel (this may take a few seconds)...")
 			}
@@ -3395,7 +3574,7 @@ func main() {
 				log.Fatalf("Failed to start ngrok listener: connection timeout after 30 seconds")
 			}
 		} else {
-			if obfuscation.ShouldLogVerbose() {
+			if obfuscation.NotObfuscated() {
 				log.Println("Using random ngrok domain")
 				log.Println("Establishing tunnel (this may take a few seconds)...")
 			}
@@ -3429,7 +3608,7 @@ func main() {
 		}
 
 		url := listener.URL()
-		if obfuscation.ShouldLogVerbose() {
+		if obfuscation.NotObfuscated() {
 			log.Printf("✓ ngrok tunnel established successfully!\n")
 			log.Printf("Public URL: %s\n", url)
 		}
@@ -3439,7 +3618,7 @@ func main() {
 			go func() {
 				time.Sleep(1 * time.Second)
 				if err := openBrowser(url); err != nil {
-					if obfuscation.ShouldLogVerbose() {
+					if obfuscation.NotObfuscated() {
 						log.Printf("Could not open browser automatically: %v\n", err)
 						log.Printf("Please open your browser and navigate to %s\n", url)
 					}
@@ -3458,7 +3637,7 @@ func main() {
 
 		// Start server in goroutine
 		go func() {
-			if obfuscation.ShouldLogVerbose() {
+			if obfuscation.NotObfuscated() {
 				log.Printf("Starting Pejelagarto Translator server on %s\n", url)
 			}
 			if err := http.ListenAndServe(addr, nil); err != nil {
@@ -3470,7 +3649,7 @@ func main() {
 		time.Sleep(500 * time.Millisecond)
 		if obfuscation.ShouldOpenBrowser() {
 			if err := openBrowser(url); err != nil {
-				if obfuscation.ShouldLogVerbose() {
+				if obfuscation.NotObfuscated() {
 					log.Printf("Could not open browser automatically: %v\n", err)
 					log.Printf("Please open your browser and navigate to %s\n", url)
 				}
