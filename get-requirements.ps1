@@ -135,7 +135,7 @@ $Languages = @{
     "french" = @{
         "voice" = "fr_FR-siwis-medium"
         "url_base" = "https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/siwis/medium"
-        "direction" = "Center"
+        "direction" = "South-East-East"
     }
     "german" = @{
         "voice" = "de_DE-thorsten-medium"
