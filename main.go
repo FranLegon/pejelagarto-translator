@@ -3484,7 +3484,7 @@ func main() {
 	if err := validateConstants(); err != nil {
 		log.Fatalf("Constants validation failed: %v", err)
 	}
-	log.Println("✓ Constants validation passed")
+	log.Println("Constants validation passed ✓")
 
 	// Parse command-line flags
 	ngrokToken := flag.String("ngrok_token", "", getFlagUsage("Optional ngrok auth token to expose server publicly"))
