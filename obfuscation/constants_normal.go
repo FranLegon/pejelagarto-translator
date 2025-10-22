@@ -16,3 +16,13 @@ func ProjectName() string {
 func ScriptSuffix() string {
 	return scriptSuffix
 }
+
+// ShouldOpenBrowser returns whether the browser should auto-open
+func ShouldOpenBrowser() bool {
+	return true
+}
+
+// ShouldLogVerbose returns whether verbose logging should be enabled
+func ShouldLogVerbose() bool {
+	return true
+}

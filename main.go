@@ -83,15 +83,17 @@ func extractEmbeddedRequirements() error {
 		return nil
 	}
 
-	log.Printf("Downloading TTS requirements to: %s", tempRequirementsDir)
-	if !piperExists {
-		log.Printf("  - Missing: piper binary")
-	}
-	if !espeakExists {
-		log.Printf("  - Missing: espeak-ng-data")
-	}
-	if !piperDirExists {
-		log.Printf("  - Missing: piper directory (language models)")
+	if obfuscation.ShouldLogVerbose() {
+		log.Printf("Downloading TTS requirements to: %s", tempRequirementsDir)
+		if !piperExists {
+			log.Printf("  - Missing: piper binary")
+		}
+		if !espeakExists {
+			log.Printf("  - Missing: espeak-ng-data")
+		}
+		if !piperDirExists {
+			log.Printf("  - Missing: piper directory (language models)")
+		}
 	}
 
 	// Only run on Windows for now
@@ -124,10 +126,14 @@ func extractEmbeddedRequirements() error {
 	defer os.Remove(scriptPath) // Clean up script after execution
 
 	// Execute the PowerShell script
-	log.Println("Running PowerShell script to download dependencies...")
+	if obfuscation.ShouldLogVerbose() {
+		log.Println("Running PowerShell script to download dependencies...")
+	}
 	cmd := exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	if obfuscation.ShouldLogVerbose() {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to execute PowerShell script: %w", err)
@@ -144,7 +150,9 @@ func extractEmbeddedRequirements() error {
 		return fmt.Errorf("piper directory not found after download: %w", err)
 	}
 
-	log.Printf("Successfully downloaded TTS requirements")
+	if obfuscation.ShouldLogVerbose() {
+		log.Printf("Successfully downloaded TTS requirements")
+	}
 	return nil
 }
 
@@ -3272,8 +3280,10 @@ func main() {
 	}
 	pronunciationLanguage = *pronunciationLangFlag
 	pronunciationLanguageDropdown = *pronunciationLangDropdownFlag
-	log.Printf("TTS pronunciation language set to: %s", pronunciationLanguage)
-	log.Printf("TTS language dropdown enabled: %v", pronunciationLanguageDropdown)
+	if obfuscation.ShouldLogVerbose() {
+		log.Printf("TTS pronunciation language set to: %s", pronunciationLanguage)
+		log.Printf("TTS language dropdown enabled: %v", pronunciationLanguageDropdown)
+	}
 
 	// Set up HTTP routes
 	http.HandleFunc("/", handleIndex)
@@ -3284,10 +3294,11 @@ func main() {
 
 	if *ngrokToken != "" {
 		// Use ngrok to expose server publicly
-		log.Println("Initializing ngrok tunnel...")
-		log.Printf("Using auth token: %s...\n", (*ngrokToken)[:10])
-
-		log.Println("Connecting to ngrok service...")
+		if obfuscation.ShouldLogVerbose() {
+			log.Println("Initializing ngrok tunnel...")
+			log.Printf("Using auth token: %s...\n", (*ngrokToken)[:10])
+			log.Println("Connecting to ngrok service...")
+		}
 
 		// Configure endpoint with optional domain
 		var listener ngrok.Tunnel
@@ -3299,8 +3310,10 @@ func main() {
 			domain = strings.TrimPrefix(domain, "https://")
 			domain = strings.TrimPrefix(domain, "http://")
 
-			log.Printf("Using persistent domain: %s\n", domain)
-			log.Println("Establishing tunnel (this may take a few seconds)...")
+			if obfuscation.ShouldLogVerbose() {
+				log.Printf("Using persistent domain: %s\n", domain)
+				log.Println("Establishing tunnel (this may take a few seconds)...")
+			}
 
 			// Use a channel to receive the result with timeout
 			type result struct {
@@ -3327,8 +3340,10 @@ func main() {
 				log.Fatalf("Failed to start ngrok listener: connection timeout after 30 seconds")
 			}
 		} else {
-			log.Println("Using random ngrok domain")
-			log.Println("Establishing tunnel (this may take a few seconds)...")
+			if obfuscation.ShouldLogVerbose() {
+				log.Println("Using random ngrok domain")
+				log.Println("Establishing tunnel (this may take a few seconds)...")
+			}
 
 			// Use a channel to receive the result with timeout
 			type result struct {
@@ -3359,17 +3374,23 @@ func main() {
 		}
 
 		url := listener.URL()
-		log.Printf("✓ ngrok tunnel established successfully!\n")
-		log.Printf("Public URL: %s\n", url)
+		if obfuscation.ShouldLogVerbose() {
+			log.Printf("✓ ngrok tunnel established successfully!\n")
+			log.Printf("Public URL: %s\n", url)
+		}
 
-		// Open browser with ngrok URL
-		go func() {
-			time.Sleep(1 * time.Second)
-			if err := openBrowser(url); err != nil {
-				log.Printf("Could not open browser automatically: %v\n", err)
-				log.Printf("Please open your browser and navigate to %s\n", url)
-			}
-		}()
+		// Open browser with ngrok URL (only if configured to do so)
+		if obfuscation.ShouldOpenBrowser() {
+			go func() {
+				time.Sleep(1 * time.Second)
+				if err := openBrowser(url); err != nil {
+					if obfuscation.ShouldLogVerbose() {
+						log.Printf("Could not open browser automatically: %v\n", err)
+						log.Printf("Please open your browser and navigate to %s\n", url)
+					}
+				}
+			}()
+		}
 
 		log.Println("Server is running. Press Ctrl+C to stop.")
 		if err := http.Serve(listener, nil); err != nil {
@@ -3382,17 +3403,23 @@ func main() {
 
 		// Start server in goroutine
 		go func() {
-			log.Printf("Starting Pejelagarto Translator server on %s\n", url)
+			if obfuscation.ShouldLogVerbose() {
+				log.Printf("Starting Pejelagarto Translator server on %s\n", url)
+			}
 			if err := http.ListenAndServe(addr, nil); err != nil {
 				log.Fatalf("Server failed to start: %v", err)
 			}
 		}()
 
-		// Wait a moment for server to start, then open browser
+		// Wait a moment for server to start, then open browser (only if configured to do so)
 		time.Sleep(500 * time.Millisecond)
-		if err := openBrowser(url); err != nil {
-			log.Printf("Could not open browser automatically: %v\n", err)
-			log.Printf("Please open your browser and navigate to %s\n", url)
+		if obfuscation.ShouldOpenBrowser() {
+			if err := openBrowser(url); err != nil {
+				if obfuscation.ShouldLogVerbose() {
+					log.Printf("Could not open browser automatically: %v\n", err)
+					log.Printf("Please open your browser and navigate to %s\n", url)
+				}
+			}
 		}
 
 		// Keep the server running
