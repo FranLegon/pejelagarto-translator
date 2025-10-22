@@ -122,21 +122,85 @@ if (-not (Test-Path $EspeakData)) {
 Write-Host "`nChecking language models..." -ForegroundColor Cyan
 
 $Languages = @{
-    "portuguese" = @{
-        "voice" = "pt_BR-faber-medium"
-        "url_base" = "https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/faber/medium"
-    }
-    "spanish" = @{
-        "voice" = "es_ES-davefx-medium"
-        "url_base" = "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/davefx/medium"
-    }
-    "english" = @{
-        "voice" = "en_US-lessac-medium"
-        "url_base" = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium"
-    }
     "russian" = @{
         "voice" = "ru_RU-irina-medium"
         "url_base" = "https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/irina/medium"
+        "direction" = "North (Default)"
+    }
+    "portuguese" = @{
+        "voice" = "pt_BR-faber-medium"
+        "url_base" = "https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/faber/medium"
+        "direction" = "East"
+    }
+    "french" = @{
+        "voice" = "fr_FR-siwis-medium"
+        "url_base" = "https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/siwis/medium"
+        "direction" = "Center"
+    }
+    "german" = @{
+        "voice" = "de_DE-thorsten-medium"
+        "url_base" = "https://huggingface.co/rhasspy/piper-voices/resolve/main/de/de_DE/thorsten/medium"
+        "direction" = "North-East"
+    }
+    "hindi" = @{
+        "voice" = "hi_IN-pratham-medium"
+        "url_base" = "https://huggingface.co/rhasspy/piper-voices/resolve/main/hi/hi_IN/pratham/medium"
+        "direction" = "South-East"
+    }
+    "romanian" = @{
+        "voice" = "ro_RO-mihai-medium"
+        "url_base" = "https://huggingface.co/rhasspy/piper-voices/resolve/main/ro/ro_RO/mihai/medium"
+        "direction" = "South"
+    }
+    "arabic" = @{
+        "voice" = "ar_JO-kareem-medium"
+        "url_base" = "https://huggingface.co/rhasspy/piper-voices/resolve/main/ar/ar_JO/kareem/medium"
+        "direction" = "South-West"
+    }
+    "czech" = @{
+        "voice" = "cs_CZ-jirka-medium"
+        "url_base" = "https://huggingface.co/rhasspy/piper-voices/resolve/main/cs/cs_CZ/jirka/medium"
+        "direction" = "West"
+    }
+    "icelandic" = @{
+        "voice" = "is_IS-bui-medium"
+        "url_base" = "https://huggingface.co/rhasspy/piper-voices/resolve/main/is/is_IS/bui/medium"
+        "direction" = "South-South-East"
+    }
+    "kazakh" = @{
+        "voice" = "kk_KZ-iseke-x_low"
+        "url_base" = "https://huggingface.co/rhasspy/piper-voices/resolve/main/kk/kk_KZ/iseke/x_low"
+        "direction" = "North-North-East"
+    }
+    "norwegian" = @{
+        "voice" = "no_NO-talesyntese-medium"
+        "url_base" = "https://huggingface.co/rhasspy/piper-voices/resolve/main/no/no_NO/talesyntese/medium"
+        "direction" = "North-West"
+    }
+    "swedish" = @{
+        "voice" = "sv_SE-nst-medium"
+        "url_base" = "https://huggingface.co/rhasspy/piper-voices/resolve/main/sv/sv_SE/nst/medium"
+        "direction" = "South-West-West"
+    }
+    "turkish" = @{
+        "voice" = "tr_TR-dfki-medium"
+        "url_base" = "https://huggingface.co/rhasspy/piper-voices/resolve/main/tr/tr_TR/dfki/medium"
+        "direction" = "North-East-East"
+    }
+    "vietnamese" = @{
+        "voice" = "vi_VN-vais1000-medium"
+        "url_base" = "https://huggingface.co/rhasspy/piper-voices/resolve/main/vi/vi_VN/vais1000/medium"
+        "direction" = "South-South-West"
+    }
+    "hungarian" = @{
+        "voice" = "hu_HU-anna-medium"
+        "url_base" = "https://huggingface.co/rhasspy/piper-voices/resolve/main/hu/hu_HU/anna/medium"
+        "direction" = "North-North-West"
+    }
+    "chinese" = @{
+        "voice" = "zh_CN-huayan-medium"
+        "url_base" = "https://huggingface.co/rhasspy/piper-voices/resolve/main/zh/zh_CN/huayan/medium"
+        "direction" = "North-West-West"
     }
 }
 
@@ -144,7 +208,7 @@ foreach ($LangName in $Languages.Keys) {
     $LangInfo = $Languages[$LangName]
     $LangDir = Join-Path $LanguagesDir $LangName
     
-    Write-Host "`n  Checking $LangName ($($LangInfo.voice))..." -ForegroundColor Yellow
+    Write-Host "`n  Checking $LangName - $($LangInfo.direction) ($($LangInfo.voice))..." -ForegroundColor Yellow
     
     # Create language directory if it doesn't exist
     if (-not (Test-Path $LangDir)) {

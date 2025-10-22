@@ -2408,10 +2408,10 @@ const htmlUI = `<!DOCTYPE html>
             
             // Get current language selection before recreating dropdown
             const oldDropdown = document.getElementById('tts-language');
-            const selectedLang = oldDropdown ? oldDropdown.value : 'portuguese';
+            const selectedLang = oldDropdown ? oldDropdown.value : 'russian';
             
             const dropdownHTML = document.getElementById('tts-language') ? 
-                ' <select id="tts-language" onchange="watchOutputChanges()" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--textarea-bg); color: var(--text-primary); font-size: 14px;"><option value="portuguese">East</option><option value="spanish">West</option><option value="english">South</option><option value="russian">North</option></select>' : '';
+                ' <select id="tts-language" onchange="watchOutputChanges()" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--textarea-bg); color: var(--text-primary); font-size: 14px;"><option value="russian">North</option><option value="german">North-East</option><option value="turkish">North-East-East</option><option value="portuguese">East</option><option value="french">Center</option><option value="hindi">South-East</option><option value="romanian">South</option><option value="icelandic">South-South-East</option><option value="arabic">South-West</option><option value="swedish">South-West-West</option><option value="vietnamese">South-South-West</option><option value="czech">West</option><option value="chinese">North-West-West</option><option value="norwegian">North-West</option><option value="hungarian">North-North-West</option><option value="kazakh">North-North-East</option></select>' : '';
             
             // Always reset both labels to ensure clean state
             if (isInverted) {
@@ -2583,10 +2583,10 @@ const htmlUI = `<!DOCTYPE html>
             
             // Get current language selection before recreating dropdown
             const oldDropdown = document.getElementById('tts-language');
-            const selectedLang = oldDropdown ? oldDropdown.value : 'portuguese';
+            const selectedLang = oldDropdown ? oldDropdown.value : 'russian';
             
             const dropdownHTML = document.getElementById('tts-language') ? 
-                ' <select id="tts-language" onchange="watchOutputChanges()" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--textarea-bg); color: var(--text-primary); font-size: 14px;"><option value="portuguese">East</option><option value="spanish">West</option><option value="english">South</option><option value="russian">North</option></select>' : '';
+                ' <select id="tts-language" onchange="watchOutputChanges()" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--textarea-bg); color: var(--text-primary); font-size: 14px;"><option value="russian">North</option><option value="german">North-East</option><option value="turkish">North-East-East</option><option value="portuguese">East</option><option value="french">Center</option><option value="hindi">South-East</option><option value="romanian">South</option><option value="icelandic">South-South-East</option><option value="arabic">South-West</option><option value="swedish">South-West-West</option><option value="vietnamese">South-South-West</option><option value="czech">West</option><option value="chinese">North-West-West</option><option value="norwegian">North-West</option><option value="hungarian">North-North-West</option><option value="kazakh">North-North-East</option></select>' : '';
             
             const label = 'Pejelagarto:';
             const buttonId = source === 'input' ? 'play-input' : 'play-output';
@@ -2615,10 +2615,22 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 	html := htmlUI
 	if pronunciationLanguageDropdown {
 		dropdownHTML := ` <select id="tts-language" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--textarea-bg); color: var(--text-primary); font-size: 14px;">
-                    <option value="portuguese">East</option>
-                    <option value="spanish">West</option>
-                    <option value="english">South</option>
                     <option value="russian">North</option>
+                    <option value="german">North-East</option>
+                    <option value="turkish">North-East-East</option>
+                    <option value="portuguese">East</option>
+                    <option value="french">Center</option>
+                    <option value="hindi">South-East</option>
+                    <option value="romanian">South</option>
+                    <option value="icelandic">South-South-East</option>
+                    <option value="arabic">South-West</option>
+                    <option value="swedish">South-West-West</option>
+                    <option value="vietnamese">South-South-West</option>
+                    <option value="czech">West</option>
+                    <option value="chinese">North-West-West</option>
+                    <option value="norwegian">North-West</option>
+                    <option value="hungarian">North-North-West</option>
+                    <option value="kazakh">North-North-East</option>
                 </select>`
 		html = strings.Replace(html, "{{DROPDOWN_PLACEHOLDER}}", dropdownHTML, 1)
 	} else {
@@ -2722,11 +2734,67 @@ func preprocessTextForTTS(input string, pronunciationLanguage string) string {
 		vowels = "аеёиоуыэюяaeiou"
 		consonants = "бвгджзйклмнпрстфхцчшщbcdfghjklmnpqrstvwxyz"
 		allowed = vowels + consonants + "АЕЁИОУЫЭЮЯБВГДЖЗЙКЛМНПРСТФХЦЧШЩAEIOUBCDFGHJKLMNPQRSTVWXYZ" + "0123456789" + " .,!?;:'\"-()[]ъьЪЬ"
+	case "czech":
+		vowels = "aeiouyáéíóúůýě"
+		consonants = "bcčdďfghjklmnňpqrřsštťvwxzž"
+		allowed = vowels + consonants + "AEIOUYÁÉÍÓÚŮÝĚBCČDĎFGHJKLMNŇPQRŘSŠTŤVWXZŽ" + "0123456789" + " .,!?;:'\"-()[]'"
+	case "romanian":
+		vowels = "aeiouăâî"
+		consonants = "bcdfghjklmnpqrstvwxyzșț"
+		allowed = vowels + consonants + "AEIOUĂÂÎBCDFGHJKLMNPQRSTVWXYZȘȚ" + "0123456789" + " .,!?;:'\"-()[]'"
+	case "french":
+		vowels = "aeiouàâäéèêëïîôùûü"
+		consonants = "bcçdfghjklmnpqrstvwxyz"
+		allowed = vowels + consonants + "AEIOUÀÂÄÉÈÊËÏÎÔÙÛÜBCÇDFGHJKLMNPQRSTVWXYZ" + "0123456789" + " .,!?;:'\"-()[]œæŒÆ"
+	case "german":
+		vowels = "aeiouäöü"
+		consonants = "bcdfghjklmnpqrsßtvwxyz"
+		allowed = vowels + consonants + "AEIOUÄÖÜBCDFGHJKLMNPQRSẞTVWXYZ" + "0123456789" + " .,!?;:'\"-()[]ẞ"
+	case "hindi":
+		vowels = "अआइईउऊऋएऐओऔaeiou"
+		consonants = "कखगघङचछजझञटठडढणतथदधनपफबभमयरलवशषसहaeioukcghnjṭḍnṇtdpbmyrlvśṣsh"
+		allowed = vowels + consonants + "अआइईउऊऋएऐओऔकखगघङचछजझञटठडढणतथदधनपफबभमयरलवशषसहािीुूृेैोौंःँ" + "0123456789" + " .,!?;:'\"-()[]"
+	case "arabic":
+		vowels = "اأإآةويىاeiou"
+		consonants = "بتثجحخدذرزسشصضطظعغفقكلمنهىي"
+		allowed = vowels + consonants + "اأإآةويىبتثجحخدذرزسشصضطظعغفقكلمنهىيًٌٍَُِّْٰ" + "0123456789" + " .,!?;:'\"-()[]"
+	case "icelandic":
+		vowels = "aeiouyáéíóúýæöAEIOUYÁÉÍÓÚÝÆÖ"
+		consonants = "bcdfghjklmnpqrstvwxzþðBCDFGHJKLMNPQRSTVWXZÞÐ"
+		allowed = vowels + consonants + "0123456789" + " .,!?;:'\"-()[]"
+	case "kazakh":
+		vowels = "аәеёиоөұүыэюяaeiou"
+		consonants = "бвгғджзйкқлмнңпрстфхһцчшщbcdfghjklmnpqrstvwxyz"
+		allowed = vowels + consonants + "АӘЕЁИОӨҰҮЫЭЮЯБВГҒДЖЗЙКҚЛМНҢПРСТФХҺЦЧШЩAEIOUBCDFGHJKLMNPQRSTVWXYZ" + "0123456789" + " .,!?;:'\"-()[]ъьіЪЬІ"
+	case "norwegian":
+		vowels = "aeiouyæøå"
+		consonants = "bcdfghjklmnpqrstvwxz"
+		allowed = vowels + consonants + "AEIOUYÆØÅBCDFGHJKLMNPQRSTVWXZ" + "0123456789" + " .,!?;:'\"-()[]"
+	case "swedish":
+		vowels = "aeiouyäöå"
+		consonants = "bcdfghjklmnpqrstvwxz"
+		allowed = vowels + consonants + "AEIOUYÄÖÅBCDFGHJKLMNPQRSTVWXZ" + "0123456789" + " .,!?;:'\"-()[]"
+	case "turkish":
+		vowels = "aeıioöuüAEIİOÖUÜ"
+		consonants = "bcçdfgğhjklmnprsştvyzBCÇDFGĞHJKLMNPRSŞTVYZ"
+		allowed = vowels + consonants + "0123456789" + " .,!?;:'\"-()[]"
+	case "vietnamese":
+		vowels = "aăâeêioôơuưyáàảãạắằẳẵặấầẩẫậéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ"
+		consonants = "bcdđghklmnpqrstvx"
+		allowed = vowels + consonants + "AĂÂEÊIOÔƠUƯYÁÀẢÃẠẮẰẲẴẶẤẦẨẪẬÉÈẺẼẸẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌỐỒỔỖỘỚỜỞỠỢÚÙỦŨỤỨỪỬỮỰÝỲỶỸỴBCDĐGHKLMNPQRSTVX" + "0123456789" + " .,!?;:'\"-()[]"
+	case "hungarian":
+		vowels = "aáeéiíoóöőuúüű"
+		consonants = "bcdfghjklmnpqrstvwxyz"
+		allowed = vowels + consonants + "AÁEÉIÍOÓÖŐUÚÜŰBCDFGHJKLMNPQRSTVWXYZ" + "0123456789" + " .,!?;:'\"-()[]"
+	case "chinese":
+		vowels = "aeiouüāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜ"
+		consonants = "bpmfdtnlgkhzcsSrjqxyw"
+		allowed = vowels + consonants + "AEIOUÜĀÁǍÀĒÉĚÈĪÍǏÌŌÓǑÒŪÚǓÙǕǗǙǛBPMFDTNLGKHZCSSRJQXYW一-龥" + "0123456789" + " .,!?;:'\"-()[]"
 	default:
-		// Fallback to Portuguese
-		vowels = "aeiouáéíóúâêôãõàü"
-		consonants = "bcdfghjklmnpqrstvwxyzç"
-		allowed = vowels + consonants + "AEIOUÁÉÍÓÚÂÊÔÃÕÀÜBCDFGHJKLMNPQRSTVWXYZÇ" + "0123456789" + " .,!?;:'\"-()[]"
+		// Fallback to Russian
+		vowels = "аеёиоуыэюяaeiou"
+		consonants = "бвгджзйклмнпрстфхцчшщbcdfghjklmnpqrstvwxyz"
+		allowed = vowels + consonants + "АЕЁИОУЫЭЮЯБВГДЖЗЙКЛМНПРСТФХЦЧШЩAEIOUBCDFGHJKLMNPQRSTVWXYZ" + "0123456789" + " .,!?;:'\"-()[]ъьЪЬ"
 	}
 
 	// Step 1: Convert to lowercase and remove non-allowed characters
@@ -2949,9 +3017,14 @@ func handleTextToSpeech(w http.ResponseWriter, r *http.Request) {
 	slow := r.URL.Query().Get("slow") == "true"
 
 	// Validate language
-	validLanguages := map[string]bool{"portuguese": true, "spanish": true, "english": true, "russian": true}
+	validLanguages := map[string]bool{
+		"russian": true, "portuguese": true, "french": true, "german": true,
+		"hindi": true, "romanian": true, "arabic": true, "czech": true,
+		"icelandic": true, "kazakh": true, "norwegian": true, "swedish": true,
+		"turkish": true, "vietnamese": true, "hungarian": true, "chinese": true,
+	}
 	if !validLanguages[lang] {
-		http.Error(w, fmt.Sprintf("Invalid language '%s'. Allowed: portuguese, spanish, english, russian", lang), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Invalid language '%s'. Allowed: russian, portuguese, french, german, hindi, romanian, arabic, czech, icelandic, kazakh, norwegian, swedish, turkish, vietnamese, hungarian, chinese", lang), http.StatusBadRequest)
 		return
 	}
 
@@ -3100,7 +3173,7 @@ func main() {
 	// Parse command-line flags
 	ngrokToken := flag.String("ngrok_token", "", "Optional ngrok auth token to expose server publicly")
 	ngrokDomain := flag.String("ngrok_domain", "", "Optional ngrok persistent domain (e.g., your-domain.ngrok-free.app)")
-	pronunciationLangFlag := flag.String("pronunciation_language", "portuguese", "TTS pronunciation language (portuguese, spanish, english, russian)")
+	pronunciationLangFlag := flag.String("pronunciation_language", "russian", "TTS pronunciation language (russian, portuguese, romanian, czech)")
 	pronunciationLangDropdownFlag := flag.Bool("pronunciation_language_dropdown", true, "Show language dropdown in UI for TTS")
 	if !strings.HasPrefix(*ngrokDomain, "http://") && !strings.HasPrefix(*ngrokDomain, "https://") {
 		*ngrokDomain = "https://" + *ngrokDomain
@@ -3114,7 +3187,12 @@ func main() {
 	}
 
 	// Validate and set pronunciation language
-	validLanguages := map[string]bool{"portuguese": true, "spanish": true, "english": true, "russian": true}
+	validLanguages := map[string]bool{
+		"russian": true, "portuguese": true, "french": true, "german": true,
+		"hindi": true, "romanian": true, "arabic": true, "czech": true,
+		"icelandic": true, "kazakh": true, "norwegian": true, "swedish": true,
+		"turkish": true, "vietnamese": true, "hungarian": true, "chinese": true,
+	}
 	if !validLanguages[*pronunciationLangFlag] {
 		log.Fatalf("Invalid pronunciation language '%s'. Allowed: portuguese, spanish, english, russian", *pronunciationLangFlag)
 	}
