@@ -22,7 +22,7 @@ func ShouldOpenBrowser() bool {
 	return true
 }
 
-// NotObfuscated returns whether this is a non-obfuscated build
-func NotObfuscated() bool {
-	return true
+// Obfuscated returns whether this is an obfuscated build
+func Obfuscated() bool {
+	return false
 }

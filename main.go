@@ -83,7 +83,7 @@ func extractEmbeddedRequirements() error {
 		return nil
 	}
 
-	if obfuscation.NotObfuscated() {
+	if !obfuscation.Obfuscated() {
 		log.Printf("Downloading TTS requirements to: %s", tempRequirementsDir)
 		if !piperExists {
 			log.Printf("  - Missing: piper binary")
@@ -126,11 +126,11 @@ func extractEmbeddedRequirements() error {
 	defer os.Remove(scriptPath) // Clean up script after execution
 
 	// Execute the PowerShell script
-	if obfuscation.NotObfuscated() {
+	if !obfuscation.Obfuscated() {
 		log.Println("Running PowerShell script to download dependencies...")
 	}
 	cmd := exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath)
-	if obfuscation.NotObfuscated() {
+	if !obfuscation.Obfuscated() {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 	}
@@ -150,7 +150,7 @@ func extractEmbeddedRequirements() error {
 		return fmt.Errorf("piper directory not found after download: %w", err)
 	}
 
-	if obfuscation.NotObfuscated() {
+	if !obfuscation.Obfuscated() {
 		log.Printf("Successfully downloaded TTS requirements")
 	}
 	return nil
@@ -3468,7 +3468,7 @@ func validateConstants() error {
 // getFlagUsage returns the usage string for flags based on build mode
 // Returns the actual usage for normal builds, empty string for obfuscated builds
 func getFlagUsage(usage string) string {
-	if obfuscation.NotObfuscated() {
+	if !obfuscation.Obfuscated() {
 		return usage
 	}
 	return ""
@@ -3476,7 +3476,7 @@ func getFlagUsage(usage string) string {
 
 func main() {
 	// Disable -help flag for obfuscated builds
-	if !obfuscation.NotObfuscated() {
+	if obfuscation.Obfuscated() {
 		flag.Usage = func() {}
 	}
 
@@ -3514,7 +3514,7 @@ func main() {
 	}
 	pronunciationLanguage = *pronunciationLangFlag
 	pronunciationLanguageDropdown = *pronunciationLangDropdownFlag
-	if obfuscation.NotObfuscated() {
+	if !obfuscation.Obfuscated() {
 		log.Printf("TTS pronunciation language set to: %s", pronunciationLanguage)
 		log.Printf("TTS language dropdown enabled: %v", pronunciationLanguageDropdown)
 	}
@@ -3528,7 +3528,7 @@ func main() {
 
 	if *ngrokToken != "" {
 		// Use ngrok to expose server publicly
-		if obfuscation.NotObfuscated() {
+		if !obfuscation.Obfuscated() {
 			log.Println("Initializing ngrok tunnel...")
 			log.Printf("Using auth token: %s...\n", (*ngrokToken)[:10])
 			log.Println("Connecting to ngrok service...")
@@ -3544,7 +3544,7 @@ func main() {
 			domain = strings.TrimPrefix(domain, "https://")
 			domain = strings.TrimPrefix(domain, "http://")
 
-			if obfuscation.NotObfuscated() {
+			if !obfuscation.Obfuscated() {
 				log.Printf("Using persistent domain: %s\n", domain)
 				log.Println("Establishing tunnel (this may take a few seconds)...")
 			}
@@ -3574,7 +3574,7 @@ func main() {
 				log.Fatalf("Failed to start ngrok listener: connection timeout after 30 seconds")
 			}
 		} else {
-			if obfuscation.NotObfuscated() {
+			if !obfuscation.Obfuscated() {
 				log.Println("Using random ngrok domain")
 				log.Println("Establishing tunnel (this may take a few seconds)...")
 			}
@@ -3608,7 +3608,7 @@ func main() {
 		}
 
 		url := listener.URL()
-		if obfuscation.NotObfuscated() {
+		if !obfuscation.Obfuscated() {
 			log.Printf("✓ ngrok tunnel established successfully!\n")
 			log.Printf("Public URL: %s\n", url)
 		}
@@ -3618,7 +3618,7 @@ func main() {
 			go func() {
 				time.Sleep(1 * time.Second)
 				if err := openBrowser(url); err != nil {
-					if obfuscation.NotObfuscated() {
+					if !obfuscation.Obfuscated() {
 						log.Printf("Could not open browser automatically: %v\n", err)
 						log.Printf("Please open your browser and navigate to %s\n", url)
 					}
@@ -3637,7 +3637,7 @@ func main() {
 
 		// Start server in goroutine
 		go func() {
-			if obfuscation.NotObfuscated() {
+			if !obfuscation.Obfuscated() {
 				log.Printf("Starting Pejelagarto Translator server on %s\n", url)
 			}
 			if err := http.ListenAndServe(addr, nil); err != nil {
@@ -3649,7 +3649,7 @@ func main() {
 		time.Sleep(500 * time.Millisecond)
 		if obfuscation.ShouldOpenBrowser() {
 			if err := openBrowser(url); err != nil {
-				if obfuscation.NotObfuscated() {
+				if !obfuscation.Obfuscated() {
 					log.Printf("Could not open browser automatically: %v\n", err)
 					log.Printf("Please open your browser and navigate to %s\n", url)
 				}
