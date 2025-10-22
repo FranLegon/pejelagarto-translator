@@ -178,25 +178,27 @@ var conjunctionMap = map[string]string{
 // NOTE: Avoid letters that appear in conjunction patterns (c, h, j, s, t, x, z)
 // to prevent collisions between letter outputs and conjunction inputs
 // NOTE: Consonants map to consonants, vowels map to vowels (y and w are vowels)
+// NOTE: Each letter must map to another letter that maps back to it (true bijective pairs)
 var letterMap = map[string]string{
-	"a": "i",
+	"a": "u",
 	"b": "p",
 	"d": "f",
-	"e": "y",
+	"e": "w",
 	"f": "d",
 	"g": "l",
+	"i": "o",
 	"k": "r",
 	"l": "g",
 	"m": "n",
 	"n": "m",
-	"o": "u",
+	"o": "i",
 	"p": "b",
 	"q": "v",
 	"r": "k",
-	"u": "o",
+	"u": "a",
 	"v": "q",
 	"w": "e",
-	"y": "w",
+	"y": "y",
 }
 
 // Punctuation replacement map
@@ -226,9 +228,7 @@ var daySpecialCharIndex = []string{
 	"\u2300", "\u2301", "\u24FC", "\u2303", "\u2304", "\u2305", "\u2306", "\u2307", "\u2308", "\u2309",
 	"\u230A", "\u230B", "\u230C", "\u230D", "\u230E", "\u230F", "\u2310", "\u2311", "\u2312", "\u2313",
 	"\u2314", "\u2315", "\u2316", "\u2317", "\u2318", "\u2319", "\u24EA", "\u24EB", "\u231C", "\u231D",
-	"\u231E", "\u231F", "\u2320", "\u2321", "\u2322", "\u2323", "\u2324", "\u2325", "\u2326", "\u2327",
-	"\u24FB", "\u2329", "\u232A", "\u232B", "\u232C", "\u232D", "\u232E", "\u232F", "\u2330", "\u2331",
-	"\u2332", "\u2333", "\u2334", "\u2335", "\u2336", "\u2337", "\u2338", "\u2339", "\u233A", "\u233B",
+	"\u231E",
 }
 
 var monthSpecialCharIndex = []string{
@@ -1098,6 +1098,7 @@ var oneRuneAccentsWheel = map[rune][]string{
 	'i': {"i", "ì", "í", "î", "ĩ", "ï", "ī", "ĭ"},      // 8 single-rune accents for 'i' (ı excluded - case not reversible)
 	'o': {"o", "ò", "ó", "ô", "õ", "ø", "ö", "ō", "ŏ"}, // 9 single-rune accents for 'o'
 	'u': {"u", "ù", "ú", "û", "ũ", "ů", "ü", "ū", "ŭ"}, // 9 single-rune accents for 'u'
+	'w': {"w", "ẁ", "ẃ", "ŵ", "ẅ"},                     // 5 single-rune accents for 'w'
 	'y': {"y", "ỳ", "ý", "ŷ", "ỹ", "ẏ", "ÿ", "ȳ"},      // 8 single-rune accents for 'y' (ỵ excluded if needed)
 }
 
@@ -1109,6 +1110,7 @@ var twoRunesAccentsWheel = map[rune][]string{
 	'i': {"i\u0328", "i\u030C"},            // i+ogonek, i+caron (2 runes each)
 	'o': {"o\u0328", "o\u030C", "o\u031B"}, // o+ogonek, o+caron, o+horn (2 runes each)
 	'u': {"u\u0328", "u\u030C", "u\u031B"}, // u+ogonek, u+caron, u+horn (2 runes each)
+	'w': {"w\u0328", "w\u030C"},            // w+ogonek, w+caron (2 runes each)
 	'y': {"y\u0328"},                       // y+ogonek (2 runes)
 }
 
@@ -3459,6 +3461,121 @@ func validateConstants() error {
 	for lang := range actualMappings {
 		if _, expected := expectedLanguageMappings[lang]; !expected {
 			return fmt.Errorf("unexpected language %q found in HTML dropdown", lang)
+		}
+	}
+
+	// 7. Validate letterMap bijectivity (no duplicate values, and reverse mapping exists)
+	letterMapValues := make(map[string]string) // map[value]key
+	for key, value := range letterMap {
+		if existingKey, exists := letterMapValues[value]; exists {
+			return fmt.Errorf("letterMap: duplicate value %q for keys %q and %q (not bijective)", value, existingKey, key)
+		}
+		letterMapValues[value] = key
+	}
+	// Check that every value has a corresponding reverse mapping
+	for value, originalKey := range letterMapValues {
+		reverseValue, exists := letterMap[value]
+		if !exists {
+			return fmt.Errorf("letterMap: value %q (from key %q) has no reverse mapping (not bijective)", value, originalKey)
+		}
+		if reverseValue != originalKey {
+			return fmt.Errorf("letterMap: reverse mapping broken: %q -> %q -> %q, expected %q -> %q -> %q",
+				originalKey, value, reverseValue, originalKey, value, originalKey)
+		}
+	}
+
+	// 8. Validate special character array lengths
+	if len(daySpecialCharIndex) != 31 {
+		return fmt.Errorf("daySpecialCharIndex must have exactly 31 elements, got %d", len(daySpecialCharIndex))
+	}
+	if len(monthSpecialCharIndex) != 12 {
+		return fmt.Errorf("monthSpecialCharIndex must have exactly 12 elements, got %d", len(monthSpecialCharIndex))
+	}
+	if len(yearSpecialCharIndex) != 100 {
+		return fmt.Errorf("yearSpecialCharIndex must have exactly 100 elements, got %d", len(yearSpecialCharIndex))
+	}
+	if len(hourSpecialCharIndex) != 24 {
+		return fmt.Errorf("hourSpecialCharIndex must have exactly 24 elements, got %d", len(hourSpecialCharIndex))
+	}
+	if len(minuteSpecialCharIndex) != 60 {
+		return fmt.Errorf("minuteSpecialCharIndex must have exactly 60 elements, got %d", len(minuteSpecialCharIndex))
+	}
+
+	// 9. Validate punctuationMap bijectivity (no duplicate values)
+	punctuationMapValues := make(map[string]string) // map[value]key
+	for key, value := range punctuationMap {
+		if existingKey, exists := punctuationMapValues[value]; exists {
+			return fmt.Errorf("punctuationMap: duplicate value %q for keys %q and %q (not bijective)", value, existingKey, key)
+		}
+		punctuationMapValues[value] = key
+	}
+
+	// 10. Validate accent wheels completeness (all base vowels present)
+	baseVowels := []rune{'a', 'e', 'i', 'o', 'u', 'y', 'w'}
+	for _, vowel := range baseVowels {
+		if _, exists := oneRuneAccentsWheel[vowel]; !exists {
+			return fmt.Errorf("oneRuneAccentsWheel: missing base vowel %q", vowel)
+		}
+		if _, exists := twoRunesAccentsWheel[vowel]; !exists {
+			return fmt.Errorf("twoRunesAccentsWheel: missing base vowel %q", vowel)
+		}
+	}
+
+	// 11. Validate rune count for each value in accent wheels
+	for baseVowel, accents := range oneRuneAccentsWheel {
+		for idx, accentedForm := range accents {
+			runeCount := utf8.RuneCountInString(accentedForm)
+			if runeCount != 1 {
+				return fmt.Errorf("oneRuneAccentsWheel[%q][%d] = %q has %d runes, expected 1",
+					baseVowel, idx, accentedForm, runeCount)
+			}
+		}
+	}
+	for baseVowel, accents := range twoRunesAccentsWheel {
+		for idx, accentedForm := range accents {
+			runeCount := utf8.RuneCountInString(accentedForm)
+			if runeCount != 2 {
+				return fmt.Errorf("twoRunesAccentsWheel[%q][%d] = %q has %d runes, expected 2",
+					baseVowel, idx, accentedForm, runeCount)
+			}
+		}
+	}
+
+	// 12. Validate escape characters are unique
+	if internalEscapeChar == outputEscapeChar {
+		return fmt.Errorf("internalEscapeChar and outputEscapeChar must be different, both are %q", internalEscapeChar)
+	}
+
+	// 13. Validate special chars don't overlap with letterMap or conjunctionMap
+	// Build set of all letters used in letterMap (keys and values)
+	letterMapChars := make(map[rune]bool)
+	for key, value := range letterMap {
+		for _, r := range key {
+			letterMapChars[r] = true
+		}
+		for _, r := range value {
+			letterMapChars[r] = true
+		}
+	}
+	// Build set of all characters used in conjunctionMap (keys and values)
+	conjunctionMapChars := make(map[rune]bool)
+	for key, value := range conjunctionMap {
+		for _, r := range key {
+			conjunctionMapChars[r] = true
+		}
+		for _, r := range value {
+			conjunctionMapChars[r] = true
+		}
+	}
+	// Check special char indices don't contain letterMap or conjunctionMap characters
+	for char, source := range allSpecialChars {
+		for _, r := range char {
+			if letterMapChars[r] {
+				return fmt.Errorf("special character %q in %s conflicts with letterMap character %q", char, source, r)
+			}
+			if conjunctionMapChars[r] {
+				return fmt.Errorf("special character %q in %s conflicts with conjunctionMap character %q", char, source, r)
+			}
 		}
 	}
 
