@@ -49,11 +49,12 @@ The project demonstrates advanced string manipulation, bijective mappings, and c
 - **Go**: Version 1.24.2 or higher
 - **PowerShell**: For running build scripts (Windows)
 - **FFmpeg**: Required for slow audio generation (optional - only needed for slow playback feature)
-- **Dependencies**: All automatically embedded in the executable
-  - Piper TTS engine with 18 language models (~988MB total)
+- **Dependencies**: Automatically downloaded on first run
+  - Piper TTS engine with 16 language models (~1008MB total)
   - espeak-ng phoneme data
   - ngrok library for remote access (optional)
-- **Supported OS**: Windows, macOS, Linux
+  - PowerShell script embedded in binary handles all downloads
+- **Supported OS**: Windows (with PowerShell), macOS, Linux
 - **Browser**: Any modern web browser for the UI
 
 ## Quick Start
@@ -68,10 +69,11 @@ go build -o bin/pejelagarto-translator.exe main.go
 The binary will automatically download all TTS requirements (~1.1GB) on first run.
 
 **Note**: 
-- Build creates a ~12MB executable
-- First run downloads 18 TTS language models (takes several minutes)
+- Build creates a **~12MB executable** (99% smaller than previous v2.4.7)
+- First run downloads 16 TTS language models (takes several minutes)
 - Dependencies are cached in temp directory for subsequent runs
-- Optional: Run `get-requirements.ps1` manually if you want to pre-download dependencies
+- Embedded PowerShell script (`get-requirements.ps1`) handles all downloads automatically
+- No manual dependency management needed!
 
 ### 2. Run the Application
 
@@ -89,10 +91,12 @@ The binary will automatically download all TTS requirements (~1.1GB) on first ru
 The server starts on `http://localhost:8080` and automatically opens your browser.
 
 **On First Run:**
-- Embedded dependencies extract to temp directory (5-10 seconds due to large size)
+- Binary extracts and runs embedded PowerShell script (`get-requirements.ps1`)
+- Script downloads all TTS dependencies (~1.1GB) to temp directory:
   - Windows: `C:\Windows\Temp\pejelagarto-translator\`
   - Linux/macOS: `/tmp/pejelagarto-translator/`
-- Extraction is smart: only extracts missing components (piperExe, espeakData, or piperDir)
+- Download takes 3-5 minutes depending on internet speed
+- Dependencies are verified after download
 - Subsequent runs use cached files and start instantly
 
 ### Web UI
@@ -162,8 +166,9 @@ The application includes multi-language TTS with automatic text preprocessing fo
 | North-West | Norwegian | `norwegian` | no_NO-talesyntese-medium |
 | North-North-West | Hungarian | `hungarian` | hu_HU-anna-medium |
 | North-North-East | Kazakh | `kazakh` | kk_KZ-iseke-x_low |
-| (Default) | Spanish | `spanish` | es_ES-davefx-medium |
-| (Default) | English | `english` | en_US-lessac-medium |
+
+
+**Total:** 16 language models (~1008MB)
 
 **Command-line:**
 ```bash
@@ -600,9 +605,10 @@ All transformations verified for reversibility with random inputs:
 - Final executable is ~12MB
 
 **Build succeeds but binary won't run:**
-- Ensure you have internet connection for first run
-- The binary needs to download ~1.1GB of TTS dependencies
-- Check you have ~1.5GB free space in temp directory
+- Ensure you have **internet connection for first run**
+- Binary needs to download ~1.1GB of TTS dependencies
+- Check you have **~2GB free space** in temp directory
+- On Windows, ensure PowerShell is available (comes with Windows by default)
 
 ### Runtime Issues
 
@@ -610,8 +616,8 @@ All transformations verified for reversibility with random inputs:
 - Delete temp directory to force re-download:
   - Windows: `Remove-Item "$env:TEMP\pejelagarto-translator" -Recurse -Force`
   - Linux/macOS: `rm -rf /tmp/pejelagarto-translator`
-- Restart application (will automatically download dependencies)
-- Alternatively, run `get-requirements.ps1` manually and copy files to temp directory
+- Restart application (will automatically re-download dependencies)
+- Check PowerShell execution policy if download fails: `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy Bypass`
 
 **Language not working (exit status 0xc0000409):**
 - This is a Piper crash, usually due to incompatible text encoding
@@ -631,18 +637,20 @@ All transformations verified for reversibility with random inputs:
 ### Performance Issues
 
 **First run is slow:**
-- Normal: extracting ~988MB of embedded dependencies takes 5-10 seconds
-- Subsequent runs are instant (uses cached files)
+- Normal: downloading ~1.1GB of TTS models takes 3-5 minutes
+- PowerShell script extracts and verifies all dependencies
+- Subsequent runs are instant (uses cached files in temp directory)
 
 **Audio generation is slow:**
 - First TTS request per language loads model into memory (~1-2 seconds)
 - Subsequent requests are much faster
 - Slow audio (0.5x speed) takes extra time for FFmpeg processing
 
-**Large executable size:**
-- Expected: ~1.14GB with all 18 language models embedded
-- Each model is ~60MB (except Kazakh at ~28MB)
-- Trade-off for zero-dependency portability
+**Small executable size:**
+- **v2.4.8**: ~12MB (99% reduction from v2.4.7's 1.14GB!)
+- TTS models downloaded at runtime instead of embedded
+- Cached in temp directory after first download
+- Trade-off: requires internet connection on first run
 
 ### Common Errors
 
@@ -718,18 +726,37 @@ pejelagarto-translator/
 ├── test_tts.go          # TTS-specific tests
 ├── README.md            # This documentation
 ├── go.mod               # Go module definition
+├── go.sum               # Go module checksums
 ├── get-requirements.ps1 # Embedded in binary - downloads TTS dependencies
+├── .gitignore           # Git ignore patterns
 ├── coverage/            # Test coverage reports
 ├── bin/                 # Built executables and scripts
 │   ├── pejelagarto-translator.exe  # Main executable (~12MB)
-│   └── runWithNgrok.ps1
+│   └── runWithNgrok.ps1             # Helper script for ngrok
+├── testdata/            # Fuzz test corpus
+│   └── fuzz/            # Fuzz testing data
 └── tts/requirements/    # Auto-downloaded at runtime to temp directory
     └── (Not tracked in Git - downloaded automatically on first run)
-        ├── norwegian/   # no_NO-talesyntese-medium (~63MB)
-        ├── hungarian/   # hu_HU-anna-medium (~63MB)
-        ├── kazakh/      # kk_KZ-iseke-x_low (~28MB)
-        ├── spanish/     # es_ES-davefx-medium (~63MB)
-        └── english/     # en_US-lessac-medium (~63MB)
+        ├── piper.exe           # Piper TTS binary
+        ├── *.dll               # Required DLLs
+        ├── espeak-ng-data/     # Phoneme data (~2MB)
+        └── piper/languages/    # 16 language models (~1008MB total)
+            ├── russian/        # ru_RU-dmitri-medium (~63MB)
+            ├── german/         # de_DE-thorsten-medium (~63MB)
+            ├── turkish/        # tr_TR-dfki-medium (~63MB)
+            ├── portuguese/     # pt_BR-faber-medium (~63MB)
+            ├── french/         # fr_FR-siwis-medium (~63MB)
+            ├── hindi/          # hi_HI-medium (~63MB)
+            ├── romanian/       # ro_RO-mihai-medium (~63MB)
+            ├── icelandic/      # is_IS-bui-medium (~63MB)
+            ├── swahili/        # sw_CD-lanfrica-medium (~63MB)
+            ├── swedish/        # sv_SE-nst-medium (~63MB)
+            ├── vietnamese/     # vi_VN-vivos-medium (~63MB)
+            ├── czech/          # cs_CZ-jirka-medium (~63MB)
+            ├── chinese/        # zh_CN-huayan-medium (~63MB)
+            ├── norwegian/      # no_NO-talesyntese-medium (~63MB)
+            ├── hungarian/      # hu_HU-anna-medium (~63MB)
+            └── kazakh/         # kk_KZ-iseke-x_low (~28MB)
 ```
 
 ### Unicode Markers (Private Use Area)
@@ -797,16 +824,26 @@ Contributions are welcome! To contribute:
 
 ## Distribution
 
-The built executable is **completely standalone and portable**:
+The built executable is **lightweight and portable**:
 - ✅ No installation required
+- ✅ **Only ~12MB** executable size (99% smaller than v2.4.7!)
 - ✅ No external dependencies (except FFmpeg for slow audio, optional)
-- ✅ All 18 TTS language models included
-- ✅ ~1.14GB single file
+- ✅ Auto-downloads 16 TTS language models on first run (~1.1GB)
 - ✅ Copy to any machine and run
-- ✅ No internet required after building
-- ✅ Smart extraction: only extracts missing components on first run
+- ⚠️ Requires internet connection on first run only
+- ✅ Dependencies cached in temp directory for offline use afterward
+- ✅ Embedded PowerShell script handles all downloads automatically
 
 Just share the `bin\pejelagarto-translator.exe` file!
+
+**First Run Requirements:**
+- Internet connection for downloading TTS models
+- PowerShell (Windows: built-in, Linux/macOS: install `pwsh`)
+- ~2GB free space in temp directory
+
+**Subsequent Runs:**
+- No internet needed (uses cached dependencies)
+- Starts instantly
 
 **Note**: For slow audio playback feature, FFmpeg must be installed separately and available in system PATH.
 
@@ -826,32 +863,40 @@ Potential areas for expansion:
 
 ## Current Status
 
-**Version**: 1.0 (Production Ready)
+**Version**: 2.4.8 (Production Ready)
 
 **Key Achievements:**
-- ✅ **18 Language TTS Support**: Full multi-language audio support with compass-based organization
-- ✅ **Smart Dependency Extraction**: Component-level checking (piperExe, espeakData, piperDir)
-- ✅ **100% Embedded**: All 988MB of dependencies included in ~1.14GB executable
+- ✅ **99% Size Reduction**: Binary reduced from 1.14GB → 12MB!
+- ✅ **16 Language TTS Support**: Full multi-language audio support with compass-based organization
+- ✅ **Runtime Dependency Management**: Embedded PowerShell script downloads all dependencies
+- ✅ **Smart Caching**: Dependencies cached in temp directory, no re-download needed
 - ✅ **Dual-Speed Audio**: Normal and slowed (0.5x) playback with automatic caching
-- ✅ **Language Replacement**: Successfully replaced problematic Arabic with Swahili (DRC)
-- ✅ **Robust Extraction Logic**: Only extracts missing components, not entire directory
+- ✅ **Simplified Build**: No more `build.ps1`, just `go build`
 - ✅ **80,000+ Fuzz Tests**: Proven reliability with comprehensive fuzzing
 - ✅ **Modern UI**: Dark/light theme with responsive design
 - ✅ **Full Reversibility**: All transformations are bidirectional (except timestamp encoding)
 
-**Recent Updates:**
+**Recent Updates (v2.4.8):**
+- 🚀 Embedded PowerShell script instead of large binary files
+- 📦 Binary size reduced by 99% (1,135MB → 12MB)
+- 🔄 Runtime dependency downloading with automatic caching
+- 🗑️ Removed redundant `build.ps1` script
+- 🧹 Cleaned up repository (removed 760 large files, ~1.15GB)
+- ✅ Successfully pushed to GitHub (no more file size issues!)
+
+**Previous Updates (v2.4.7):**
 - Replaced Arabic (ar_JO-kareem-medium) with Swahili (sw_CD-lanfrica-medium) from DRC
 - Improved dependency extraction to check individual components
 - Updated all HTML dropdowns and validLanguages maps
 - Enhanced error logging for missing dependencies
-- Optimized build process for large embedded resources
 
 **Tested Configurations:**
 - Windows 10/11 with PowerShell
 - Go 1.24.2+
-- All 18 languages verified working
-- Build size: ~1.14GB
-- Runtime extraction: 5-10 seconds (first run only)
+- All 16 languages verified working
+- Build size: ~12MB
+- First run download: ~1.1GB (3-5 minutes)
+- Subsequent runs: instant startup
 
 ## License
 
