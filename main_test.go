@@ -197,6 +197,24 @@ func FuzzTranslatePejelagarto(f *testing.F) {
 		if reversedCleaned != inputCleaned {
 			t.Errorf("TranslateToPejelagarto->TranslateFromPejelagarto failed\nInput (cleaned):       %q\nPejelagarto: %q\nReversed (cleaned):    %q", inputCleaned, pejelagarto, reversedCleaned)
 		}
+
+		/*
+			// Test: TranslateFromPejelagarto -> TranslateToPejelagarto
+
+			// dont validate if input contains invalid pejelagarto numbers (not negative base 7 or positive base 8)
+			if !containsInvalidPejelagartoNumbers(input) {
+				human := TranslateFromPejelagarto(input)
+				reversed = TranslateToPejelagarto(human)
+
+				reversedCleanedTemp, _ = removeISO8601timestamp(reversed)
+				reversedCleaned = removeTimestampSpecialCharacters(reversedCleanedTemp)
+
+				if reversedCleaned != inputCleaned {
+					t.Errorf("TranslateFromPejelagarto->TranslateToPejelagarto failed\nInput (cleaned):       %q\nHuman:      %q\nReversed (cleaned):    %q", inputCleaned, human, reversedCleaned)
+				}
+			}
+		*/
+
 	})
 }
 
