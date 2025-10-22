@@ -152,9 +152,9 @@ $Languages = @{
         "url_base" = "https://huggingface.co/rhasspy/piper-voices/resolve/main/ro/ro_RO/mihai/medium"
         "direction" = "South"
     }
-    "arabic" = @{
-        "voice" = "ar_JO-kareem-medium"
-        "url_base" = "https://huggingface.co/rhasspy/piper-voices/resolve/main/ar/ar_JO/kareem/medium"
+    "swahili" = @{
+        "voice" = "sw_CD-lanfrica-medium"
+        "url_base" = "https://huggingface.co/rhasspy/piper-voices/resolve/main/sw/sw_CD/lanfrica/medium"
         "direction" = "South-West"
     }
     "czech" = @{
@@ -262,7 +262,7 @@ Write-Host ""
 Write-Host "All dependencies are ready!" -ForegroundColor Green
 Write-Host ""
 Write-Host "You can now build the executable with:" -ForegroundColor Yellow
-Write-Host "  go build -o pejelagarto-translator.exe main.go" -ForegroundColor White
+Write-Host "  go build -o bin/pejelagarto-translator.exe main.go" -ForegroundColor White
 Write-Host ""
 Write-Host "The compiled binary will include all embedded dependencies." -ForegroundColor Gray
 Write-Host ""
