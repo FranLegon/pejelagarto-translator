@@ -308,8 +308,8 @@ The number conversion transforms base-10 numbers using different bases depending
 
 The translator uses two tiers of character mappings with sophisticated indexing:
 
-- `conjunctionMap`: Multi-character words and letter pairs (e.g., `"hello"` → `"arakan"`, `"ch"` → `"jc"`)  
-- `letterMap`: Single letters (e.g., `"a"` → `"i"`)
+- `conjunctionMap`: Multi-character words and letter pairs (e.g., `"hello"` → `"araka"`, `"ch"` → `"jc"`)  
+- `letterMap`: Single letters with true bijective pairs (e.g., `"a"` ↔ `"u"`, `"e"` ↔ `"w"`)
 
 **Index-Based Ordering:**
 
@@ -806,7 +806,7 @@ pejelagarto-translator/
 // Simple translation
 input := "hello world"
 result := TranslateToPejelagarto(input)
-// Output: "'jhtxz 'zcthx" (with random special characters U+2300-U+23FB inserted)
+// Output: "'araka 'eurgy" (with random special characters U+2300-U+23FB inserted)
 
 // With numbers
 input := "I have 42 apples"
@@ -953,7 +953,7 @@ Potential areas for expansion:
 
 ## Current Status
 
-**Version**: 2.4.8 (Production Ready)
+**Version**: 2.5.92 (Production Ready)
 
 **Key Achievements:**
 - ✅ **99% Size Reduction**: Binary reduced from 1.14GB → 12MB!
@@ -965,8 +965,22 @@ Potential areas for expansion:
 - ✅ **80,000+ Fuzz Tests**: Proven reliability with comprehensive fuzzing
 - ✅ **Modern UI**: Dark/light theme with responsive design
 - ✅ **Full Reversibility**: All transformations are bidirectional (except timestamp encoding)
+- ✅ **Comprehensive Validation**: 13 pre-startup validation checks ensure data integrity
 
-**Recent Updates (v2.4.8):**
+**Recent Updates (v2.5.92):**
+- 🔍 **Enhanced Constants Validation**: Added 7 new validation checks at startup:
+  - letterMap bijectivity verification (no duplicate values, proper reverse mappings)
+  - Special character array length validation (31 days, 12 months, 100 years, 24 hours, 60 minutes)
+  - punctuationMap bijectivity check
+  - Accent wheels completeness for all 7 base vowels (a, e, i, o, u, y, w)
+  - Rune count validation for accent wheels
+  - Escape character uniqueness verification
+  - Special character overlap detection with letter/conjunction maps
+- 🔧 **Fixed letterMap Bijectivity**: Corrected mapping to proper pairs (a↔u, e↔w, i↔o, y→y)
+- 📏 **Fixed Array Lengths**: Reduced daySpecialCharIndex from 60 to 31 elements
+- 📝 **Added 'w' Accent Support**: Included 'w' in both accent wheels with proper forms
+
+**Previous Updates (v2.4.8):**
 - 🚀 Embedded PowerShell script instead of large binary files
 - 📦 Binary size reduced by 99% (1,135MB → 12MB)
 - 🔄 Runtime dependency downloading with automatic caching
@@ -987,6 +1001,25 @@ Potential areas for expansion:
 - Build size: ~12MB
 - First run download: ~1.1GB (3-5 minutes)
 - Subsequent runs: instant startup
+- All 13 validation checks passing
+
+**Validation System:**
+The application now includes comprehensive startup validation that catches configuration errors before runtime:
+1. conjunctionMap length equality
+2. letterMap single-rune requirement
+3. Escape characters not in punctuationMap
+4. No duplicate special characters
+5. Escape characters not in special indices
+6. HTML dropdown language mappings
+7. letterMap bijectivity (no duplicate values, proper reverse pairs)
+8. Special character array lengths (31/12/100/24/60)
+9. punctuationMap bijectivity
+10. Accent wheels completeness (all 7 base vowels: a, e, i, o, u, y, w)
+11. Accent wheel rune counts (1 rune for oneRuneAccentsWheel, 2 runes for twoRunesAccentsWheel)
+12. Escape character uniqueness (internalEscapeChar ≠ outputEscapeChar)
+13. Special characters don't overlap with letterMap or conjunctionMap
+
+If any validation fails, the application exits with a clear error message before starting the server.
 
 ## License
 
