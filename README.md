@@ -47,14 +47,18 @@ The project demonstrates advanced string manipulation, bijective mappings, and c
 ## Requirements
 
 - **Go**: Version 1.24.2 or higher
-- **PowerShell**: For running build scripts (Windows)
+- **Shell/PowerShell**: For running build scripts
+  - Windows: PowerShell (built-in)
+  - Linux/macOS: Bash (built-in)
 - **FFmpeg**: Required for slow audio generation (optional - only needed for slow playback feature)
 - **Dependencies**: Automatically downloaded on first run
   - Piper TTS engine with 16 language models (~1008MB total)
   - espeak-ng phoneme data
   - ngrok library for remote access (optional)
-  - PowerShell script embedded in binary handles all downloads
-- **Supported OS**: Windows (with PowerShell), macOS, Linux
+  - OS-specific scripts embedded in binary handle all downloads
+- **Supported OS**: Windows, macOS, Linux
+  - Tested on Windows 10/11, Ubuntu 20.04+, macOS 12+
+  - Supports x86_64 (amd64) and ARM64 architectures
 - **Browser**: Any modern web browser for the UI
 
 ## Quick Start
@@ -62,11 +66,20 @@ The project demonstrates advanced string manipulation, bijective mappings, and c
 ### 1. Build the Application
 
 **Normal Build:**
+
+Windows:
 ```powershell
 go build -o bin/pejelagarto-translator.exe main.go
 ```
 
+Linux/macOS:
+```bash
+go build -o bin/pejelagarto-translator main.go
+```
+
 **Obfuscated Build** (for server deployment):
+
+Windows:
 ```powershell
 # Using build script (requires garble installed)
 .\obfuscation\build-obfuscated.ps1
@@ -75,14 +88,27 @@ go build -o bin/pejelagarto-translator.exe main.go
 go build -tags obfuscated -o bin/piper-server.exe main.go
 ```
 
+Linux/macOS:
+```bash
+# Using build script (requires garble installed)
+./obfuscation/build-obfuscated.sh linux
+
+# Or manually with Go (no obfuscation)
+go build -tags obfuscated -o bin/piper-server main.go
+```
+
 The binary will automatically download all TTS requirements (~1.1GB) on first run.
 
 **Build Notes**: 
-- Normal build creates **~12MB executable** named `pejelagarto-translator.exe`
+- Normal build creates **~12-13MB executable** 
+  - Windows: `pejelagarto-translator.exe`
+  - Linux/macOS: `pejelagarto-translator`
 - Obfuscated build uses different internal names (`piper-server` instead of `pejelagarto-translator`)
 - First run downloads 16 TTS language models (takes several minutes)
 - Dependencies are cached in temp directory for subsequent runs
-- Embedded PowerShell script (`get-requirements.ps1`) handles all downloads automatically
+- OS-specific scripts handle all downloads automatically:
+  - Windows: PowerShell script (`get-requirements.ps1`)
+  - Linux/macOS: Shell script (`get-requirements.sh`)
 - No manual dependency management needed!
 
 **Obfuscation Details:**
@@ -94,7 +120,8 @@ The binary will automatically download all TTS requirements (~1.1GB) on first ru
 
 ### 2. Run the Application
 
-```bash
+Windows:
+```powershell
 # Local server only (Russian TTS by default)
 .\bin\pejelagarto-translator.exe
 
@@ -105,10 +132,24 @@ The binary will automatically download all TTS requirements (~1.1GB) on first ru
 .\bin\pejelagarto-translator.exe -ngrok_token YOUR_TOKEN -ngrok_domain your-domain.ngrok-free.app
 ```
 
+Linux/macOS:
+```bash
+# Local server only (Russian TTS by default)
+./bin/pejelagarto-translator
+
+# With specific TTS language and dropdown enabled
+./bin/pejelagarto-translator -pronunciation_language portuguese -pronunciation_language_dropdown
+
+# With ngrok for remote access
+./bin/pejelagarto-translator -ngrok_token YOUR_TOKEN -ngrok_domain your-domain.ngrok-free.app
+```
+
 The server starts on `http://localhost:8080` and automatically opens your browser.
 
 **On First Run:**
-- Binary extracts and runs embedded PowerShell script (`get-requirements.ps1`)
+- Binary extracts and runs embedded script to download TTS dependencies:
+  - Windows: PowerShell script (`get-requirements.ps1`)
+  - Linux/macOS: Shell script (`get-requirements.sh`)
 - Script downloads all TTS dependencies (~1.1GB) to temp directory:
   - Windows: `C:\Windows\Temp\pejelagarto-translator\`
   - Linux/macOS: `/tmp/pejelagarto-translator/`
@@ -188,12 +229,23 @@ The application includes multi-language TTS with automatic text preprocessing fo
 **Total:** 16 language models (~1008MB)
 
 **Command-line:**
-```bash
+
+Windows:
+```powershell
 # Set default TTS language
 .\bin\pejelagarto-translator.exe -pronunciation_language swahili
 
 # Enable language dropdown in UI
 .\bin\pejelagarto-translator.exe -pronunciation_language_dropdown
+```
+
+Linux/macOS:
+```bash
+# Set default TTS language
+./bin/pejelagarto-translator -pronunciation_language swahili
+
+# Enable language dropdown in UI
+./bin/pejelagarto-translator -pronunciation_language_dropdown
 ```
 
 **HTTP API:**
@@ -624,7 +676,8 @@ All transformations verified for reversibility with random inputs:
 - Ensure you have **internet connection for first run**
 - Binary needs to download ~1.1GB of TTS dependencies
 - Check you have **~2GB free space** in temp directory
-- On Windows, ensure PowerShell is available (comes with Windows by default)
+- Windows: Ensure PowerShell is available (comes with Windows by default)
+- Linux/macOS: Ensure Bash and curl are installed (usually pre-installed)
 
 ### Runtime Issues
 
@@ -633,7 +686,8 @@ All transformations verified for reversibility with random inputs:
   - Windows: `Remove-Item "$env:TEMP\pejelagarto-translator" -Recurse -Force`
   - Linux/macOS: `rm -rf /tmp/pejelagarto-translator`
 - Restart application (will automatically re-download dependencies)
-- Check PowerShell execution policy if download fails: `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy Bypass`
+- Windows: Check PowerShell execution policy if download fails: `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy Bypass`
+- Linux/macOS: Ensure downloaded binary has execute permissions: `chmod +x /tmp/pejelagarto-translator/requirements/piper`
 
 **Language not working (exit status 0xc0000409):**
 - This is a Piper crash, usually due to incompatible text encoding
@@ -691,13 +745,31 @@ chmod +x /tmp/pejelagarto-translator/requirements/piper
 
 ### Setup for Contributors
 
-```bash
+Windows:
+```powershell
 # Clone the repository
 git clone https://github.com/FranLegon/pejelagarto-translator.git
 cd pejelagarto-translator
 
 # Build the project
 go build -o bin/pejelagarto-translator.exe main.go
+
+# Run tests
+go test -v
+
+# Run with live reload during development
+# (dependencies will auto-download on first run)
+go run main.go
+```
+
+Linux/macOS:
+```bash
+# Clone the repository
+git clone https://github.com/FranLegon/pejelagarto-translator.git
+cd pejelagarto-translator
+
+# Build the project
+go build -o bin/pejelagarto-translator main.go
 
 # Run tests
 go test -v
@@ -848,21 +920,24 @@ Contributions are welcome! To contribute:
 
 The built executable is **lightweight and portable**:
 - ✅ No installation required
-- ✅ **Only ~12MB** executable size (99% smaller than v2.4.7!)
+- ✅ **Only ~12-13MB** executable size (99% smaller than v2.4.7!)
 - ✅ No external dependencies (except FFmpeg for slow audio, optional)
 - ✅ Auto-downloads 16 TTS language models on first run (~1.1GB)
 - ✅ Copy to any machine and run
 - ⚠️ Requires internet connection on first run only
 - ✅ Dependencies cached in temp directory for offline use afterward
-- ✅ Embedded PowerShell script handles all downloads automatically
+- ✅ OS-specific scripts embedded in binary handle all downloads automatically
 
 ### Normal Distribution
 
-Just share the `bin\pejelagarto-translator.exe` file!
+Just share the binary file:
+- Windows: `bin\pejelagarto-translator.exe`
+- Linux/macOS: `bin/pejelagarto-translator`
 
 **First Run Requirements:**
 - Internet connection for downloading TTS models
-- PowerShell (Windows: built-in, Linux/macOS: install `pwsh`)
+- Windows: PowerShell (built-in)
+- Linux/macOS: Bash and curl (usually pre-installed)
 - ~2GB free space in temp directory
 
 **Subsequent Runs:**
@@ -876,12 +951,22 @@ Just share the `bin\pejelagarto-translator.exe` file!
 For production server deployment with obfuscation:
 
 1. **Build the obfuscated binary:**
+   
+   Windows:
    ```powershell
    .\obfuscation\build-obfuscated.ps1
    ```
-   This creates `bin\piper-server.exe` with obfuscated code and different internal names.
+   
+   Linux/macOS:
+   ```bash
+   ./obfuscation/build-obfuscated.sh linux
+   ```
+   
+   This creates `bin/piper-server` (or `bin/piper-server.exe` on Windows) with obfuscated code and different internal names.
 
 2. **Copy to server:**
+   
+   Windows:
    ```powershell
    # Copy the obfuscated binary
    Copy-Item bin\piper-server.exe \\server\path\
@@ -889,21 +974,40 @@ For production server deployment with obfuscation:
    # Copy the service creation script
    Copy-Item obfuscation\create-obfuscated-server-service.ps1 \\server\path\
    ```
+   
+   Linux/macOS:
+   ```bash
+   # Copy the obfuscated binary
+   scp bin/piper-server user@server:/path/to/deploy/
+   
+   # Copy the service creation script
+   scp obfuscation/create-obfuscated-server-service.ps1 user@server:/path/to/deploy/
+   ```
 
 3. **Create system service on server:**
+   
+   Windows (run as Administrator):
    ```powershell
-   # Windows (run as Administrator)
    cd \\server\path
    .\create-obfuscated-server-service.ps1
+   ```
    
-   # Linux (run with sudo)
-   cd /server/path
-   sudo pwsh create-obfuscated-server-service.ps1
-   
-   # macOS (run with sudo)
-   cd /server/path
+   Linux (run with sudo, requires PowerShell Core):
+   ```bash
+   cd /path/to/deploy
    sudo pwsh create-obfuscated-server-service.ps1
    ```
+   
+   macOS (run with sudo, requires PowerShell Core):
+   ```bash
+   cd /path/to/deploy
+   sudo pwsh create-obfuscated-server-service.ps1
+   ```
+   
+   **Note**: On Linux/macOS, you need to install PowerShell Core (`pwsh`) first:
+   - Ubuntu/Debian: `sudo apt-get install -y powershell`
+   - macOS: `brew install --cask powershell`
+   - Or use the distribution's native service management tools
 
 The service creation script automatically:
 - Detects the operating system (Windows/Linux/macOS)
@@ -953,12 +1057,13 @@ Potential areas for expansion:
 
 ## Current Status
 
-**Version**: 2.4.8 (Production Ready)
+**Version**: 2.4.9 (Production Ready)
 
 **Key Achievements:**
-- ✅ **99% Size Reduction**: Binary reduced from 1.14GB → 12MB!
+- ✅ **99% Size Reduction**: Binary reduced from 1.14GB → 12-13MB!
+- ✅ **Full Linux/macOS Support**: Native scripts for all platforms
 - ✅ **16 Language TTS Support**: Full multi-language audio support with compass-based organization
-- ✅ **Runtime Dependency Management**: Embedded PowerShell script downloads all dependencies
+- ✅ **Runtime Dependency Management**: OS-specific scripts download all dependencies
 - ✅ **Smart Caching**: Dependencies cached in temp directory, no re-download needed
 - ✅ **Dual-Speed Audio**: Normal and slowed (0.5x) playback with automatic caching
 - ✅ **Simplified Build**: No more `build.ps1`, just `go build`
@@ -966,7 +1071,17 @@ Potential areas for expansion:
 - ✅ **Modern UI**: Dark/light theme with responsive design
 - ✅ **Full Reversibility**: All transformations are bidirectional (except timestamp encoding)
 
-**Recent Updates (v2.4.8):**
+**Recent Updates (v2.4.9):**
+- 🐧 **Full Linux/macOS Support**: Native shell scripts for all platforms
+- 🔧 Created `get-requirements.sh` for Linux/macOS dependency downloads
+- 🔧 Created `build-obfuscated.sh` for cross-platform obfuscated builds
+- 🔧 Created `Run-Server.sh` for Linux/macOS server launch
+- 🔄 Updated main.go to automatically detect OS and use appropriate scripts
+- ✅ Removed Windows-only restriction from dependency download
+- 📦 Supports both x86_64 and ARM64 architectures on Linux/macOS
+- ✅ Tested and verified on Linux (Ubuntu 20.04+)
+
+**Previous Updates (v2.4.8):**
 - 🚀 Embedded PowerShell script instead of large binary files
 - 📦 Binary size reduced by 99% (1,135MB → 12MB)
 - 🔄 Runtime dependency downloading with automatic caching
@@ -974,17 +1089,13 @@ Potential areas for expansion:
 - 🧹 Cleaned up repository (removed 760 large files, ~1.15GB)
 - ✅ Successfully pushed to GitHub (no more file size issues!)
 
-**Previous Updates (v2.4.7):**
-- Replaced Arabic (ar_JO-kareem-medium) with Swahili (sw_CD-lanfrica-medium) from DRC
-- Improved dependency extraction to check individual components
-- Updated all HTML dropdowns and validLanguages maps
-- Enhanced error logging for missing dependencies
-
 **Tested Configurations:**
-- Windows 10/11 with PowerShell
+- **Windows**: Windows 10/11 with PowerShell
+- **Linux**: Ubuntu 20.04+ with Bash (x86_64 and ARM64)
+- **macOS**: macOS 12+ with Bash (x86_64 and ARM64)
 - Go 1.24.2+
 - All 16 languages verified working
-- Build size: ~12MB
+- Build size: ~12-13MB
 - First run download: ~1.1GB (3-5 minutes)
 - Subsequent runs: instant startup
 
