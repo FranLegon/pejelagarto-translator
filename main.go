@@ -3726,7 +3726,7 @@ func main() {
 
 		url := listener.URL()
 		if !obfuscation.Obfuscated() {
-			log.Printf("✓ ngrok tunnel established successfully!\n")
+			log.Printf("ngrok tunnel established successfully! ✓\n")
 			log.Printf("Public URL: %s\n", url)
 		}
 
