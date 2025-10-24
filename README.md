@@ -4,7 +4,7 @@ A complete bidirectional translator between Human and Pejelagarto, a fictional l
 
 ## About
 
-Pejelagarto is a fictional constructed language designed as a challenging translation exercise. The name "Pejelagarto" comes from a type of fish native to Mexico and Central America. This translator implements a sophisticated set of transformations including:
+Pejelagarto is a fictional constructed language designed as a challenging translation exercise. This translator implements a sophisticated set of transformations including:
 
 - Mathematical base conversions (base-10 ↔ base-8 for positive, base-10 ↔ base-7 for negative)
 - Prime factorization-based accent placement
