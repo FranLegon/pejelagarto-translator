@@ -28,7 +28,7 @@ import (
 	"pejelagarto-translator/obfuscation"
 )
 
-//go:embed get-requirements.ps1
+//go:embed get-requirements.ps1 get-requirements.sh
 var embeddedGetRequirements embed.FS
 
 // tempRequirementsDir stores the path to extracted requirements
@@ -96,47 +96,75 @@ func extractEmbeddedRequirements() error {
 		}
 	}
 
-	// Only run on Windows for now
-	if runtime.GOOS != "windows" {
-		return fmt.Errorf("automatic dependency download is currently only supported on Windows. Please manually download Piper TTS dependencies")
-	}
-
-	// Read the embedded PowerShell script
-	scriptContent, err := embeddedGetRequirements.ReadFile("get-requirements.ps1")
-	if err != nil {
-		return fmt.Errorf("failed to read embedded PowerShell script: %w", err)
-	}
-
-	// Create a modified version of the script that uses tempRequirementsDir
-	modifiedScript := strings.Replace(string(scriptContent),
-		`$RequirementsDir = Join-Path $PSScriptRoot "tts\requirements"`,
-		`$RequirementsDir = "`+tempRequirementsDir+`"`,
-		1)
-
 	// Create temp directory if it doesn't exist
 	if err := os.MkdirAll(tempRequirementsDir, 0755); err != nil {
 		return fmt.Errorf("failed to create temp directory: %w", err)
 	}
 
-	// Write the modified script to a temporary file
-	scriptPath := filepath.Join(baseDir, obfuscation.ScriptSuffix()+".ps1")
-	if err := os.WriteFile(scriptPath, []byte(modifiedScript), 0755); err != nil {
-		return fmt.Errorf("failed to write temporary PowerShell script: %w", err)
-	}
-	defer os.Remove(scriptPath) // Clean up script after execution
+	var scriptContent []byte
+	var scriptPath string
+	var cmd *exec.Cmd
+	var err error
 
-	// Execute the PowerShell script
-	if !obfuscation.Obfuscated() {
-		log.Println("Running PowerShell script to download dependencies...")
+	if runtime.GOOS == "windows" {
+		// Use PowerShell script on Windows
+		scriptContent, err = embeddedGetRequirements.ReadFile("get-requirements.ps1")
+		if err != nil {
+			return fmt.Errorf("failed to read embedded PowerShell script: %w", err)
+		}
+
+		// Create a modified version of the script that uses tempRequirementsDir
+		modifiedScript := strings.Replace(string(scriptContent),
+			`$RequirementsDir = Join-Path $PSScriptRoot "tts\requirements"`,
+			`$RequirementsDir = "`+tempRequirementsDir+`"`,
+			1)
+
+		// Write the modified script to a temporary file
+		scriptPath = filepath.Join(baseDir, obfuscation.ScriptSuffix()+".ps1")
+		if err := os.WriteFile(scriptPath, []byte(modifiedScript), 0755); err != nil {
+			return fmt.Errorf("failed to write temporary PowerShell script: %w", err)
+		}
+		defer os.Remove(scriptPath) // Clean up script after execution
+
+		// Execute the PowerShell script
+		if !obfuscation.Obfuscated() {
+			log.Println("Running PowerShell script to download dependencies...")
+		}
+		cmd = exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath)
+	} else {
+		// Use shell script on Linux/macOS
+		scriptContent, err = embeddedGetRequirements.ReadFile("get-requirements.sh")
+		if err != nil {
+			return fmt.Errorf("failed to read embedded shell script: %w", err)
+		}
+
+		// Create a modified version of the script that uses tempRequirementsDir
+		modifiedScript := strings.Replace(string(scriptContent),
+			`REQUIREMENTS_DIR="${SCRIPT_DIR}/tts/requirements"`,
+			`REQUIREMENTS_DIR="`+tempRequirementsDir+`"`,
+			1)
+
+		// Write the modified script to a temporary file
+		scriptPath = filepath.Join(baseDir, obfuscation.ScriptSuffix()+".sh")
+		if err := os.WriteFile(scriptPath, []byte(modifiedScript), 0755); err != nil {
+			return fmt.Errorf("failed to write temporary shell script: %w", err)
+		}
+		defer os.Remove(scriptPath) // Clean up script after execution
+
+		// Execute the shell script
+		if !obfuscation.Obfuscated() {
+			log.Println("Running shell script to download dependencies...")
+		}
+		cmd = exec.Command("/bin/bash", scriptPath)
 	}
-	cmd := exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath)
+
 	if !obfuscation.Obfuscated() {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 	}
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to execute PowerShell script: %w", err)
+		return fmt.Errorf("failed to execute dependency download script: %w", err)
 	}
 
 	// Verify that the dependencies were downloaded
