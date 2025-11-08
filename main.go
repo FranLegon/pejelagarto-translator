@@ -2171,6 +2171,68 @@ const htmlUI = `<!DOCTYPE html>
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        
+        .download-section {
+            margin-top: 30px;
+            padding: 15px;
+            background: var(--textarea-bg);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .download-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .download-btn {
+            display: inline-block;
+            padding: 8px 16px;
+            background: linear-gradient(135deg, var(--button-gradient-start), var(--button-gradient-end));
+            color: var(--text-primary);
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+        }
+        
+        .download-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
+            filter: brightness(1.1);
+        }
+        
+        .download-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+        }
+        
+        /* Desktop: align download section to bottom left */
+        @media (min-width: 769px) {
+            .download-section {
+                position: fixed;
+                bottom: 20px;
+                left: 20px;
+                margin-top: 0;
+                max-width: 280px;
+                z-index: 100;
+            }
+            
+            .download-buttons {
+                flex-direction: column;
+                gap: 8px;
+            }
+            
+            .download-btn {
+                width: 100%;
+                text-align: center;
+            }
+        }
     </style>
 </head>
 <body>
@@ -2210,6 +2272,18 @@ const htmlUI = `<!DOCTYPE html>
         </div>
     </div>
     
+    <div id="download-section" class="download-section" style="display: none;">
+        <h3 style="color: var(--text-primary); margin-bottom: 10px; font-size: 16px;">Download Translator</h3>
+        <div class="download-buttons">
+            <a href="/download/windows" download="pejelagarto-translator.exe" class="download-btn">
+                💻 Windows
+            </a>
+            <a href="/download/linux" download="pejelagarto-translator" class="download-btn">
+                🐧 Linux/Mac
+            </a>
+        </div>
+    </div>
+    
     <script>
         let isInverted = false;
         let liveTranslateEnabled = true;
@@ -2232,6 +2306,18 @@ const htmlUI = `<!DOCTYPE html>
             
             // Add event listener for live translation
             inputText.addEventListener('input', handleLiveTranslation);
+        })();
+        
+        // Check if downloadable version and show download section
+        (function initDownloadSection() {
+            fetch('/api/is-downloadable')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.downloadable) {
+                        document.getElementById('download-section').style.display = 'block';
+                    }
+                })
+                .catch(err => console.log('Download check failed:', err));
         })();
         
         // Toggle theme function

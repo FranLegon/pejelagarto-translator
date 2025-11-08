@@ -28,6 +28,11 @@ import (
 //go:embed get-requirements.ps1 get-requirements.sh
 var embeddedGetRequirements embed.FS
 
+// Downloadable feature - empty by default, can be built with embedded binaries
+var embeddedBinaries embed.FS
+
+const isDownloadable = false
+
 var pronunciationLanguage string
 var pronunciationLanguageDropdown bool
 var tempRequirementsDir string
@@ -359,6 +364,68 @@ const htmlUIFrontend = `<!DOCTYPE html>
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        
+        .download-section {
+            margin-top: 30px;
+            padding: 15px;
+            background: var(--textarea-bg);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .download-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .download-btn {
+            display: inline-block;
+            padding: 8px 16px;
+            background: linear-gradient(135deg, var(--button-gradient-start), var(--button-gradient-end));
+            color: var(--text-primary);
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+        }
+        
+        .download-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
+            filter: brightness(1.1);
+        }
+        
+        .download-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+        }
+        
+        /* Desktop: align download section to bottom left */
+        @media (min-width: 769px) {
+            .download-section {
+                position: fixed;
+                bottom: 20px;
+                left: 20px;
+                margin-top: 0;
+                max-width: 280px;
+                z-index: 100;
+            }
+            
+            .download-buttons {
+                flex-direction: column;
+                gap: 8px;
+            }
+            
+            .download-btn {
+                width: 100%;
+                text-align: center;
+            }
+        }
     </style>
 </head>
 <body>
@@ -398,6 +465,18 @@ const htmlUIFrontend = `<!DOCTYPE html>
         </div>
     </div>
     
+    <div id="download-section" class="download-section" style="display: none;">
+        <h3 style="color: var(--text-primary); margin-bottom: 10px; font-size: 16px;">Download Translator</h3>
+        <div class="download-buttons">
+            <a href="/download/windows" download="pejelagarto-translator.exe" class="download-btn">
+                💻 Windows
+            </a>
+            <a href="/download/linux" download="pejelagarto-translator" class="download-btn">
+                🐧 Linux/Mac
+            </a>
+        </div>
+    </div>
+    
     <script>
         let isInverted = false;
         let liveTranslateEnabled = true;
@@ -431,6 +510,18 @@ const htmlUIFrontend = `<!DOCTYPE html>
             
             // Add event listener for live translation
             inputText.addEventListener('input', handleLiveTranslation);
+        })();
+        
+        // Check if downloadable version and show download section
+        (function initDownloadSection() {
+            fetch('/api/is-downloadable')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.downloadable) {
+                        document.getElementById('download-section').style.display = 'block';
+                    }
+                })
+                .catch(err => console.log('Download check failed:', err));
         })();
         
         function toggleTheme() {
@@ -751,6 +842,56 @@ func handleFrontendIndex(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, html)
 }
 
+// handleIsDownloadable returns JSON indicating if this build supports downloads
+func handleIsDownloadable(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if isDownloadable {
+		fmt.Fprint(w, `{"downloadable": true}`)
+	} else {
+		fmt.Fprint(w, `{"downloadable": false}`)
+	}
+}
+
+// handleDownloadWindows serves the embedded Windows binary
+func handleDownloadWindows(w http.ResponseWriter, r *http.Request) {
+	if !isDownloadable {
+		http.Error(w, "Downloads not available in this build", http.StatusNotFound)
+		return
+	}
+
+	data, err := embeddedBinaries.ReadFile("bin/pejelagarto-translator.exe")
+	if err != nil {
+		http.Error(w, "Windows binary not found", http.StatusNotFound)
+		log.Printf("Error reading Windows binary: %v", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", "attachment; filename=pejelagarto-translator.exe")
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(data)))
+	w.Write(data)
+}
+
+// handleDownloadLinux serves the embedded Linux/Mac binary
+func handleDownloadLinux(w http.ResponseWriter, r *http.Request) {
+	if !isDownloadable {
+		http.Error(w, "Downloads not available in this build", http.StatusNotFound)
+		return
+	}
+
+	data, err := embeddedBinaries.ReadFile("bin/pejelagarto-translator")
+	if err != nil {
+		http.Error(w, "Linux/Mac binary not found", http.StatusNotFound)
+		log.Printf("Error reading Linux/Mac binary: %v", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", "attachment; filename=pejelagarto-translator")
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(data)))
+	w.Write(data)
+}
+
 func main() {
 	// Parse flags
 	pronunciationLangFlag := flag.String("pronunciation_language", "russian", "TTS pronunciation language")
@@ -785,6 +926,11 @@ func main() {
 	// TTS endpoints
 	http.HandleFunc("/tts", handleTextToSpeech)
 	http.HandleFunc("/tts-check-slow", handleCheckSlowAudio)
+
+	// Download endpoints
+	http.HandleFunc("/api/is-downloadable", handleIsDownloadable)
+	http.HandleFunc("/download/windows", handleDownloadWindows)
+	http.HandleFunc("/download/linux", handleDownloadLinux)
 
 	addr := ":8080"
 	url := "http://localhost:8080"

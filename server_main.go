@@ -401,6 +401,56 @@ func getFlagUsage(usage string) string {
 	return ""
 }
 
+// handleIsDownloadable returns JSON indicating if this build supports downloads
+func handleIsDownloadable(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if isDownloadable {
+		fmt.Fprint(w, `{"downloadable": true}`)
+	} else {
+		fmt.Fprint(w, `{"downloadable": false}`)
+	}
+}
+
+// handleDownloadWindows serves the embedded Windows binary
+func handleDownloadWindows(w http.ResponseWriter, r *http.Request) {
+	if !isDownloadable {
+		http.Error(w, "Downloads not available in this build", http.StatusNotFound)
+		return
+	}
+
+	data, err := embeddedBinaries.ReadFile("bin/pejelagarto-translator.exe")
+	if err != nil {
+		http.Error(w, "Windows binary not found", http.StatusNotFound)
+		log.Printf("Error reading Windows binary: %v", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", "attachment; filename=pejelagarto-translator.exe")
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(data)))
+	w.Write(data)
+}
+
+// handleDownloadLinux serves the embedded Linux/Mac binary
+func handleDownloadLinux(w http.ResponseWriter, r *http.Request) {
+	if !isDownloadable {
+		http.Error(w, "Downloads not available in this build", http.StatusNotFound)
+		return
+	}
+
+	data, err := embeddedBinaries.ReadFile("bin/pejelagarto-translator")
+	if err != nil {
+		http.Error(w, "Linux/Mac binary not found", http.StatusNotFound)
+		log.Printf("Error reading Linux/Mac binary: %v", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", "attachment; filename=pejelagarto-translator")
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(data)))
+	w.Write(data)
+}
+
 // HTTP handler for the main UI
 func main() {
 	// Disable -help flag for obfuscated builds
@@ -453,6 +503,9 @@ func main() {
 	http.HandleFunc("/from", handleTranslateFrom)
 	http.HandleFunc("/tts", handleTextToSpeech)
 	http.HandleFunc("/tts-check-slow", handleCheckSlowAudio)
+	http.HandleFunc("/api/is-downloadable", handleIsDownloadable)
+	http.HandleFunc("/download/windows", handleDownloadWindows)
+	http.HandleFunc("/download/linux", handleDownloadLinux)
 
 	if *ngrokToken != "" {
 		// Use ngrok to expose server publicly
