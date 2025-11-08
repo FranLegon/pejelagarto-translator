@@ -390,7 +390,7 @@ const htmlUIFrontend = `<!DOCTYPE html>
             <button class="invert-btn" onclick="invertTranslation()">⇅</button>
             
             <div class="checkbox-container">
-                <input type="checkbox" id="live-translate" onchange="toggleLiveTranslation()">
+                <input type="checkbox" id="live-translate" onchange="toggleLiveTranslation()" checked>
                 <label for="live-translate" style="margin: 0;">Live Translation</label>
             </div>
             
@@ -400,7 +400,7 @@ const htmlUIFrontend = `<!DOCTYPE html>
     
     <script>
         let isInverted = false;
-        let liveTranslateEnabled = false;
+        let liveTranslateEnabled = true;
         let wasmReady = false;
         
         // Load WASM module
@@ -419,6 +419,18 @@ const htmlUIFrontend = `<!DOCTYPE html>
             const savedTheme = localStorage.getItem('theme') || 'dark';
             document.documentElement.setAttribute('data-theme', savedTheme);
             updateThemeIcon(savedTheme);
+        })();
+        
+        // Initialize live translation on page load
+        (function initLiveTranslation() {
+            const translateBtn = document.getElementById('translate-btn');
+            const inputText = document.getElementById('input-text');
+            
+            // Hide translate button since live translation is on
+            translateBtn.classList.add('hidden');
+            
+            // Add event listener for live translation
+            inputText.addEventListener('input', handleLiveTranslation);
         })();
         
         function toggleTheme() {
