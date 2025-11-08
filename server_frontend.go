@@ -448,6 +448,11 @@ const htmlUIFrontend = `<!DOCTYPE html>
                 <label id="output-label">Pejelagarto: <button class="play-btn" id="play-output" onclick="playAudio('output', false)">🔊 Play</button>{{DROPDOWN_PLACEHOLDER}}</label>
                 <textarea id="output-text" readonly placeholder="Translation will appear here..."></textarea>
             </div>
+            
+            <div class="text-area-container">
+                <label>Pronunciation:</label>
+                <textarea id="pronunciation-text" readonly placeholder="Pronunciation will appear here..."></textarea>
+            </div>
         </div>
         
         <div class="controls">
@@ -563,6 +568,11 @@ const htmlUIFrontend = `<!DOCTYPE html>
             }
             
             resetToSingleButton();
+            
+            // Update pronunciation after inversion
+            if (outputText.value) {
+                updatePronunciation(outputText.value);
+            }
         }
         
         function toggleLiveTranslation() {
@@ -591,6 +601,7 @@ const htmlUIFrontend = `<!DOCTYPE html>
             
             const inputText = document.getElementById('input-text');
             const outputText = document.getElementById('output-text');
+            const pronunciationText = document.getElementById('pronunciation-text');
             
             try {
                 if (!isInverted) {
@@ -600,9 +611,39 @@ const htmlUIFrontend = `<!DOCTYPE html>
                     // Pejelagarto to Human
                     outputText.value = GoTranslateFromPejelagarto(inputText.value);
                 }
+                
+                // Update pronunciation
+                updatePronunciation(outputText.value);
             } catch (error) {
                 console.error('Translation error:', error);
             }
+        }
+        
+        function updatePronunciation(text) {
+            const pronunciationText = document.getElementById('pronunciation-text');
+            const languageDropdown = document.getElementById('tts-language');
+            const lang = languageDropdown ? languageDropdown.value : '';
+            
+            if (!text) {
+                pronunciationText.value = '';
+                return;
+            }
+            
+            fetch('/pronunciation?lang=' + encodeURIComponent(lang), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain; charset=utf-8'
+                },
+                body: text
+            })
+            .then(response => response.text())
+            .then(pronunciation => {
+                pronunciationText.value = pronunciation;
+            })
+            .catch(error => {
+                console.error('Pronunciation error:', error);
+                pronunciationText.value = '';
+            });
         }
         
         // Rest of the JavaScript is identical to main.go (TTS functions, etc.)
@@ -627,6 +668,11 @@ const htmlUIFrontend = `<!DOCTYPE html>
                     const source = isInverted ? 'input' : 'output';
                     const container = isInverted ? document.getElementById('input-label') : document.getElementById('output-label');
                     splitButton(source, container);
+                }
+                
+                // Update pronunciation when language changes
+                if (outputText.value) {
+                    updatePronunciation(outputText.value);
                 }
             }
         }
@@ -961,6 +1007,7 @@ func main() {
 	// TTS endpoints
 	http.HandleFunc("/tts", handleTextToSpeech)
 	http.HandleFunc("/tts-check-slow", handleCheckSlowAudio)
+	http.HandleFunc("/pronunciation", handlePronunciation)
 
 	// Download endpoints
 	http.HandleFunc("/api/is-downloadable", handleIsDownloadable)
@@ -1388,6 +1435,30 @@ func slowDownAudio(inputPath string) (outputPath string, err error) {
 	}
 
 	return outputPath, nil
+}
+
+func handlePronunciation(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Error reading request body", http.StatusBadRequest)
+		return
+	}
+
+	lang := r.URL.Query().Get("lang")
+	if lang == "" {
+		lang = pronunciationLanguage
+	}
+
+	text := string(body)
+	pronunciation := preprocessTextForTTS(text, lang)
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Write([]byte(pronunciation))
 }
 
 func handleTextToSpeech(w http.ResponseWriter, r *http.Request) {
