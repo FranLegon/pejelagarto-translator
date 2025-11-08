@@ -125,7 +125,18 @@ func getPiperBinaryPath() string {
 }
 
 // getModelPath returns the language-specific model path
+// getModelPath returns the language-specific model path
+// Note: language parameter must be validated by caller against validLanguages whitelist
+// to prevent path traversal attacks
 func getModelPath(language string) string {
+	// Defensive: ensure language contains only alphanumeric characters (no path separators)
+	// This is a defense-in-depth measure; validation should happen at the handler level
+	for _, c := range language {
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
+			// Invalid character in language name - return empty to cause error
+			return ""
+		}
+	}
 	return filepath.Join(tempRequirementsDir, "piper", "languages", language, "model.onnx")
 }
 
