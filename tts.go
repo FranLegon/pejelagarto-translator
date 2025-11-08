@@ -16,8 +16,14 @@ import (
 	"pejelagarto-translator/obfuscation"
 )
 
+// Global TTS configuration variables
+// These are set by server_main.go or server_frontend.go at startup
+var pronunciationLanguage string
+var pronunciationLanguageDropdown bool
+
 // extractEmbeddedRequirements extracts and runs the get-requirements script to download TTS dependencies
-func extractEmbeddedRequirements() error {
+// If singleLanguage is not empty, only that language will be downloaded
+func extractEmbeddedRequirements(singleLanguage string) error {
 	// Determine temp directory based on OS
 	var baseDir string
 	if runtime.GOOS == "windows" {
@@ -110,9 +116,17 @@ func extractEmbeddedRequirements() error {
 
 		// Execute the PowerShell script
 		if !obfuscation.Obfuscated() {
-			log.Println("Running PowerShell script to download dependencies...")
+			if singleLanguage != "" {
+				log.Printf("Running PowerShell script to download dependencies for language: %s...\n", singleLanguage)
+			} else {
+				log.Println("Running PowerShell script to download all dependencies...")
+			}
 		}
-		cmd = exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath)
+		if singleLanguage != "" {
+			cmd = exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath, "-Language", singleLanguage)
+		} else {
+			cmd = exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath)
+		}
 	} else {
 		// Use shell script on Linux/macOS
 		scriptContent, err = embeddedGetRequirements.ReadFile("get-requirements.sh")
@@ -135,9 +149,17 @@ func extractEmbeddedRequirements() error {
 
 		// Execute the shell script
 		if !obfuscation.Obfuscated() {
-			log.Println("Running shell script to download dependencies...")
+			if singleLanguage != "" {
+				log.Printf("Running shell script to download dependencies for language: %s...\n", singleLanguage)
+			} else {
+				log.Println("Running shell script to download all dependencies...")
+			}
 		}
-		cmd = exec.Command("bash", scriptPath)
+		if singleLanguage != "" {
+			cmd = exec.Command("bash", scriptPath, singleLanguage)
+		} else {
+			cmd = exec.Command("bash", scriptPath)
+		}
 	}
 
 	// Capture output for debugging

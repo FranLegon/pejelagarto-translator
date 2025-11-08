@@ -908,7 +908,13 @@ func main() {
 
 	// Initialize TTS
 	log.Println("Initializing TTS requirements...")
-	if err := extractEmbeddedRequirements(); err != nil {
+	var languageToDownload string
+	if !*pronunciationLangDropdownFlag {
+		// Dropdown is disabled, download only the selected language
+		languageToDownload = *pronunciationLangFlag
+	}
+	// If dropdown is enabled, languageToDownload remains empty and all languages are downloaded
+	if err := extractEmbeddedRequirements(languageToDownload); err != nil {
 		log.Fatalf("Failed to extract TTS requirements: %v", err)
 	}
 
@@ -961,7 +967,7 @@ func openBrowser(url string) error {
 
 // TTS Functions (server_frontend.go is standalone due to //go:build ignore)
 
-func extractEmbeddedRequirements() error {
+func extractEmbeddedRequirements(singleLanguage string) error {
 	// Determine the requirements directory based on OS
 	var requirementsDir string
 	if runtime.GOOS == "windows" {
@@ -1035,8 +1041,13 @@ func extractEmbeddedRequirements() error {
 		defer os.Remove(scriptPath) // Clean up script after execution
 
 		// Execute the PowerShell script
-		log.Println("Running PowerShell script to download dependencies...")
-		cmd = exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath)
+		if singleLanguage != "" {
+			log.Printf("Running PowerShell script to download dependencies for language: %s...\n", singleLanguage)
+			cmd = exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath, "-Language", singleLanguage)
+		} else {
+			log.Println("Running PowerShell script to download all dependencies...")
+			cmd = exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath)
+		}
 	} else {
 		// Use shell script on Linux/macOS
 		scriptContent, err = embeddedGetRequirements.ReadFile("get-requirements.sh")
@@ -1058,8 +1069,13 @@ func extractEmbeddedRequirements() error {
 		defer os.Remove(scriptPath) // Clean up script after execution
 
 		// Execute the shell script
-		log.Println("Running shell script to download dependencies...")
-		cmd = exec.Command("/bin/bash", scriptPath)
+		if singleLanguage != "" {
+			log.Printf("Running shell script to download dependencies for language: %s...\n", singleLanguage)
+			cmd = exec.Command("/bin/bash", scriptPath, singleLanguage)
+		} else {
+			log.Println("Running shell script to download all dependencies...")
+			cmd = exec.Command("/bin/bash", scriptPath)
+		}
 	}
 
 	cmd.Stdout = os.Stdout

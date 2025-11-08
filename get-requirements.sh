@@ -5,7 +5,15 @@
 
 set -e
 
+# Parse command line arguments
+LANGUAGE="${1:-all}"  # Default to "all" if no argument provided
+
 echo "=== Pejelagarto Translator - Dependency Checker ==="
+if [ "$LANGUAGE" != "all" ]; then
+    echo "Language: $LANGUAGE (single language mode)"
+else
+    echo "Language: All languages"
+fi
 echo ""
 
 # Determine the requirements directory
@@ -165,7 +173,20 @@ declare -A LANGUAGES=(
 echo ""
 echo "Checking language models..."
 
-for lang_name in "${!LANGUAGES[@]}"; do
+# Filter languages based on parameter
+if [ "$LANGUAGE" != "all" ]; then
+    # Check if language exists in array
+    if [ -z "${LANGUAGES[$LANGUAGE]}" ]; then
+        echo "Error: Unknown language '$LANGUAGE'"
+        echo "Available languages: ${!LANGUAGES[@]}"
+        exit 1
+    fi
+    LANGUAGES_TO_DOWNLOAD=("$LANGUAGE")
+else
+    LANGUAGES_TO_DOWNLOAD=("${!LANGUAGES[@]}")
+fi
+
+for lang_name in "${LANGUAGES_TO_DOWNLOAD[@]}"; do
     model_name="${LANGUAGES[$lang_name]}"
     lang_dir="${LANGUAGES_DIR}/${lang_name}"
     model_file="${lang_dir}/model.onnx"

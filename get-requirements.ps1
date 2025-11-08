@@ -2,9 +2,18 @@
 # Downloads all Piper TTS requirements if they're not already present
 # Run this script before building to ensure all dependencies are embedded
 
+param(
+    [string]$Language = "all"  # Specify a single language (e.g., "russian") or "all" for all languages
+)
+
 $ErrorActionPreference = "Stop"
 
 Write-Host "=== Pejelagarto Translator - Dependency Checker ===" -ForegroundColor Cyan
+if ($Language -ne "all") {
+    Write-Host "Language: $Language (single language mode)" -ForegroundColor Yellow
+} else {
+    Write-Host "Language: All languages" -ForegroundColor Yellow
+}
 Write-Host ""
 
 # Determine the requirements directory
@@ -204,7 +213,20 @@ $Languages = @{
     }
 }
 
-foreach ($LangName in $Languages.Keys) {
+# Filter languages based on parameter
+$LanguagesToDownload = if ($Language -eq "all") {
+    $Languages.Keys
+} else {
+    if ($Languages.ContainsKey($Language)) {
+        @($Language)
+    } else {
+        Write-Host "Error: Unknown language '$Language'" -ForegroundColor Red
+        Write-Host "Available languages: $($Languages.Keys -join ', ')" -ForegroundColor Yellow
+        exit 1
+    }
+}
+
+foreach ($LangName in $LanguagesToDownload) {
     $LangInfo = $Languages[$LangName]
     $LangDir = Join-Path $LanguagesDir $LangName
     

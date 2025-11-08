@@ -136,13 +136,30 @@ The binary will automatically download all TTS requirements (~1.1GB) on first ru
 
 **Build Tag Compatibility:**
 
-All combinations of build tags work together:
-- `go build` - Normal build
-- `go build -tags obfuscated` - Obfuscated server build
-- `go build -tags frontend` - Frontend (WASM) build
-- `go build -tags "obfuscated,frontend"` - Obfuscated frontend build
+All combinations of build tags work together seamlessly:
 
-Verify all combinations with: `./test-build-combinations.sh`
+| Build Tags | Description | Binary Output | TTS Downloads |
+|------------|-------------|---------------|---------------|
+| None | Normal backend server | `pejelagarto-translator` | All languages (default) |
+| `downloadable` | Embeds Windows/Linux binaries | `pejelagarto-translator` + embedded bins | All languages |
+| `ngrok_default` | Hardcoded ngrok credentials (includes downloadable) | `pejelagarto-translator` + embedded bins | All languages |
+| `obfuscated` | Code obfuscation for deployment | `piper-server` | All languages |
+| `frontend` | Client-side WASM translation | `translator.wasm` | All languages |
+| `downloadable,obfuscated` | Downloadable + obfuscation | `piper-server` + embedded bins | All languages |
+| `downloadable,frontend` | Downloadable + WASM | `translator.wasm` + embedded bins | All languages |
+| `ngrok_default,obfuscated` | Ngrok + obfuscation | `piper-server` + embedded bins | All languages |
+| `ngrok_default,frontend` | Ngrok + WASM | `translator.wasm` + embedded bins | All languages |
+| `obfuscated,frontend` | Obfuscated WASM | `translator.wasm` (obfuscated) | All languages |
+| `downloadable,obfuscated,frontend` | All features | `translator.wasm` + embedded bins (obfuscated) | All languages |
+| `ngrok_default,obfuscated,frontend` | All features with ngrok | `translator.wasm` + embedded bins (obfuscated) | All languages |
+
+**Build Tag Relationships:**
+- `ngrok_default` automatically includes `downloadable` functionality
+- `downloadable` and `ngrok_default` are mutually compatible (OR condition in build tags)
+- All tags can be combined with `obfuscated` and `frontend`
+- TTS language downloads can be optimized using `-pronunciation_language` flag (downloads only specified language when dropdown is disabled)
+
+**Verify all combinations:** Run `./test-build-combinations.sh` to test all 12 build tag combinations
 
 **Build Notes**: 
 - Normal build creates **~12-13MB executable** 

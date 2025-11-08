@@ -25,8 +25,7 @@ import (
 	"pejelagarto-translator/obfuscation"
 )
 
-var pronunciationLanguage string
-var pronunciationLanguageDropdown bool
+// Global TTS configuration variables are now declared in tts.go
 
 func handleIndex(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -467,7 +466,7 @@ func main() {
 	// Parse command-line flags
 	var ngrokToken *string
 	var ngrokDomain *string
-	
+
 	if useNgrokDefault {
 		// Use hardcoded values for ngrok_default builds
 		token := defaultNgrokToken
@@ -482,19 +481,25 @@ func main() {
 		ngrokToken = flag.String("ngrok_token", "", getFlagUsage("Optional ngrok auth token to expose server publicly"))
 		ngrokDomain = flag.String("ngrok_domain", "", getFlagUsage("Optional ngrok persistent domain (e.g., your-domain.ngrok-free.app)"))
 	}
-	
+
 	pronunciationLangFlag := flag.String("pronunciation_language", "russian", getFlagUsage("TTS pronunciation language (russian, portuguese, romanian, czech)"))
 	pronunciationLangDropdownFlag := flag.Bool("pronunciation_language_dropdown", true, getFlagUsage("Show language dropdown in UI for TTS"))
-	
+
 	flag.Parse()
-	
+
 	if !strings.HasPrefix(*ngrokDomain, "http://") && !strings.HasPrefix(*ngrokDomain, "https://") {
 		*ngrokDomain = "https://" + *ngrokDomain
 	}
 
 	// Extract embedded TTS requirements to temp directory
 	log.Println("Initializing TTS requirements...")
-	if err := extractEmbeddedRequirements(); err != nil {
+	var languageToDownload string
+	if !*pronunciationLangDropdownFlag {
+		// Dropdown is disabled, download only the selected language
+		languageToDownload = *pronunciationLangFlag
+	}
+	// If dropdown is enabled, languageToDownload remains empty and all languages are downloaded
+	if err := extractEmbeddedRequirements(languageToDownload); err != nil {
 		log.Fatalf("Failed to extract TTS requirements: %v", err)
 	}
 
