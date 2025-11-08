@@ -82,10 +82,10 @@ pejelagarto-translator/
 ├── server_frontend.go      # Frontend mode: Lightweight server
 ├── build-frontend.sh       # Build script for frontend mode
 ├── obfuscation/
-│   ├── constants_normal.go      # Build tag: !obfuscated
+│   ├── constants_backend.go     # Build tag: !obfuscated
 │   └── constants_obfuscated.go  # Build tag: obfuscated
 └── bin/
-    ├── pejelagarto-translator   # Normal build output
+    ├── pejelagarto-translator   # Backend build output
     ├── translator.wasm          # Frontend WASM module
     └── wasm_exec.js             # Go WASM runtime
 

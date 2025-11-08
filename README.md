@@ -65,7 +65,7 @@ The project demonstrates advanced string manipulation, bijective mappings, and c
 
 ### 1. Build the Application
 
-**Normal Build (Default - Backend Translation):**
+**Backend Build (Default - Server-Side Translation):**
 
 Windows:
 ```powershell
@@ -130,7 +130,7 @@ The binary will automatically download all TTS requirements (~1.1GB) on first ru
 
 | Build Type | Best For | Translation | TTS Audio | Binary Size |
 |------------|----------|-------------|-----------|-------------|
-| **Normal** | Single user, local use | Server (backend) | Server | ~12-13MB |
+| **Backend** | Single user, local use | Server (backend) | Server | ~12-13MB |
 | **Frontend** | Multiple users, web deployment | Browser (WASM) | Server | ~2-3MB WASM + Server |
 | **Obfuscated** | Production server deployment | Server (backend) | Server | ~12-13MB |
 
@@ -140,7 +140,7 @@ All combinations of build tags work together seamlessly:
 
 | Build Tags | Description | Binary Output | TTS Downloads |
 |------------|-------------|---------------|---------------|
-| None | Normal backend server | `pejelagarto-translator` | All languages (default) |
+| None | Backend server (default) | `pejelagarto-translator` | All languages (default) |
 | `downloadable` | Embeds Windows/Linux binaries | `pejelagarto-translator` + embedded bins | All languages |
 | `ngrok_default` | Hardcoded ngrok credentials (includes downloadable) | `pejelagarto-translator` + embedded bins | All languages |
 | `obfuscated` | Code obfuscation for deployment | `piper-server` | All languages |
@@ -162,7 +162,7 @@ All combinations of build tags work together seamlessly:
 **Verify all combinations:** Run `./test-build-combinations.sh` to test all 12 build tag combinations
 
 **Build Notes**: 
-- Normal build creates **~12-13MB executable** 
+- Backend build creates **~12-13MB executable** 
   - Windows: `pejelagarto-translator.exe`
   - Linux/macOS: `pejelagarto-translator`
 - Frontend build creates **~2-3MB WASM module**
@@ -179,8 +179,8 @@ All combinations of build tags work together seamlessly:
 
 **Obfuscation Details:**
 - Uses [garble](https://github.com/burrowers/garble) for code obfuscation (`-literals -tiny` flags)
-- Build tags switch between normal and obfuscated constants
-- Normal build: uses `pejelagarto-translator` for temp directories and scripts
+- Build tags switch between backend and obfuscated constants
+- Backend build: uses `pejelagarto-translator` for temp directories and scripts
 - Obfuscated build: uses `piper-server` for temp directories and scripts
 - Output binary named `piper-server.exe` (Windows) or `piper-server` (Unix)
 
@@ -705,14 +705,14 @@ go test -fuzz=FuzzTranslatePejelagarto -fuzztime=120s  # Main translation test r
 **Translation Tests (`translation_test.go`):**
 - 7 fuzz tests for core translation logic
 - All tests use random fuzzy input
-- Shared by both normal and WASM builds
+- Shared by both backend and WASM builds
 - Minimum 30s per test, 120s for main translation test
 
 **WASM Tests (`wasm_test.go`):**
 - WASM-specific tests with `//go:build frontend` tag
 - Tests JS wrapper functions
 - Validates WASM export functionality
-- Ensures consistency with normal build
+- Ensures consistency with backend build
 
 **TTS Tests (`tts_test.go`):**
 - Server-only tests with `//go:build !frontend` tag
@@ -919,7 +919,7 @@ pejelagarto-translator/
 ├── .gitignore           # Git ignore patterns
 ├── coverage/            # Test coverage reports
 ├── obfuscation/         # Obfuscation and service deployment scripts
-│   ├── constants_normal.go              # Constants for normal build
+│   ├── constants_backend.go             # Constants for backend build
 │   ├── constants_obfuscated.go          # Constants for obfuscated build
 │   ├── build-obfuscated.ps1             # Build script with garble
 │   └── create-obfuscated-server-service.ps1  # Service creation script

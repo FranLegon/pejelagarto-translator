@@ -18,9 +18,9 @@ failed=0
 passed=0
 total=12
 
-# Test 1: Normal build (no tags)
-echo "Test 1/$total: Normal build (no tags)"
-if go build -o /tmp/test-normal > /dev/null 2>&1 && go test > /dev/null 2>&1; then
+# Test 1: Backend build (no tags)
+echo "Test 1/$total: Backend build (no tags)"
+if go build -o /tmp/test-backend > /dev/null 2>&1 && go test > /dev/null 2>&1; then
     echo "  ✓ Build and tests successful"
     ((passed++))
 else

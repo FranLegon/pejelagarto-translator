@@ -392,7 +392,7 @@ func validateConstants() error {
 }
 
 // getFlagUsage returns the usage string for flags based on build mode
-// Returns the actual usage for normal builds, empty string for obfuscated builds
+// Returns the actual usage for backend builds, empty string for obfuscated builds
 func getFlagUsage(usage string) string {
 	if !obfuscation.Obfuscated() {
 		return usage

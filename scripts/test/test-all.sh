@@ -12,9 +12,9 @@ echo "========================================"
 echo "NOTE: Running full fuzz tests (~5 min)"
 echo ""
 
-# Test 1: Normal build fuzz tests
+# Test 1: Backend build fuzz tests
 echo "----------------------------------------"
-echo "1. Running Normal Build Fuzz Tests"
+echo "1. Running Backend Build Fuzz Tests"
 echo "----------------------------------------"
 echo ""
 
@@ -22,12 +22,12 @@ echo ""
 
 if [ $? -ne 0 ]; then
     echo ""
-    echo "✗ Normal build fuzz tests failed!"
+    echo "✗ Backend build fuzz tests failed!"
     exit 1
 fi
 
 echo ""
-echo "✓ Normal build fuzz tests passed!"
+echo "✓ Backend build fuzz tests passed!"
 echo ""
 
 # Test 2: WASM build tests

@@ -157,10 +157,10 @@ func TestJSWrapperFunctionality(t *testing.T) {
 	})
 }
 
-// TestWASMTranslationLogicConsistency ensures WASM and normal builds use same logic
+// TestWASMTranslationLogicConsistency ensures WASM and backend builds use same logic
 func TestWASMTranslationLogicConsistency(t *testing.T) {
 	// This test verifies that the translation functions in WASM mode
-	// produce the same results as they would in normal mode
+	// produce the same results as they would in backend mode
 	testCases := []struct {
 		input string
 	}{

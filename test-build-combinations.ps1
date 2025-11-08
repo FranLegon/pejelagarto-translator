@@ -68,8 +68,8 @@ function Test-WasmBuild {
     }
 }
 
-# Test 1: Normal build
-if (Test-Build -Tags $null -Output "bin/test-normal.exe" -TestNum 1 -Description "Normal build (no tags)") { $passed++ } else { $failed++ }
+# Test 1: Backend build
+if (Test-Build -Tags $null -Output "bin/test-backend.exe" -TestNum 1 -Description "Backend build (no tags)") { $passed++ } else { $failed++ }
 
 # Test 2: Downloadable build
 if (Test-Build -Tags "downloadable" -Output "bin/test-downloadable.exe" -TestNum 2 -Description "Downloadable build") { $passed++ } else { $failed++ }

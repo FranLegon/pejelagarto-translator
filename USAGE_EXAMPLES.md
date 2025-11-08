@@ -2,7 +2,7 @@
 
 ## Building and Running Different Modes
 
-### 1. Normal Mode (Default - All Server-Side)
+### 1. Backend Mode (Default - All Server-Side)
 
 **Build:**
 ```bash
@@ -97,7 +97,7 @@ After building and starting the frontend server:
 
 ### Translation Speed
 
-**Normal Mode:**
+**Backend Mode:**
 ```
 User types → Server receives → Server translates → Server responds → Browser displays
 Latency: ~50-200ms (network + processing)
@@ -111,7 +111,7 @@ Latency: <10ms (local processing only)
 
 ### Server Load
 
-**Normal Mode** - 100 concurrent users:
+**Backend Mode** - 100 concurrent users:
 - 100 users × typing constantly = High translation load
 - 100 users × occasional TTS = Moderate TTS load
 - Total: High server load
@@ -123,7 +123,7 @@ Latency: <10ms (local processing only)
 
 ### File Sizes
 
-**Normal Mode:**
+**Backend Mode:**
 - Binary: 12-13 MB
 - Client downloads: HTML only (~50 KB)
 
@@ -139,7 +139,7 @@ Latency: <10ms (local processing only)
 Edit `main.go` - it's shared by both modes:
 
 ```bash
-# Test changes in normal mode
+# Test changes in backend mode
 go build && ./bin/pejelagarto-translator
 
 # Test changes in frontend mode  
@@ -167,7 +167,7 @@ Edit `wasm_main.go` or `server_frontend.go`:
 ### Local Network
 
 ```bash
-# Normal mode - all on server
+# Backend mode - all on server
 ./bin/pejelagarto-translator
 
 # Frontend mode - translation in browser
@@ -180,7 +180,7 @@ Access from other devices: `http://<your-ip>:8080`
 ### Internet (with ngrok)
 
 ```bash
-# Normal mode
+# Backend mode
 ./bin/pejelagarto-translator \
   -ngrok_token=YOUR_TOKEN \
   -ngrok_domain=your-domain.ngrok-free.app
@@ -219,4 +219,4 @@ Access from other devices: `http://<your-ip>:8080`
 1. Check that TTS dependencies are downloaded (first run takes time)
 2. Look at server logs for error messages
 3. Ensure the selected language model is installed
-4. This is the same in both normal and frontend modes
+4. This is the same in both backend and frontend modes
