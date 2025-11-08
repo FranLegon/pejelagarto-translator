@@ -20,7 +20,7 @@ Write-Host "  Production Build Script (Garble)" -ForegroundColor Cyan
 Write-Host "======================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Build Configuration:" -ForegroundColor Yellow
-Write-Host "  - Tags: obfuscated, frontend, ngrok_default" -ForegroundColor White
+Write-Host "  - Tags: obfuscated, frontend, ngrok_default, downloadable" -ForegroundColor White
 Write-Host "  - OS: $OS" -ForegroundColor White
 Write-Host "  - Architecture: $Arch" -ForegroundColor White
 Write-Host "  - Obfuscation: garble" -ForegroundColor White
@@ -91,8 +91,8 @@ $outputPath = "bin\$outputName"
 # Build server (frontend server for WASM mode)
 Write-Host "[4/6] Building obfuscated frontend server..." -ForegroundColor Green
 
-Write-Host "  Tags: obfuscated,ngrok_default" -ForegroundColor White
-Write-Host "  Source: server_frontend.go version.go" -ForegroundColor White
+Write-Host "  Tags: obfuscated,ngrok_default,downloadable" -ForegroundColor White
+Write-Host "  Source: server_frontend.go version.go ngrok_default.go downloadable.go" -ForegroundColor White
 Write-Host "  Output: $outputPath" -ForegroundColor White
 
 & {
@@ -101,11 +101,11 @@ Write-Host "  Output: $outputPath" -ForegroundColor White
     $env:CGO_ENABLED = "0"
     
     garble -tiny -literals -seed=random build `
-        -tags "obfuscated,ngrok_default" `
+        -tags "obfuscated,ngrok_default,downloadable" `
         -ldflags="-s -w -extldflags '-static'" `
         -trimpath `
         -o $outputPath `
-        server_frontend.go version.go
+        server_frontend.go version.go ngrok_default.go downloadable.go
 }
 
 if ($LASTEXITCODE -ne 0) {
@@ -126,7 +126,7 @@ $wasmHash = (Get-FileHash $wasmOutput -Algorithm SHA256).Hash
 $checksumContent = @"
 Production Build Checksums
 Generated: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
-Build: $OS/$Arch with obfuscated+frontend+ngrok_default
+Build: $OS/$Arch with obfuscated+frontend+ngrok_default+downloadable
 
 Server ($outputName):
   SHA256: $serverHash

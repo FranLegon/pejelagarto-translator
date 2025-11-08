@@ -8,6 +8,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"flag"
 	"fmt"
@@ -25,16 +26,17 @@ import (
 	"time"
 	"unicode"
 
+	"golang.ngrok.com/ngrok"
+	"golang.ngrok.com/ngrok/config"
+
 	"pejelagarto-translator/obfuscation"
 )
 
 //go:embed get-requirements.ps1 get-requirements.sh
 var embeddedGetRequirements embed.FS
 
-// Downloadable feature - empty by default, can be built with embedded binaries
-var embeddedBinaries embed.FS
-
-const isDownloadable = false
+// Downloadable feature - constants come from downloadable.go or not_downloadable.go based on build tags
+// var embeddedBinaries embed.FS and const isDownloadable are defined in those files
 
 var pronunciationLanguage string
 var pronunciationLanguageDropdown bool
@@ -990,10 +992,32 @@ func findAvailablePort() int {
 }
 
 func main() {
-	// Parse flags
+	// Parse command-line flags
+	var ngrokToken *string
+	var ngrokDomain *string
+
+	if useNgrokDefault {
+		// Use hardcoded values for ngrok_default builds
+		token := defaultNgrokToken
+		domain := defaultNgrokDomain
+		ngrokToken = &token
+		ngrokDomain = &domain
+		if !obfuscation.Obfuscated() {
+			log.Println("Using hardcoded ngrok configuration (ngrok_default build)")
+		}
+	} else {
+		// Use command-line flags for regular builds
+		ngrokToken = flag.String("ngrok_token", "", "Optional ngrok auth token to expose server publicly")
+		ngrokDomain = flag.String("ngrok_domain", "", "Optional ngrok persistent domain (e.g., your-domain.ngrok-free.app)")
+	}
+
 	pronunciationLangFlag := flag.String("pronunciation_language", "russian", "TTS pronunciation language")
 	pronunciationLangDropdownFlag := flag.Bool("pronunciation_language_dropdown", true, "Show language dropdown in UI for TTS")
 	flag.Parse()
+
+	if *ngrokDomain != "" && !strings.HasPrefix(*ngrokDomain, "http://") && !strings.HasPrefix(*ngrokDomain, "https://") {
+		*ngrokDomain = "https://" + *ngrokDomain
+	}
 
 	pronunciationLanguage = *pronunciationLangFlag
 	pronunciationLanguageDropdown = *pronunciationLangDropdownFlag
@@ -1040,23 +1064,130 @@ func main() {
 	http.HandleFunc("/download/windows", handleDownloadWindows)
 	http.HandleFunc("/download/linux", handleDownloadLinux)
 
-	port := findAvailablePort()
-	if port == 0 {
-		log.Fatal("No available ports found in range 8080-8090")
-	}
-	addr := fmt.Sprintf(":%d", port)
-	url := fmt.Sprintf("http://localhost:%d", port)
+	if *ngrokToken != "" {
+		// Use ngrok to expose server publicly
+		if !obfuscation.Obfuscated() {
+			log.Println("Initializing ngrok tunnel...")
+			log.Printf("Using auth token: %s...\n", (*ngrokToken)[:10])
+			log.Println("Connecting to ngrok service...")
+		}
 
-	if !obfuscation.Obfuscated() {
-		log.Printf("Server starting on %s\n", url)
-	}
+		// Configure endpoint with optional domain
+		var listener ngrok.Tunnel
+		var err error
 
-	// Open browser
-	time.Sleep(500 * time.Millisecond)
-	openBrowser(url)
+		if *ngrokDomain != "" {
+			// Strip scheme from domain for WithDomain (it expects just hostname)
+			domain := *ngrokDomain
+			domain = strings.TrimPrefix(domain, "https://")
+			domain = strings.TrimPrefix(domain, "http://")
 
-	if err := http.ListenAndServe(addr, nil); err != nil {
-		log.Fatalf("Server failed: %v", err)
+			if !obfuscation.Obfuscated() {
+				log.Printf("Using persistent domain: %s\n", domain)
+				log.Println("Establishing tunnel (this may take a few seconds)...")
+			}
+
+			// Use a channel to receive the result with timeout
+			type result struct {
+				listener ngrok.Tunnel
+				err      error
+			}
+			resultChan := make(chan result)
+			go func() {
+				l, e := ngrok.Listen(context.Background(),
+					config.HTTPEndpoint(
+						config.WithDomain(domain),
+					),
+					ngrok.WithAuthtoken(*ngrokToken),
+				)
+				resultChan <- result{listener: l, err: e}
+			}()
+
+			// Wait for completion or timeout
+			select {
+			case res := <-resultChan:
+				listener = res.listener
+				err = res.err
+			case <-time.After(30 * time.Second):
+				log.Fatalf("Failed to start ngrok listener: connection timeout after 30 seconds")
+			}
+		} else {
+			if !obfuscation.Obfuscated() {
+				log.Println("Using random ngrok domain")
+				log.Println("Establishing tunnel (this may take a few seconds)...")
+			}
+
+			// Use a channel to receive the result with timeout
+			type result struct {
+				listener ngrok.Tunnel
+				err      error
+			}
+			resultChan := make(chan result)
+			go func() {
+				l, e := ngrok.Listen(context.Background(),
+					config.HTTPEndpoint(),
+					ngrok.WithAuthtoken(*ngrokToken),
+				)
+				resultChan <- result{listener: l, err: e}
+			}()
+
+			// Wait for completion or timeout
+			select {
+			case res := <-resultChan:
+				listener = res.listener
+				err = res.err
+			case <-time.After(10 * time.Second):
+				log.Fatalf("Failed to start ngrok listener: connection timeout after 10 seconds")
+			}
+		}
+
+		if err != nil {
+			log.Fatalf("Failed to start ngrok listener: %v", err)
+		}
+
+		url := listener.URL()
+		if !obfuscation.Obfuscated() {
+			log.Printf("ngrok tunnel established successfully! ✓\n")
+			log.Printf("Public URL: %s\n", url)
+		}
+
+		// Open browser with ngrok URL (only if configured to do so)
+		if obfuscation.ShouldOpenBrowser() {
+			go func() {
+				time.Sleep(1 * time.Second)
+				if err := openBrowser(url); err != nil {
+					if !obfuscation.Obfuscated() {
+						log.Printf("Could not open browser automatically: %v\n", err)
+						log.Printf("Please open your browser and navigate to %s\n", url)
+					}
+				}
+			}()
+		}
+
+		log.Println("Server is running. Press Ctrl+C to stop.")
+		if err := http.Serve(listener, nil); err != nil {
+			log.Fatalf("Server failed: %v", err)
+		}
+	} else {
+		// Use local server (default behavior)
+		port := findAvailablePort()
+		if port == 0 {
+			log.Fatal("No available ports found in range 8080-8090")
+		}
+		addr := fmt.Sprintf(":%d", port)
+		url := fmt.Sprintf("http://localhost:%d", port)
+
+		if !obfuscation.Obfuscated() {
+			log.Printf("Server starting on %s\n", url)
+		}
+
+		// Open browser
+		time.Sleep(500 * time.Millisecond)
+		openBrowser(url)
+
+		if err := http.ListenAndServe(addr, nil); err != nil {
+			log.Fatalf("Server failed: %v", err)
+		}
 	}
 }
 
@@ -1265,70 +1396,70 @@ func preprocessTextForTTS(input string, pronunciationLanguage string) string {
 	case "portuguese":
 		vowels = "aeiouáéíóúâêôãõàü"
 		consonants = "bcdfghjklmnpqrstvwxyzç"
-		allowed = vowels + consonants + " "
+		allowed = vowels + consonants + " 0123456789"
 	case "french":
 		vowels = "aeiouyàâäæçéèêëîïôœùûüÿ"
 		consonants = "bcdfghjklmnpqrstvwxz"
-		allowed = vowels + consonants + " "
+		allowed = vowels + consonants + " 0123456789"
 	case "russian":
 		vowels = "аеёиоуыэюя"
 		consonants = "бвгджзйклмнпрстфхцчшщъьї"
-		allowed = vowels + consonants + " "
+		allowed = vowels + consonants + " 0123456789"
 	case "german":
 		vowels = "aeiouyäöü"
 		consonants = "bcdfghjklmnpqrstvwxzß"
-		allowed = vowels + consonants + " "
+		allowed = vowels + consonants + " 0123456789"
 	case "hindi":
-		// Hindi uses Devanagari script
-		return input
+		// Hindi uses Devanagari script - convert to uppercase
+		return strings.ToUpper(input)
 	case "romanian":
 		vowels = "aeiouăâî"
 		consonants = "bcdfghjklmnpqrstvwxyzțș"
-		allowed = vowels + consonants + " "
+		allowed = vowels + consonants + " 0123456789"
 	case "swahili":
 		vowels = "aeiou"
 		consonants = "bcdfghjklmnpqrstvwxyz"
-		allowed = vowels + consonants + " "
+		allowed = vowels + consonants + " 0123456789"
 	case "czech":
 		vowels = "aeiouyáéíóúůýě"
 		consonants = "bcčdďfghjklmnňpqrřsštťvwxzž"
-		allowed = vowels + consonants + " "
+		allowed = vowels + consonants + " 0123456789"
 	case "icelandic":
 		vowels = "aeiouyáéíóúýæöþð"
 		consonants = "bcdfghjklmnpqrstvwxz"
-		allowed = vowels + consonants + " "
+		allowed = vowels + consonants + " 0123456789"
 	case "kazakh":
 		// Kazakh uses Cyrillic
 		vowels = "аәеёиоөұүыэюя"
 		consonants = "бвгғджзйкқлмнңопрстуфхһцчшщъыьіэюя"
-		allowed = vowels + consonants + " "
+		allowed = vowels + consonants + " 0123456789"
 	case "norwegian":
 		vowels = "aeiouyæøåäöü"
 		consonants = "bcdfghjklmnpqrstvwxz"
-		allowed = vowels + consonants + " "
+		allowed = vowels + consonants + " 0123456789"
 	case "swedish":
 		vowels = "aeiouyåäö"
 		consonants = "bcdfghjklmnpqrstvwxz"
-		allowed = vowels + consonants + " "
+		allowed = vowels + consonants + " 0123456789"
 	case "turkish":
 		vowels = "aeıioöuüâî"
 		consonants = "bcçdfgğhjklmnprsştvyzw"
-		allowed = vowels + consonants + " "
+		allowed = vowels + consonants + " 0123456789"
 	case "vietnamese":
 		vowels = "aăâeêioôơuưy"
 		consonants = "bcđdfghjklmnpqrstvxz"
-		allowed = vowels + consonants + " "
+		allowed = vowels + consonants + " 0123456789"
 	case "hungarian":
 		vowels = "aáeéiíoóöőuúüű"
 		consonants = "bcdfghjklmnpqrstvwxyz"
-		allowed = vowels + consonants + " "
+		allowed = vowels + consonants + " 0123456789"
 	case "chinese":
-		// Chinese uses Han characters - minimal preprocessing
-		return input
+		// Chinese uses Han characters - convert to uppercase
+		return strings.ToUpper(input)
 	default:
 		vowels = "aeiou"
 		consonants = "bcdfghjklmnpqrstvwxyz"
-		allowed = vowels + consonants + " "
+		allowed = vowels + consonants + " 0123456789"
 	}
 
 	vowels = strings.ToLower(vowels) + strings.ToUpper(vowels)
@@ -1340,6 +1471,13 @@ func preprocessTextForTTS(input string, pronunciationLanguage string) string {
 
 	for _, r := range input {
 		lowerR := unicode.ToLower(r)
+
+		// Handle digits - always keep them
+		if unicode.IsDigit(r) {
+			result = append(result, r)
+			consecutiveConsonants = 0
+			continue
+		}
 
 		if baseVowel := getBaseVowelForTTS(lowerR); baseVowel != 0 {
 			if !strings.ContainsRune(vowels, baseVowel) {
@@ -1371,7 +1509,9 @@ func preprocessTextForTTS(input string, pronunciationLanguage string) string {
 	if strings.TrimSpace(output) == "" {
 		return "..."
 	}
-	return output
+	
+	// Convert to uppercase
+	return strings.ToUpper(output)
 }
 
 func textToSpeech(input string, pronunciationLanguage string) (outputPath string, err error) {

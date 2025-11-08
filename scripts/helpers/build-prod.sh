@@ -14,7 +14,7 @@ echo "  Production Build Script (Garble)"
 echo "======================================"
 echo ""
 echo "Build Configuration:"
-echo "  - Tags: obfuscated, frontend, ngrok_default"
+echo "  - Tags: obfuscated, frontend, ngrok_default, downloadable"
 echo "  - OS: $OS"
 echo "  - Architecture: $ARCH"
 echo "  - Obfuscation: garble"
@@ -80,16 +80,16 @@ export GOOS="$OS"
 export GOARCH="$ARCH"
 export CGO_ENABLED=0
 
-echo "  Tags: obfuscated,ngrok_default"
-echo "  Source: server_frontend.go version.go"
+echo "  Tags: obfuscated,ngrok_default,downloadable"
+echo "  Source: server_frontend.go version.go ngrok_default.go downloadable.go"
 echo "  Output: $OUTPUT_PATH"
 
 garble -tiny -literals -seed=random build \
-    -tags "obfuscated,ngrok_default" \
+    -tags "obfuscated,ngrok_default,downloadable" \
     -ldflags="-s -w -extldflags '-static'" \
     -trimpath \
     -o "$OUTPUT_PATH" \
-    server_frontend.go version.go
+    server_frontend.go version.go ngrok_default.go downloadable.go
 
 if [ $? -ne 0 ]; then
     echo "Failed to build server"
@@ -109,7 +109,7 @@ WASM_HASH=$(sha256sum "$WASM_OUTPUT" | cut -d' ' -f1)
 cat > "$CHECKSUM_FILE" <<EOF
 Production Build Checksums
 Generated: $(date '+%Y-%m-%d %H:%M:%S')
-Build: $OS/$ARCH with obfuscated+frontend+ngrok_default
+Build: $OS/$ARCH with obfuscated+frontend+ngrok_default+downloadable
 
 Server ($OUTPUT_NAME):
   SHA256: $SERVER_HASH
