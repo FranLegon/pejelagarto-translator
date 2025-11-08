@@ -65,7 +65,7 @@ The project demonstrates advanced string manipulation, bijective mappings, and c
 
 ### 1. Build the Application
 
-**Normal Build:**
+**Normal Build (Default - Backend Translation):**
 
 Windows:
 ```powershell
@@ -76,6 +76,33 @@ Linux/macOS:
 ```bash
 go build -o bin/pejelagarto-translator main.go
 ```
+
+**Frontend Build (NEW - Client-Side Translation via WebAssembly):**
+
+This mode compiles the translation logic to WebAssembly, allowing translation to run entirely in the browser. Only TTS (text-to-speech) uses the server.
+
+Linux/macOS:
+```bash
+./build-frontend.sh
+go run server_frontend.go
+```
+
+Windows:
+```powershell
+# Manual build (build-frontend.sh equivalent)
+$env:GOOS="js"; $env:GOARCH="wasm"
+go build -tags frontend -o bin/translator.wasm
+Copy-Item "$(go env GOROOT)\lib\wasm\wasm_exec.js" bin\
+go run server_frontend.go
+```
+
+**Frontend Mode Features:**
+- ✅ Translation runs in your browser (no server calls for text operations)
+- ✅ Significantly reduced server load
+- ✅ Works offline after initial WASM module load
+- ✅ TTS still uses server (for Piper audio generation)
+- ✅ Same translation quality and features
+- 📦 WASM module: ~2-3MB (one-time download)
 
 **Obfuscated Build** (for server deployment):
 
@@ -99,10 +126,32 @@ go build -tags obfuscated -o bin/piper-server main.go
 
 The binary will automatically download all TTS requirements (~1.1GB) on first run.
 
+**Which Build Should I Use?**
+
+| Build Type | Best For | Translation | TTS Audio | Binary Size |
+|------------|----------|-------------|-----------|-------------|
+| **Normal** | Single user, local use | Server (backend) | Server | ~12-13MB |
+| **Frontend** | Multiple users, web deployment | Browser (WASM) | Server | ~2-3MB WASM + Server |
+| **Obfuscated** | Production server deployment | Server (backend) | Server | ~12-13MB |
+
+**Build Tag Compatibility:**
+
+All combinations of build tags work together:
+- `go build` - Normal build
+- `go build -tags obfuscated` - Obfuscated server build
+- `go build -tags frontend` - Frontend (WASM) build
+- `go build -tags "obfuscated,frontend"` - Obfuscated frontend build
+
+Verify all combinations with: `./test-build-combinations.sh`
+
 **Build Notes**: 
 - Normal build creates **~12-13MB executable** 
   - Windows: `pejelagarto-translator.exe`
   - Linux/macOS: `pejelagarto-translator`
+- Frontend build creates **~2-3MB WASM module**
+  - Translation runs in browser (JavaScript + WebAssembly)
+  - Server only needed for TTS audio generation
+  - Perfect for web deployment with many concurrent users
 - Obfuscated build uses different internal names (`piper-server` instead of `pejelagarto-translator`)
 - First run downloads 16 TTS language models (takes several minutes)
 - Dependencies are cached in temp directory for subsequent runs
@@ -609,40 +658,74 @@ The translator embeds a UTC timestamp using special Unicode characters from the 
 ### Comprehensive Test Suite
 
 ```bash
-# Run all tests
+# Quick test (runs seed corpus only, no fuzzing)
 go test -v
 
-# Individual fuzz tests (30s each)
+# Run all fuzz tests with required minimum durations (recommended)
+./run-fuzz-tests.sh
+
+# Run all tests including build verification (includes full fuzz tests)
+./test-all.sh
+
+# Verify build tag compatibility (quick check, seed corpus only)
+./test-build-combinations.sh
+
+# Run WASM-specific tests
+./test-wasm.sh
+
+# Individual fuzz tests (minimum 30s each, 120s for main test)
 go test -fuzz=FuzzApplyMapReplacements -fuzztime=30s
 go test -fuzz=FuzzApplyNumbersLogic -fuzztime=30s
 go test -fuzz=FuzzApplyAccentReplacementLogic -fuzztime=30s
 go test -fuzz=FuzzApplyPunctuationReplacements -fuzztime=30s
 go test -fuzz=FuzzApplyCaseReplacementLogic -fuzztime=30s
 go test -fuzz=FuzzSpecialCharDateTimeEncoding -fuzztime=30s
-go test -fuzz=FuzzTranslatePejelagarto -fuzztime=30s
+go test -fuzz=FuzzTranslatePejelagarto -fuzztime=120s  # Main translation test requires 120s
 ```
+
+### Test Files Structure
+
+**Translation Tests (`translation_test.go`):**
+- 7 fuzz tests for core translation logic
+- All tests use random fuzzy input
+- Shared by both normal and WASM builds
+- Minimum 30s per test, 120s for main translation test
+
+**WASM Tests (`wasm_test.go`):**
+- WASM-specific tests with `//go:build frontend` tag
+- Tests JS wrapper functions
+- Validates WASM export functionality
+- Ensures consistency with normal build
+
+**TTS Tests (`tts_test.go`):**
+- Server-only tests with `//go:build !frontend` tag
+- Text-to-speech functionality tests
+- HTTP handler tests
+- Excluded from WASM builds
+
+**Test Scripts:**
+- `test-all.sh`: Runs all tests for both builds
+- `test-wasm.sh`: Compiles WASM tests (cannot execute WASM directly)
 
 ### Test Coverage
 
-**Unit Tests:**
-- `TestTranslateToPejelagarto`: Full pipeline tests
-- `TestTranslateFromPejelagarto`: Reverse pipeline tests
-- `TestAccentBasic`: Accent transformation edge cases
-- `TestPrimeFactorization`: Prime factorization correctness
+**All tests use fuzz testing with random inputs:**
 
-**Fuzz Tests:**
+**Fuzz Tests (7 total):**
 All transformations verified for reversibility with random inputs:
-- Map replacements (word/conjunction/letter)
-- Number conversions (base 10 ↔ base 7)
-- Accent transformations
-- Punctuation mappings
-- Case logic (self-inverse)
-- Full translation pipeline
+- `FuzzApplyMapReplacements`: Map replacements (word/conjunction/letter) - 30s minimum
+- `FuzzApplyNumbersLogic`: Number conversions (base 10 ↔ base 7) - 30s minimum
+- `FuzzApplyAccentReplacementLogic`: Accent transformations - 30s minimum
+- `FuzzApplyPunctuationReplacements`: Punctuation mappings - 30s minimum
+- `FuzzApplyCaseReplacementLogic`: Case logic (self-inverse) - 30s minimum
+- `FuzzSpecialCharDateTimeEncoding`: Special character datetime encoding - 30s minimum
+- `FuzzTranslatePejelagarto`: Full translation pipeline - **120s minimum** (main test)
 
 **Proven Reliability:**
 - 80,000+ fuzz executions without failures
 - 100% reversibility guarantee
 - Handles edge cases: empty strings, single characters, Unicode, invalid UTF-8
+- All tests use random fuzzy input for comprehensive coverage
 
 ## Performance
 
