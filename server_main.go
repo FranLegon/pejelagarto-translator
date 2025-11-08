@@ -420,7 +420,9 @@ func handleDownloadWindows(w http.ResponseWriter, r *http.Request) {
 	data, err := embeddedBinaries.ReadFile("bin/pejelagarto-translator.exe")
 	if err != nil {
 		http.Error(w, "Windows binary not found", http.StatusNotFound)
-		log.Printf("Error reading Windows binary: %v", err)
+		if !obfuscation.Obfuscated() {
+			log.Printf("Error reading Windows binary: %v", err)
+		}
 		return
 	}
 
@@ -440,7 +442,9 @@ func handleDownloadLinux(w http.ResponseWriter, r *http.Request) {
 	data, err := embeddedBinaries.ReadFile("bin/pejelagarto-translator")
 	if err != nil {
 		http.Error(w, "Linux/Mac binary not found", http.StatusNotFound)
-		log.Printf("Error reading Linux/Mac binary: %v", err)
+		if !obfuscation.Obfuscated() {
+			log.Printf("Error reading Linux/Mac binary: %v", err)
+		}
 		return
 	}
 
@@ -461,7 +465,9 @@ func main() {
 	if err := validateConstants(); err != nil {
 		log.Fatalf("Constants validation failed: %v", err)
 	}
-	log.Println("Constants validation passed ✓")
+	if !obfuscation.Obfuscated() {
+		log.Println("Constants validation passed ✓")
+	}
 
 	// Parse command-line flags
 	var ngrokToken *string
@@ -492,7 +498,9 @@ func main() {
 	}
 
 	// Extract embedded TTS requirements to temp directory
-	log.Println("Initializing TTS requirements...")
+	if !obfuscation.Obfuscated() {
+		log.Println("Initializing TTS requirements...")
+	}
 	var languageToDownload string
 	if !*pronunciationLangDropdownFlag {
 		// Dropdown is disabled, download only the selected language

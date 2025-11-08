@@ -67,7 +67,9 @@ func extractEmbeddedRequirements(singleLanguage string) error {
 
 	// If all dependencies exist, no need to download
 	if piperExists && espeakExists && piperDirExists {
-		log.Printf("Using cached TTS requirements at: %s", tempRequirementsDir)
+		if !obfuscation.Obfuscated() {
+			log.Printf("Using cached TTS requirements at: %s", tempRequirementsDir)
+		}
 		return nil
 	}
 
