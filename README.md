@@ -648,8 +648,14 @@ The translator embeds a UTC timestamp using special Unicode characters from the 
 ### Comprehensive Test Suite
 
 ```bash
-# Run all tests
+# Run all tests (normal build)
 go test -v
+
+# Run all tests (both normal and WASM builds)
+./test-all.sh
+
+# Run WASM-specific tests
+./test-wasm.sh
 
 # Individual fuzz tests (30s each)
 go test -fuzz=FuzzApplyMapReplacements -fuzztime=30s
@@ -660,6 +666,29 @@ go test -fuzz=FuzzApplyCaseReplacementLogic -fuzztime=30s
 go test -fuzz=FuzzSpecialCharDateTimeEncoding -fuzztime=30s
 go test -fuzz=FuzzTranslatePejelagarto -fuzztime=30s
 ```
+
+### Test Files Structure
+
+**Translation Tests (`translation_test.go`):**
+- Core translation logic tests
+- Shared by both normal and WASM builds
+- Fuzz tests for all translation components
+
+**WASM Tests (`wasm_test.go`):**
+- WASM-specific tests with `//go:build frontend` tag
+- Tests JS wrapper functions
+- Validates WASM export functionality
+- Ensures consistency with normal build
+
+**TTS Tests (`tts_test.go`):**
+- Server-only tests with `//go:build !frontend` tag
+- Text-to-speech functionality tests
+- HTTP handler tests
+- Excluded from WASM builds
+
+**Test Scripts:**
+- `test-all.sh`: Runs all tests for both builds
+- `test-wasm.sh`: Compiles WASM tests (cannot execute WASM directly)
 
 ### Test Coverage
 
