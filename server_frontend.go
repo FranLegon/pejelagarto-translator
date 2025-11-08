@@ -226,6 +226,26 @@ const htmlUIFrontend = `<!DOCTYPE html>
             flex-wrap: wrap;
         }
         
+        .pronunciation-container {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .pronunciation-container label {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        
+        .pronunciation-container textarea {
+            width: 100%;
+            height: 120px;
+        }
+        
         button {
             background: linear-gradient(135deg, var(--button-gradient-start) 0%, var(--button-gradient-end) 100%);
             color: white;
@@ -471,11 +491,6 @@ const htmlUIFrontend = `<!DOCTYPE html>
                 <label id="output-label">Pejelagarto: <button class="play-btn" id="play-output" onclick="playAudio('output', false)">🔊 Play</button>{{DROPDOWN_PLACEHOLDER}}</label>
                 <textarea id="output-text" readonly placeholder="Translation will appear here..."></textarea>
             </div>
-            
-            <div class="text-area-container">
-                <label>Pronunciation:</label>
-                <textarea id="pronunciation-text" readonly placeholder="Pronunciation will appear here..."></textarea>
-            </div>
         </div>
         
         <div class="controls">
@@ -493,6 +508,11 @@ const htmlUIFrontend = `<!DOCTYPE html>
             </div>
             
             <span id="loading-indicator" class="htmx-indicator"></span>
+        </div>
+        
+        <div class="pronunciation-container">
+            <label>Pronunciation:</label>
+            <textarea id="pronunciation-text" readonly placeholder="Pronunciation will appear here..."></textarea>
         </div>
     </div>
     
@@ -1390,6 +1410,10 @@ func preprocessTextForTTS(input string, pronunciationLanguage string) string {
 	// Convert numbers from Pejelagarto format
 	input = applyNumbersLogicFromPejelagarto(input)
 
+	// Since Pejelagarto output is always Latin letters (a-p) + numbers,
+	// we need to allow Latin characters for ALL languages
+	// Otherwise Cyrillic/non-Latin languages will filter out all the text
+	
 	var vowels, consonants, allowed string
 
 	switch pronunciationLanguage {
@@ -1402,8 +1426,9 @@ func preprocessTextForTTS(input string, pronunciationLanguage string) string {
 		consonants = "bcdfghjklmnpqrstvwxz"
 		allowed = vowels + consonants + " 0123456789"
 	case "russian":
-		vowels = "аеёиоуыэюя"
-		consonants = "бвгджзйклмнпрстфхцчшщъьї"
+		// Include Latin letters for Pejelagarto compatibility
+		vowels = "aeiouаеёиоуыэюя"
+		consonants = "bcdfghjklmnpqrstvwxyzбвгджзйклмнпрстфхцчшщъьї"
 		allowed = vowels + consonants + " 0123456789"
 	case "german":
 		vowels = "aeiouyäöü"
@@ -1429,9 +1454,9 @@ func preprocessTextForTTS(input string, pronunciationLanguage string) string {
 		consonants = "bcdfghjklmnpqrstvwxz"
 		allowed = vowels + consonants + " 0123456789"
 	case "kazakh":
-		// Kazakh uses Cyrillic
-		vowels = "аәеёиоөұүыэюя"
-		consonants = "бвгғджзйкқлмнңопрстуфхһцчшщъыьіэюя"
+		// Include Latin letters for Pejelagarto compatibility
+		vowels = "aeiouаәеёиоөұүыэюя"
+		consonants = "bcdfghjklmnpqrstvwxyzбвгғджзйкқлмнңопрстуфхһцчшщъыьіэюя"
 		allowed = vowels + consonants + " 0123456789"
 	case "norwegian":
 		vowels = "aeiouyæøåäöü"
