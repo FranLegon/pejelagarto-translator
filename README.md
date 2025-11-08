@@ -88,7 +88,7 @@ This mode compiles the translation logic to WebAssembly, allowing translation to
 Linux/macOS:
 ```bash
 ./build-frontend.sh
-go run server_frontend.go
+go run server_frontend.go version.go
 ```
 
 Windows:
@@ -97,7 +97,7 @@ Windows:
 $env:GOOS="js"; $env:GOARCH="wasm"
 go build -tags frontend -o bin/translator.wasm
 Copy-Item "$(go env GOROOT)\lib\wasm\wasm_exec.js" bin\
-go run server_frontend.go
+go run server_frontend.go version.go
 ```
 
 **Frontend Mode Features:**
@@ -1067,7 +1067,7 @@ go build -o bin/test.exe main.go
 **Frontend Mode (WASM):**
 ```bash
 ./build-frontend.sh
-go run server_frontend.go
+go run server_frontend.go version.go
 ```
 
 **Obfuscated Mode:**
@@ -1576,6 +1576,84 @@ This restriction does **not** affect normal software development activities, inc
 - Code review and analysis by human developers
 
 The MIT License below applies to all uses **except** AI training, which requires separate authorization.
+
+---
+
+## Versioning
+
+### Current Version
+**v1.0.0**
+
+### Versioning System
+This project follows [Semantic Versioning](https://semver.org/) (SemVer):
+
+```
+MAJOR.MINOR.PATCH (v1.2.3)
+```
+
+- **MAJOR** (v**X**.0.0): Incompatible API changes or major feature overhauls
+- **MINOR** (vX.**Y**.0): New features added in a backward-compatible manner
+- **PATCH** (vX.Y.**Z**): Backward-compatible bug fixes
+
+### How to Update Version
+
+#### 1. Update version.go
+Edit `version.go` and change the Version constant:
+
+```go
+const Version = "vX.Y.Z"  // Update this
+```
+
+**Note:** The Version constant is now defined only once in `version.go` and shared across all build modes. No need to update multiple files.
+
+#### 2. Commit Message Format
+All commit messages **MUST** contain the version number. Format:
+
+```
+vX.Y.Z: <commit message>
+```
+
+**Examples:**
+- `v1.0.1: Fix TTS audio cache memory leak`
+- `v1.1.0: Add support for Italian language`
+- `v2.0.0: Complete UI redesign with new translation engine`
+
+#### 3. Git Tag (Optional but Recommended)
+After committing, create a git tag for the version:
+
+```bash
+git tag -a v1.0.0 -m "Release v1.0.0"
+git push origin v1.0.0
+```
+
+### Version Display
+The version is displayed in the bottom-right corner of the UI:
+- Desktop: 12px font
+- Mobile: 10px font
+- Styled with monospace font, low opacity
+- Non-interactive (user-select: none, pointer-events: none)
+
+### Release Checklist
+
+When preparing a new release:
+
+1. [ ] Update `version.go` (single source of truth)
+2. [ ] Test build: `go build .`
+3. [ ] Test frontend build: `go build server_frontend.go version.go`
+4. [ ] Run all tests: `go test ./...`
+5. [ ] Run fuzz tests: `.\scripts\test\run-fuzz-tests.ps1`
+6. [ ] Run build combinations: `.\scripts\test\test-build-combinations.ps1`
+7. [ ] Update CHANGELOG.md (if exists)
+8. [ ] Commit with version: `git commit -m "vX.Y.Z: <description>"`
+9. [ ] Create git tag: `git tag -a vX.Y.Z -m "Release vX.Y.Z"`
+10. [ ] Push with tags: `git push && git push --tags`
+
+### Version History
+
+#### v1.0.0 (Initial Release)
+- Initial versioning system implementation
+- Version display in UI (bottom-right corner)
+- Semantic versioning adopted
 
 ---
 

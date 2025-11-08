@@ -92,7 +92,7 @@ $outputPath = "bin\$outputName"
 Write-Host "[4/6] Building obfuscated frontend server..." -ForegroundColor Green
 
 Write-Host "  Tags: obfuscated,ngrok_default" -ForegroundColor White
-Write-Host "  Source: server_frontend.go" -ForegroundColor White
+Write-Host "  Source: server_frontend.go version.go" -ForegroundColor White
 Write-Host "  Output: $outputPath" -ForegroundColor White
 
 & {
@@ -105,7 +105,7 @@ Write-Host "  Output: $outputPath" -ForegroundColor White
         -ldflags="-s -w -extldflags '-static'" `
         -trimpath `
         -o $outputPath `
-        server_frontend.go
+        server_frontend.go version.go
 }
 
 if ($LASTEXITCODE -ne 0) {

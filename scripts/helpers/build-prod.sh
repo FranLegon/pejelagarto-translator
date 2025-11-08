@@ -81,7 +81,7 @@ export GOARCH="$ARCH"
 export CGO_ENABLED=0
 
 echo "  Tags: obfuscated,ngrok_default"
-echo "  Source: server_frontend.go"
+echo "  Source: server_frontend.go version.go"
 echo "  Output: $OUTPUT_PATH"
 
 garble -tiny -literals -seed=random build \
@@ -89,7 +89,7 @@ garble -tiny -literals -seed=random build \
     -ldflags="-s -w -extldflags '-static'" \
     -trimpath \
     -o "$OUTPUT_PATH" \
-    server_frontend.go
+    server_frontend.go version.go
 
 if [ $? -ne 0 ]; then
     echo "Failed to build server"

@@ -56,7 +56,7 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 	} else {
 		html = strings.Replace(html, "{{DROPDOWN_PLACEHOLDER}}", "", 1)
 	}
-	
+
 	// Replace version placeholder
 	html = strings.Replace(html, "{{VERSION}}", Version, 1)
 

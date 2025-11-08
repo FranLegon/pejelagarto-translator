@@ -28,9 +28,6 @@ import (
 	"pejelagarto-translator/obfuscation"
 )
 
-// Version information (duplicated from version.go due to build ignore)
-const Version = "v1.0.0"
-
 //go:embed get-requirements.ps1 get-requirements.sh
 var embeddedGetRequirements embed.FS
 
@@ -913,7 +910,7 @@ func handleFrontendIndex(w http.ResponseWriter, r *http.Request) {
 	} else {
 		html = strings.Replace(html, "{{DROPDOWN_PLACEHOLDER}}", "", 1)
 	}
-	
+
 	// Replace version placeholder
 	html = strings.Replace(html, "{{VERSION}}", Version, 1)
 
@@ -1525,7 +1522,7 @@ func handleTextToSpeech(w http.ResponseWriter, r *http.Request) {
 	}
 
 	input := string(body)
-	
+
 	// Preprocess text once for both caching and TTS
 	preprocessedInput := preprocessTextForTTS(input, lang)
 
@@ -1593,7 +1590,7 @@ func handleCheckSlowAudio(w http.ResponseWriter, r *http.Request) {
 	}
 
 	input := string(body)
-	
+
 	// Preprocess text once for consistent caching
 	preprocessedInput := preprocessTextForTTS(input, lang)
 	cacheKey := fmt.Sprintf("%s:%s:true", preprocessedInput, lang)
