@@ -664,8 +664,11 @@ go test -v
 # Run all fuzz tests with required minimum durations (recommended)
 ./run-fuzz-tests.sh
 
-# Run all tests including build verification
+# Run all tests including build verification (includes full fuzz tests)
 ./test-all.sh
+
+# Verify build tag compatibility (quick check, seed corpus only)
+./test-build-combinations.sh
 
 # Run WASM-specific tests
 ./test-wasm.sh

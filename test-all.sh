@@ -1,30 +1,33 @@
 #!/bin/bash
 
 # Comprehensive test script that runs tests for both normal and WASM builds
+# NOTE: This runs FULL fuzz tests with required minimum durations (30s/120s)
+# Total runtime: ~5 minutes
 
 set -e
 
 echo "========================================"
 echo "Running All Tests (Normal + WASM)"
 echo "========================================"
+echo "NOTE: Running full fuzz tests (~5 min)"
 echo ""
 
-# Test 1: Normal build tests
+# Test 1: Normal build fuzz tests
 echo "----------------------------------------"
-echo "1. Running Normal Build Tests"
+echo "1. Running Normal Build Fuzz Tests"
 echo "----------------------------------------"
 echo ""
 
-go test -v -count=1 ./...
+./run-fuzz-tests.sh
 
 if [ $? -ne 0 ]; then
     echo ""
-    echo "✗ Normal build tests failed!"
+    echo "✗ Normal build fuzz tests failed!"
     exit 1
 fi
 
 echo ""
-echo "✓ Normal build tests passed!"
+echo "✓ Normal build fuzz tests passed!"
 echo ""
 
 # Test 2: WASM build tests
