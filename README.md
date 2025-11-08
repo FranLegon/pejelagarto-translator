@@ -37,7 +37,7 @@ The project demonstrates advanced string manipulation, bijective mappings, and c
 - 💾 **Smart Caching**: Automatic audio caching for faster repeated requests
 
 ### Web Interface
-- 🌐 **Local Web Server**: HTTP server on `localhost:8080`
+- 🌐 **Local Web Server**: HTTP server with automatic port selection (8080-8090)
 - 🎨 **Modern UI**: Single-file HTML with gradient design and responsive layout
 - ⚡ **Live Translation**: Real-time translation as you type
 - 🔄 **Bidirectional Toggle**: One-click swap between Human ↔ Pejelagarto
@@ -210,7 +210,7 @@ Linux/macOS:
 ./bin/pejelagarto-translator -ngrok_token YOUR_TOKEN -ngrok_domain your-domain.ngrok-free.app
 ```
 
-The server starts on `http://localhost:8080` and automatically opens your browser.
+The server automatically finds an available port (tries 8080 first, then 8081-8090) and opens your browser.
 
 **On First Run:**
 - Binary extracts and runs embedded script to download TTS dependencies:

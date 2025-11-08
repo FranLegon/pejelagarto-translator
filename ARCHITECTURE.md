@@ -25,7 +25,7 @@ The project supports two build modes using Go build tags:
 
 **Files Compiled:**
 - `main.go` - Core translation logic
-- `server_main.go` - HTTP server, handlers, TTS functions
+- `server_backend.go` - HTTP server, handlers, TTS functions
 - `obfuscation/*.go` - Configuration
 
 **Use Case:** Single-user local installation, or traditional server deployment
@@ -77,7 +77,7 @@ Server (`server_frontend.go`):
 ```
 pejelagarto-translator/
 ├── main.go                 # Core translation logic (shared)
-├── server_main.go          # Server mode: HTTP handlers, main()
+├── server_backend.go       # Server mode: HTTP handlers, main()
 ├── wasm_main.go            # Frontend mode: WASM entry, JS exports
 ├── server_frontend.go      # Frontend mode: Lightweight server
 ├── build-frontend.sh       # Build script for frontend mode
@@ -99,11 +99,11 @@ The project uses Go build tags to control compilation:
 - **Present:** Compiles WASM module
   - `main.go` ✓ (translation logic)
   - `wasm_main.go` ✓ (WASM entry point)
-  - `server_main.go` ✗ (excluded by `//go:build !frontend`)
+  - `server_backend.go` ✗ (excluded by `//go:build !frontend`)
   
 - **Absent:** Compiles normal server
   - `main.go` ✓ (translation logic)
-  - `server_main.go` ✓ (server code)
+  - `server_backend.go` ✓ (server code)
   - `wasm_main.go` ✗ (excluded by `//go:build frontend`)
 
 ### `obfuscated` tag
@@ -150,7 +150,7 @@ Add code to `main.go` - it will work in both modes automatically.
 
 ### Adding Server-Only Features
 
-Add code to `server_main.go` with `//go:build !frontend` constraint.
+Add code to `server_backend.go` with `//go:build !frontend` constraint.
 
 ### Adding WASM Exports
 

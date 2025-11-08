@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -898,6 +899,24 @@ func handleDownloadLinux(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
+// findAvailablePort checks if a port is available and returns it, or tries fallbacks
+func findAvailablePort() int {
+	// Primary port and fallback list
+	ports := []int{8080, 8081, 8082, 8083, 8084, 8085, 8086, 8087, 8088, 8089, 8090}
+
+	for _, port := range ports {
+		addr := fmt.Sprintf(":%d", port)
+		listener, err := net.Listen("tcp", addr)
+		if err == nil {
+			listener.Close()
+			return port
+		}
+	}
+
+	// If all ports are taken, return 0 to let the system assign one
+	return 0
+}
+
 func main() {
 	// Parse flags
 	pronunciationLangFlag := flag.String("pronunciation_language", "russian", "TTS pronunciation language")
@@ -948,8 +967,12 @@ func main() {
 	http.HandleFunc("/download/windows", handleDownloadWindows)
 	http.HandleFunc("/download/linux", handleDownloadLinux)
 
-	addr := ":8080"
-	url := "http://localhost:8080"
+	port := findAvailablePort()
+	if port == 0 {
+		log.Fatal("No available ports found in range 8080-8090")
+	}
+	addr := fmt.Sprintf(":%d", port)
+	url := fmt.Sprintf("http://localhost:%d", port)
 
 	if !obfuscation.Obfuscated() {
 		log.Printf("Server starting on %s\n", url)

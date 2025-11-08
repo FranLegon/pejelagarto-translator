@@ -17,7 +17,7 @@ import (
 )
 
 // Global TTS configuration variables
-// These are set by server_main.go or server_frontend.go at startup
+// These are set by server_backend.go or server_frontend.go at startup
 var pronunciationLanguage string
 var pronunciationLanguageDropdown bool
 

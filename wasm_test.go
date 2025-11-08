@@ -104,7 +104,7 @@ func TestTranslationReversibilityWASM(t *testing.T) {
 			reversed := TranslateFromPejelagarto(translated)
 
 			if reversed != input {
-				t.Errorf("Round-trip failed:\nInput:      %q\nTranslated: %q\nReversed:   %q", 
+				t.Errorf("Round-trip failed:\nInput:      %q\nTranslated: %q\nReversed:   %q",
 					input, translated, reversed)
 			}
 		})
@@ -136,7 +136,7 @@ func TestJSWrapperFunctionality(t *testing.T) {
 		input := js.ValueOf("hello")
 		result := goTranslateToPejalagartoJS(js.Null(), []js.Value{input})
 		resultStr := result.(js.Value).String()
-		
+
 		// Should translate "hello" to "araka"
 		expected := "araka"
 		if resultStr != expected {
@@ -148,7 +148,7 @@ func TestJSWrapperFunctionality(t *testing.T) {
 		input := js.ValueOf("araka")
 		result := goTranslateFromPejalagartoJS(js.Null(), []js.Value{input})
 		resultStr := result.(js.Value).String()
-		
+
 		// Should translate "araka" back to "hello"
 		expected := "hello"
 		if resultStr != expected {
@@ -175,10 +175,10 @@ func TestWASMTranslationLogicConsistency(t *testing.T) {
 		t.Run(tc.input, func(t *testing.T) {
 			// Translate to Pejelagarto
 			pejelagarto := TranslateToPejelagarto(tc.input)
-			
+
 			// Translate back
 			reversed := TranslateFromPejelagarto(pejelagarto)
-			
+
 			// Should be reversible
 			if reversed != tc.input {
 				t.Errorf("Translation not reversible for %q", tc.input)

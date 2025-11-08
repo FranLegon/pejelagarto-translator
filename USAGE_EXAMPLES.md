@@ -20,7 +20,7 @@ go build -o bin/pejelagarto-translator
 ```
 
 **What happens:**
-- Server starts on http://localhost:8080
+- Server finds available port (8080-8090)
 - Browser opens automatically
 - All translation happens on the server
 - All TTS happens on the server
@@ -46,7 +46,7 @@ go run server_frontend.go \
 ```
 
 **What happens:**
-- Server starts on http://localhost:8080
+- Server finds available port (8080-8090)
 - Browser loads ~2-3MB WASM module
 - Translation runs in your browser (JavaScript + WebAssembly)
 - Only TTS requests go to server
@@ -83,7 +83,7 @@ go run server_frontend.go \
 
 After building and starting the frontend server:
 
-1. **Open Browser:** Navigate to http://localhost:8080
+1. **Open Browser:** Server will auto-open on available port (8080-8090)
 2. **Wait for WASM:** You'll see "✓ Ready - Translation happens in your browser!"
 3. **Test Translation:**
    - Type "Hello World" in the input box
@@ -148,7 +148,7 @@ go build && ./bin/pejelagarto-translator
 
 ### Working on Server Features
 
-Edit `server_main.go`:
+Edit `server_backend.go`:
 
 ```bash
 go build && ./bin/pejelagarto-translator
@@ -175,7 +175,7 @@ Edit `wasm_main.go` or `server_frontend.go`:
 go run server_frontend.go
 ```
 
-Access from other devices: `http://<your-ip>:8080`
+Access from other devices: `http://<your-ip>:<port>` (port displayed in console)
 
 ### Internet (with ngrok)
 
