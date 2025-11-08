@@ -134,6 +134,16 @@ The binary will automatically download all TTS requirements (~1.1GB) on first ru
 | **Frontend** | Multiple users, web deployment | Browser (WASM) | Server | ~2-3MB WASM + Server |
 | **Obfuscated** | Production server deployment | Server (backend) | Server | ~12-13MB |
 
+**Build Tag Compatibility:**
+
+All combinations of build tags work together:
+- `go build` - Normal build
+- `go build -tags obfuscated` - Obfuscated server build
+- `go build -tags frontend` - Frontend (WASM) build
+- `go build -tags "obfuscated,frontend"` - Obfuscated frontend build
+
+Verify all combinations with: `./test-build-combinations.sh`
+
 **Build Notes**: 
 - Normal build creates **~12-13MB executable** 
   - Windows: `pejelagarto-translator.exe`
