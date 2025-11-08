@@ -131,13 +131,16 @@ Get-ChildItem -Recurse -File -Include `$extensions -ErrorAction SilentlyContinue
 }
 "@
     
-    Set-Content -Path $tempScript -Value $scriptContent -Encoding UTF8
+    # Don't create temp script - use find/sed directly which is MUCH faster
+    Remove-Item $tempScript -ErrorAction SilentlyContinue
     
-    # Run git filter-branch
+    # Run git filter-branch using fast find/sed approach
     Write-Host "`n🔄 Rewriting Git history (this may take several minutes)..." -ForegroundColor Cyan
     Write-Host "Processing all commits and branches..." -ForegroundColor Gray
     
-    $filterCmd = "git filter-branch --force --tree-filter `"pwsh -ExecutionPolicy Bypass -File '$tempScript'`" --tag-name-filter cat --prune-empty -- --all"
+    # Use find + sed which is orders of magnitude faster than spawning PowerShell for each commit
+    $findCmd = "find . -type f \( -name '*.ps1' -o -name '*.sh' -o -name '*.go' -o -name '*.txt' -o -name '*.md' -o -name '*.json' -o -name '*.yaml' -o -name '*.yml' -o -name '*.js' -o -name '*.ts' -o -name '*.py' -o -name '*.java' -o -name '*.cs' -o -name '*.cpp' -o -name '*.c' -o -name '*.h' -o -name '*.bat' -o -name '*.cmd' -o -name '*.config' -o -name '*.xml' -o -name '*.ini' \) -exec sed -i 's/$escapedReplace/$WithString/g' {} + 2>/dev/null || true; find . -type f -size +${maxBytes}c -delete 2>/dev/null || true"
+    $filterCmd = "git filter-branch --force --tree-filter `"$findCmd`" --tag-name-filter cat --prune-empty -- --all"
     
     try {
         Invoke-Expression $filterCmd
@@ -146,17 +149,12 @@ Get-ChildItem -Recurse -File -Include `$extensions -ErrorAction SilentlyContinue
             Write-Host "✅ History rewrite completed successfully" -ForegroundColor Green
         } else {
             Write-Error "Git filter-branch failed with exit code $LASTEXITCODE"
-            Remove-Item $tempScript -ErrorAction SilentlyContinue
             return
         }
     }
     catch {
         Write-Error "Error during history rewrite: $_"
-        Remove-Item $tempScript -ErrorAction SilentlyContinue
         return
-    }
-    finally {
-        Remove-Item $tempScript -ErrorAction SilentlyContinue
     }
     
     # Verify string replacement
@@ -354,13 +352,17 @@ $replacementCommands
 }
 "@
     
-    Set-Content -Path $tempScript -Value $scriptContent -Encoding UTF8
+    # Don't create temp script - use find/sed directly which is MUCH faster
+    Remove-Item $tempScript -ErrorAction SilentlyContinue
     
-    # Run git filter-branch
+    # Run git filter-branch using fast find/sed approach
     Write-Host "`n🔄 Rewriting Git history (this may take several minutes)..." -ForegroundColor Cyan
     Write-Host "Processing all commits and branches..." -ForegroundColor Gray
     
-    $filterCmd = "git filter-branch --force --tree-filter `"pwsh -ExecutionPolicy Bypass -File '$tempScript'`" --tag-name-filter cat --prune-empty -- --all"
+    # Build a single sed command for all replacements
+    $sedReplacements = ($sedCommands -join "; ")
+    $findCmd = "find . -type f \( -name '*.ps1' -o -name '*.sh' -o -name '*.go' -o -name '*.txt' -o -name '*.md' -o -name '*.json' -o -name '*.yaml' -o -name '*.yml' -o -name '*.js' -o -name '*.ts' -o -name '*.py' -o -name '*.java' -o -name '*.cs' -o -name '*.cpp' -o -name '*.c' -o -name '*.h' -o -name '*.bat' -o -name '*.cmd' -o -name '*.config' -o -name '*.xml' -o -name '*.ini' \) -exec sed -i '$sedReplacements' {} + 2>/dev/null || true; find . -type f -size +${maxBytes}c -delete 2>/dev/null || true"
+    $filterCmd = "git filter-branch --force --tree-filter `"$findCmd`" --tag-name-filter cat --prune-empty -- --all"
     
     try {
         Invoke-Expression $filterCmd
@@ -369,17 +371,12 @@ $replacementCommands
             Write-Host "✅ History rewrite completed successfully" -ForegroundColor Green
         } else {
             Write-Error "Git filter-branch failed with exit code $LASTEXITCODE"
-            Remove-Item $tempScript -ErrorAction SilentlyContinue
             return
         }
     }
     catch {
         Write-Error "Error during history rewrite: $_"
-        Remove-Item $tempScript -ErrorAction SilentlyContinue
         return
-    }
-    finally {
-        Remove-Item $tempScript -ErrorAction SilentlyContinue
     }
     
     # Verify string replacements
