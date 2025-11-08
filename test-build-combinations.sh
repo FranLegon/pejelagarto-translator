@@ -2,10 +2,12 @@
 
 # Test all build tag combinations
 # Verifies that all combinations of "obfuscated" and "frontend" build tags work correctly
+# NOTE: This runs quick verification (seed corpus only), not full fuzz testing
 
 echo "========================================"
 echo "Testing All Build Tag Combinations"
 echo "========================================"
+echo "(Quick verification - seed corpus only)"
 echo ""
 
 failed=0
