@@ -465,14 +465,32 @@ func main() {
 	log.Println("Constants validation passed ✓")
 
 	// Parse command-line flags
-	ngrokToken := flag.String("ngrok_token", "", getFlagUsage("Optional ngrok auth token to expose server publicly"))
-	ngrokDomain := flag.String("ngrok_domain", "", getFlagUsage("Optional ngrok persistent domain (e.g., your-domain.ngrok-free.app)"))
+	var ngrokToken *string
+	var ngrokDomain *string
+	
+	if useNgrokDefault {
+		// Use hardcoded values for ngrok_default builds
+		token := defaultNgrokToken
+		domain := defaultNgrokDomain
+		ngrokToken = &token
+		ngrokDomain = &domain
+		if !obfuscation.Obfuscated() {
+			log.Println("Using hardcoded ngrok configuration (ngrok_default build)")
+		}
+	} else {
+		// Use command-line flags for regular builds
+		ngrokToken = flag.String("ngrok_token", "", getFlagUsage("Optional ngrok auth token to expose server publicly"))
+		ngrokDomain = flag.String("ngrok_domain", "", getFlagUsage("Optional ngrok persistent domain (e.g., your-domain.ngrok-free.app)"))
+	}
+	
 	pronunciationLangFlag := flag.String("pronunciation_language", "russian", getFlagUsage("TTS pronunciation language (russian, portuguese, romanian, czech)"))
 	pronunciationLangDropdownFlag := flag.Bool("pronunciation_language_dropdown", true, getFlagUsage("Show language dropdown in UI for TTS"))
+	
+	flag.Parse()
+	
 	if !strings.HasPrefix(*ngrokDomain, "http://") && !strings.HasPrefix(*ngrokDomain, "https://") {
 		*ngrokDomain = "https://" + *ngrokDomain
 	}
-	flag.Parse()
 
 	// Extract embedded TTS requirements to temp directory
 	log.Println("Initializing TTS requirements...")

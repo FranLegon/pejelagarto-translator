@@ -1,4 +1,4 @@
-//go:build downloadable
+//go:build downloadable || ngrok_default
 
 package main
 
