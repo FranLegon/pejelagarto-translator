@@ -111,9 +111,12 @@ func extractEmbeddedRequirements(singleLanguage string) error {
 			`$RequirementsDir = "`+tempRequirementsDir+`"`,
 			1)
 
-		// Write the modified script to a temporary file
+		// Write the modified script to a temporary file with UTF-8 BOM
 		scriptPath = filepath.Join(baseDir, obfuscation.ScriptSuffix()+".ps1")
-		if err := os.WriteFile(scriptPath, []byte(modifiedScript), 0755); err != nil {
+		// Add UTF-8 BOM to help PowerShell parse the file correctly
+		utf8Bom := []byte{0xEF, 0xBB, 0xBF}
+		scriptBytes := append(utf8Bom, []byte(modifiedScript)...)
+		if err := os.WriteFile(scriptPath, scriptBytes, 0755); err != nil {
 			return fmt.Errorf("failed to write temporary PowerShell script: %w", err)
 		}
 		defer os.Remove(scriptPath) // Clean up script after execution
