@@ -1564,14 +1564,61 @@ Potential areas for expansion:
 - First run download: ~1.1GB (3-5 minutes)
 - Subsequent runs: instant startup
 
+## AI Training Restriction
+
+**⚠️ IMPORTANT NOTICE: This repository and its contents are NOT available for use in training artificial intelligence models, machine learning systems, or large language models without explicit written permission and compensation.**
+
+### Prohibited Uses Without Authorization
+
+The following uses of this repository's code, documentation, algorithms, or any other content are **strictly prohibited** without prior written authorization and financial compensation:
+
+- Training, fine-tuning, or improving AI models, including but not limited to:
+  - Large Language Models (LLMs)
+  - Machine Learning models
+  - Neural networks
+  - Code generation models
+  - Documentation generation systems
+- Creating derivative datasets for AI training purposes
+- Using this code as training data for automated code completion tools
+- Incorporating algorithms or implementation patterns into AI training corpora
+- Using documentation or comments as natural language training data
+
+### Authorization Process
+
+Organizations or individuals interested in using this repository for AI training purposes must:
+
+1. Contact the copyright holder: Francisco Legón
+2. Negotiate terms and compensation
+3. Obtain explicit written authorization
+4. Comply with any additional terms specified in the authorization agreement
+
+### Enforcement
+
+Unauthorized use of this repository for AI training purposes constitutes a violation of the license terms and may result in legal action. The copyright holder reserves all rights to pursue damages for unauthorized AI training use.
+
+### General Use
+
+This restriction does **not** affect normal software development activities, including:
+- Using the software as intended (translation, TTS, web server)
+- Reading the code for educational purposes
+- Contributing to the project
+- Forking and modifying for personal or commercial use (subject to MIT License terms)
+- Code review and analysis by human developers
+
+The MIT License below applies to all uses **except** AI training, which requires separate authorization.
+
+---
+
 ## License
 
-MIT License
+MIT License (with AI Training Restriction)
 
 Copyright (c) 2025 Francisco Legón
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+**AI Training Restriction**: The use of this Software, its source code, documentation, algorithms, or any other content for the purpose of training, fine-tuning, or improving artificial intelligence models, machine learning systems, or large language models is strictly prohibited without prior written authorization and compensation from the copyright holder.
+
+The above copyright notice, this permission notice, and the AI Training Restriction shall be included in all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
