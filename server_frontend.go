@@ -23,6 +23,8 @@ import (
 	"sync"
 	"time"
 	"unicode"
+
+	"pejelagarto-translator/obfuscation"
 )
 
 //go:embed get-requirements.ps1 get-requirements.sh
@@ -862,7 +864,9 @@ func handleDownloadWindows(w http.ResponseWriter, r *http.Request) {
 	data, err := embeddedBinaries.ReadFile("bin/pejelagarto-translator.exe")
 	if err != nil {
 		http.Error(w, "Windows binary not found", http.StatusNotFound)
-		log.Printf("Error reading Windows binary: %v", err)
+		if !obfuscation.Obfuscated() {
+			log.Printf("Error reading Windows binary: %v", err)
+		}
 		return
 	}
 
@@ -882,7 +886,9 @@ func handleDownloadLinux(w http.ResponseWriter, r *http.Request) {
 	data, err := embeddedBinaries.ReadFile("bin/pejelagarto-translator")
 	if err != nil {
 		http.Error(w, "Linux/Mac binary not found", http.StatusNotFound)
-		log.Printf("Error reading Linux/Mac binary: %v", err)
+		if !obfuscation.Obfuscated() {
+			log.Printf("Error reading Linux/Mac binary: %v", err)
+		}
 		return
 	}
 
@@ -901,13 +907,17 @@ func main() {
 	pronunciationLanguage = *pronunciationLangFlag
 	pronunciationLanguageDropdown = *pronunciationLangDropdownFlag
 
-	log.Println("Starting Pejelagarto Translator server")
-	log.Println("Translation: Client-side (WebAssembly)")
-	log.Println("TTS Audio: Server-side")
-	log.Printf("TTS Language: %s\n", pronunciationLanguage)
+	if !obfuscation.Obfuscated() {
+		log.Println("Starting Pejelagarto Translator server")
+		log.Println("Translation: Client-side (WebAssembly)")
+		log.Println("TTS Audio: Server-side")
+		log.Printf("TTS Language: %s\n", pronunciationLanguage)
+	}
 
 	// Initialize TTS
-	log.Println("Initializing TTS requirements...")
+	if !obfuscation.Obfuscated() {
+		log.Println("Initializing TTS requirements...")
+	}
 	var languageToDownload string
 	if !*pronunciationLangDropdownFlag {
 		// Dropdown is disabled, download only the selected language
@@ -941,7 +951,9 @@ func main() {
 	addr := ":8080"
 	url := "http://localhost:8080"
 
-	log.Printf("Server starting on %s\n", url)
+	if !obfuscation.Obfuscated() {
+		log.Printf("Server starting on %s\n", url)
+	}
 
 	// Open browser
 	time.Sleep(500 * time.Millisecond)
@@ -1004,11 +1016,15 @@ func extractEmbeddedRequirements(singleLanguage string) error {
 
 	// If all dependencies exist, no need to download
 	if piperExists && espeakExists && piperDirExists {
-		log.Printf("Using cached TTS requirements at: %s", tempRequirementsDir)
+		if !obfuscation.Obfuscated() {
+			log.Printf("Using cached TTS requirements at: %s", tempRequirementsDir)
+		}
 		return nil
 	}
 
-	log.Printf("Downloading TTS requirements to: %s", tempRequirementsDir)
+	if !obfuscation.Obfuscated() {
+		log.Printf("Downloading TTS requirements to: %s", tempRequirementsDir)
+	}
 
 	// Create temp directory if it doesn't exist
 	if err := os.MkdirAll(tempRequirementsDir, 0755); err != nil {
@@ -1041,11 +1057,16 @@ func extractEmbeddedRequirements(singleLanguage string) error {
 		defer os.Remove(scriptPath) // Clean up script after execution
 
 		// Execute the PowerShell script
+		if !obfuscation.Obfuscated() {
+			if singleLanguage != "" {
+				log.Printf("Running PowerShell script to download dependencies for language: %s...\n", singleLanguage)
+			} else {
+				log.Println("Running PowerShell script to download all dependencies...")
+			}
+		}
 		if singleLanguage != "" {
-			log.Printf("Running PowerShell script to download dependencies for language: %s...\n", singleLanguage)
 			cmd = exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath, "-Language", singleLanguage)
 		} else {
-			log.Println("Running PowerShell script to download all dependencies...")
 			cmd = exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath)
 		}
 	} else {
@@ -1069,11 +1090,16 @@ func extractEmbeddedRequirements(singleLanguage string) error {
 		defer os.Remove(scriptPath) // Clean up script after execution
 
 		// Execute the shell script
+		if !obfuscation.Obfuscated() {
+			if singleLanguage != "" {
+				log.Printf("Running shell script to download dependencies for language: %s...\n", singleLanguage)
+			} else {
+				log.Println("Running shell script to download all dependencies...")
+			}
+		}
 		if singleLanguage != "" {
-			log.Printf("Running shell script to download dependencies for language: %s...\n", singleLanguage)
 			cmd = exec.Command("/bin/bash", scriptPath, singleLanguage)
 		} else {
-			log.Println("Running shell script to download all dependencies...")
 			cmd = exec.Command("/bin/bash", scriptPath)
 		}
 	}
@@ -1096,7 +1122,9 @@ func extractEmbeddedRequirements(singleLanguage string) error {
 		return fmt.Errorf("piper directory not found after download: %w", err)
 	}
 
-	log.Printf("Successfully downloaded TTS requirements")
+	if !obfuscation.Obfuscated() {
+		log.Printf("Successfully downloaded TTS requirements")
+	}
 	return nil
 }
 
