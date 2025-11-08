@@ -1349,7 +1349,11 @@ func preprocessTextForTTS(input string, pronunciationLanguage string) string {
 }
 
 func textToSpeech(input string, pronunciationLanguage string) (outputPath string, err error) {
-	input = preprocessTextForTTS(input, pronunciationLanguage)
+	return textToSpeechPreprocessed(preprocessTextForTTS(input, pronunciationLanguage), pronunciationLanguage)
+}
+
+func textToSpeechPreprocessed(preprocessedInput string, pronunciationLanguage string) (outputPath string, err error) {
+	input := preprocessedInput
 
 	modelPath := getModelPath(pronunciationLanguage)
 	binaryPath := getPiperBinaryPath()
@@ -1492,8 +1496,11 @@ func handleTextToSpeech(w http.ResponseWriter, r *http.Request) {
 	}
 
 	input := string(body)
+	
+	// Preprocess text once for both caching and TTS
+	preprocessedInput := preprocessTextForTTS(input, lang)
 
-	cacheKey := fmt.Sprintf("%s:%s:%v", input, lang, slow)
+	cacheKey := fmt.Sprintf("%s:%s:%v", preprocessedInput, lang, slow)
 
 	audioCache.RLock()
 	cachedAudio, exists := audioCache.cache[cacheKey]
@@ -1506,7 +1513,8 @@ func handleTextToSpeech(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	wavPath, err := textToSpeech(input, lang)
+	// Use preprocessed input to avoid calling preprocessTextForTTS again
+	wavPath, err := textToSpeechPreprocessed(preprocessedInput, lang)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("TTS error: %v", err), http.StatusInternalServerError)
 		return
@@ -1556,7 +1564,10 @@ func handleCheckSlowAudio(w http.ResponseWriter, r *http.Request) {
 	}
 
 	input := string(body)
-	cacheKey := fmt.Sprintf("%s:%s:true", input, lang)
+	
+	// Preprocess text once for consistent caching
+	preprocessedInput := preprocessTextForTTS(input, lang)
+	cacheKey := fmt.Sprintf("%s:%s:true", preprocessedInput, lang)
 
 	audioCache.RLock()
 	_, exists := audioCache.cache[cacheKey]
@@ -1576,7 +1587,8 @@ func handleCheckSlowAudio(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		wavPath, err := textToSpeech(input, lang)
+		// Use preprocessed input to avoid calling preprocessTextForTTS again
+		wavPath, err := textToSpeechPreprocessed(preprocessedInput, lang)
 		if err != nil {
 			return
 		}
