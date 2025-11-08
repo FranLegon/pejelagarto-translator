@@ -65,7 +65,7 @@ The project demonstrates advanced string manipulation, bijective mappings, and c
 
 ### 1. Build the Application
 
-**Normal Build:**
+**Normal Build (Default - Backend Translation):**
 
 Windows:
 ```powershell
@@ -76,6 +76,33 @@ Linux/macOS:
 ```bash
 go build -o bin/pejelagarto-translator main.go
 ```
+
+**Frontend Build (NEW - Client-Side Translation via WebAssembly):**
+
+This mode compiles the translation logic to WebAssembly, allowing translation to run entirely in the browser. Only TTS (text-to-speech) uses the server.
+
+Linux/macOS:
+```bash
+./build-frontend.sh
+go run server_frontend.go
+```
+
+Windows:
+```powershell
+# Manual build (build-frontend.sh equivalent)
+$env:GOOS="js"; $env:GOARCH="wasm"
+go build -tags frontend -o bin/translator.wasm
+Copy-Item "$(go env GOROOT)\lib\wasm\wasm_exec.js" bin\
+go run server_frontend.go
+```
+
+**Frontend Mode Features:**
+- ✅ Translation runs in your browser (no server calls for text operations)
+- ✅ Significantly reduced server load
+- ✅ Works offline after initial WASM module load
+- ✅ TTS still uses server (for Piper audio generation)
+- ✅ Same translation quality and features
+- 📦 WASM module: ~2-3MB (one-time download)
 
 **Obfuscated Build** (for server deployment):
 
@@ -99,10 +126,22 @@ go build -tags obfuscated -o bin/piper-server main.go
 
 The binary will automatically download all TTS requirements (~1.1GB) on first run.
 
+**Which Build Should I Use?**
+
+| Build Type | Best For | Translation | TTS Audio | Binary Size |
+|------------|----------|-------------|-----------|-------------|
+| **Normal** | Single user, local use | Server (backend) | Server | ~12-13MB |
+| **Frontend** | Multiple users, web deployment | Browser (WASM) | Server | ~2-3MB WASM + Server |
+| **Obfuscated** | Production server deployment | Server (backend) | Server | ~12-13MB |
+
 **Build Notes**: 
 - Normal build creates **~12-13MB executable** 
   - Windows: `pejelagarto-translator.exe`
   - Linux/macOS: `pejelagarto-translator`
+- Frontend build creates **~2-3MB WASM module**
+  - Translation runs in browser (JavaScript + WebAssembly)
+  - Server only needed for TTS audio generation
+  - Perfect for web deployment with many concurrent users
 - Obfuscated build uses different internal names (`piper-server` instead of `pejelagarto-translator`)
 - First run downloads 16 TTS language models (takes several minutes)
 - Dependencies are cached in temp directory for subsequent runs
