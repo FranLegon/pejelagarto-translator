@@ -13,7 +13,8 @@ Write-Host "Building obfuscated version for $OS..."
 Write-Host "Output: $outputFile"
 
 # Run garble with obfuscation flags
-garble -literals -tiny build -tags obfuscated -o $outputFile main.go
+# Build the entire package (.) instead of main.go to properly handle build tags
+garble -literals -tiny build -tags obfuscated -o $outputFile .
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "Build successful: $outputFile"
