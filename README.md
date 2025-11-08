@@ -648,31 +648,35 @@ The translator embeds a UTC timestamp using special Unicode characters from the 
 ### Comprehensive Test Suite
 
 ```bash
-# Run all tests (normal build)
+# Quick test (runs seed corpus only, no fuzzing)
 go test -v
 
-# Run all tests (both normal and WASM builds)
+# Run all fuzz tests with required minimum durations (recommended)
+./run-fuzz-tests.sh
+
+# Run all tests including build verification
 ./test-all.sh
 
 # Run WASM-specific tests
 ./test-wasm.sh
 
-# Individual fuzz tests (30s each)
+# Individual fuzz tests (minimum 30s each, 120s for main test)
 go test -fuzz=FuzzApplyMapReplacements -fuzztime=30s
 go test -fuzz=FuzzApplyNumbersLogic -fuzztime=30s
 go test -fuzz=FuzzApplyAccentReplacementLogic -fuzztime=30s
 go test -fuzz=FuzzApplyPunctuationReplacements -fuzztime=30s
 go test -fuzz=FuzzApplyCaseReplacementLogic -fuzztime=30s
 go test -fuzz=FuzzSpecialCharDateTimeEncoding -fuzztime=30s
-go test -fuzz=FuzzTranslatePejelagarto -fuzztime=30s
+go test -fuzz=FuzzTranslatePejelagarto -fuzztime=120s  # Main translation test requires 120s
 ```
 
 ### Test Files Structure
 
 **Translation Tests (`translation_test.go`):**
-- Core translation logic tests
+- 7 fuzz tests for core translation logic
+- All tests use random fuzzy input
 - Shared by both normal and WASM builds
-- Fuzz tests for all translation components
+- Minimum 30s per test, 120s for main translation test
 
 **WASM Tests (`wasm_test.go`):**
 - WASM-specific tests with `//go:build frontend` tag
@@ -692,25 +696,23 @@ go test -fuzz=FuzzTranslatePejelagarto -fuzztime=30s
 
 ### Test Coverage
 
-**Unit Tests:**
-- `TestTranslateToPejelagarto`: Full pipeline tests
-- `TestTranslateFromPejelagarto`: Reverse pipeline tests
-- `TestAccentBasic`: Accent transformation edge cases
-- `TestPrimeFactorization`: Prime factorization correctness
+**All tests use fuzz testing with random inputs:**
 
-**Fuzz Tests:**
+**Fuzz Tests (7 total):**
 All transformations verified for reversibility with random inputs:
-- Map replacements (word/conjunction/letter)
-- Number conversions (base 10 ↔ base 7)
-- Accent transformations
-- Punctuation mappings
-- Case logic (self-inverse)
-- Full translation pipeline
+- `FuzzApplyMapReplacements`: Map replacements (word/conjunction/letter) - 30s minimum
+- `FuzzApplyNumbersLogic`: Number conversions (base 10 ↔ base 7) - 30s minimum
+- `FuzzApplyAccentReplacementLogic`: Accent transformations - 30s minimum
+- `FuzzApplyPunctuationReplacements`: Punctuation mappings - 30s minimum
+- `FuzzApplyCaseReplacementLogic`: Case logic (self-inverse) - 30s minimum
+- `FuzzSpecialCharDateTimeEncoding`: Special character datetime encoding - 30s minimum
+- `FuzzTranslatePejelagarto`: Full translation pipeline - **120s minimum** (main test)
 
 **Proven Reliability:**
 - 80,000+ fuzz executions without failures
 - 100% reversibility guarantee
 - Handles edge cases: empty strings, single characters, Unicode, invalid UTF-8
+- All tests use random fuzzy input for comprehensive coverage
 
 ## Performance
 
