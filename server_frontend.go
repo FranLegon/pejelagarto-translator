@@ -28,6 +28,9 @@ import (
 	"pejelagarto-translator/obfuscation"
 )
 
+// Version information (duplicated from version.go due to build ignore)
+const Version = "v1.0.0"
+
 //go:embed get-requirements.ps1 get-requirements.sh
 var embeddedGetRequirements embed.FS
 
@@ -427,6 +430,27 @@ const htmlUIFrontend = `<!DOCTYPE html>
             .download-btn {
                 width: 100%;
                 text-align: center;
+            }
+        }
+        
+        .version-display {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            opacity: 0.7;
+            font-family: 'Courier New', monospace;
+            z-index: 1000;
+            user-select: none;
+            pointer-events: none;
+        }
+        
+        @media (max-width: 768px) {
+            .version-display {
+                font-size: 10px;
+                bottom: 5px;
+                right: 5px;
             }
         }
     </style>
@@ -856,6 +880,8 @@ const htmlUIFrontend = `<!DOCTYPE html>
             }
         }
     </script>
+    
+    <div class="version-display">{{VERSION}}</div>
 </body>
 </html>`
 
@@ -887,6 +913,9 @@ func handleFrontendIndex(w http.ResponseWriter, r *http.Request) {
 	} else {
 		html = strings.Replace(html, "{{DROPDOWN_PLACEHOLDER}}", "", 1)
 	}
+	
+	// Replace version placeholder
+	html = strings.Replace(html, "{{VERSION}}", Version, 1)
 
 	fmt.Fprint(w, html)
 }

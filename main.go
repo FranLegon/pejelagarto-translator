@@ -2233,6 +2233,27 @@ const htmlUI = `<!DOCTYPE html>
                 text-align: center;
             }
         }
+        
+        .version-display {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            opacity: 0.7;
+            font-family: 'Courier New', monospace;
+            z-index: 1000;
+            user-select: none;
+            pointer-events: none;
+        }
+        
+        @media (max-width: 768px) {
+            .version-display {
+                font-size: 10px;
+                bottom: 5px;
+                right: 5px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -2647,6 +2668,8 @@ const htmlUI = `<!DOCTYPE html>
             }
         }
     </script>
+    
+    <div class="version-display">{{VERSION}}</div>
 </body>
 </html>`
 

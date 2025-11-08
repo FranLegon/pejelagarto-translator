@@ -31,7 +31,7 @@ import (
 func handleIndex(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	// Conditionally inject the language dropdown
+	// Conditionally inject the language dropdown and version
 	html := htmlUI
 	if pronunciationLanguageDropdown {
 		dropdownHTML := ` <select id="tts-language" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--textarea-bg); color: var(--text-primary); font-size: 14px;">
@@ -56,6 +56,9 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 	} else {
 		html = strings.Replace(html, "{{DROPDOWN_PLACEHOLDER}}", "", 1)
 	}
+	
+	// Replace version placeholder
+	html = strings.Replace(html, "{{VERSION}}", Version, 1)
 
 	fmt.Fprint(w, html)
 }
