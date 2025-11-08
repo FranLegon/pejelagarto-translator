@@ -65,6 +65,10 @@ The project demonstrates advanced string manipulation, bijective mappings, and c
 
 ### 1. Build the Application
 
+This project supports multiple build modes for different use cases. Choose the one that fits your needs:
+
+#### Development Build (Recommended for Local Use)
+
 **Backend Build (Default - Server-Side Translation):**
 
 Windows:
@@ -104,7 +108,87 @@ go run server_frontend.go
 - ✅ Same translation quality and features
 - 📦 WASM module: ~2-3MB (one-time download)
 
-**Obfuscated Build** (for server deployment):
+#### Production Build (Obfuscated + WASM + ngrok)
+
+For production server deployment with code obfuscation, client-side WASM translation, and hardcoded ngrok credentials:
+
+**Requirements:**
+- [Garble](https://github.com/burrowers/garble) code obfuscator installed
+- Go 1.24.2 or higher
+- Build tags: `obfuscated`, `frontend`, `ngrok_default`
+
+**Installation:**
+
+Windows PowerShell:
+```powershell
+go install mvdan.cc/garble@latest
+```
+
+Linux/macOS:
+```bash
+go install mvdan.cc/garble@latest
+```
+
+**Build Commands:**
+
+Windows:
+```powershell
+.\scripts\helpers\build-prod.ps1
+
+# Or with custom OS/architecture:
+.\scripts\helpers\build-prod.ps1 -OS windows -Arch amd64
+.\scripts\helpers\build-prod.ps1 -OS linux -Arch arm64
+```
+
+Linux/macOS:
+```bash
+./scripts/helpers/build-prod.sh
+
+# Or with custom OS/architecture:
+./scripts/helpers/build-prod.sh linux amd64
+./scripts/helpers/build-prod.sh darwin arm64
+```
+
+**Output:**
+- `bin/piper-server` (or `piper-server.exe` on Windows) - Obfuscated server
+- `bin/main.wasm` - Client-side WASM translation module
+- `bin/wasm_exec.js` - Go WASM runtime
+- `bin/checksums-prod.txt` - SHA256 checksums for verification
+
+**What This Build Does:**
+1. ✅ **Code Obfuscation**: Uses garble with `-tiny -literals -seed=random` flags
+2. ✅ **WASM Frontend**: Compiles translation to WebAssembly for client-side execution
+3. ✅ **Hardcoded ngrok**: Embeds ngrok credentials (no command-line flags needed)
+4. ✅ **Embedded Binaries**: Includes Windows/Linux piper binaries
+5. ✅ **Checksum Generation**: Creates SHA256 checksums for integrity verification
+
+**Build Process:**
+```
+Step 1: Check garble installation
+Step 2: Build WASM module (frontend tag)
+Step 3: Copy wasm_exec.js runtime
+Step 4: Build obfuscated server (garble with obfuscated+ngrok_default tags)
+Step 5: Generate SHA256 checksums
+Step 6: Display build summary
+```
+
+**Windows Defender Warning:**
+
+⚠️ Garble-obfuscated binaries may trigger Windows Defender false positives!
+
+**Solution:** Add exclusions before building:
+
+```powershell
+# Run as Administrator
+Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\Temp"
+Add-MpPreference -ExclusionPath "C:\Users\REDACTED_USER\OneDrive - REDACTED_COMPANY\Documentos\Personal\Go\pejelagarto-translator\bin"
+```
+
+See [Troubleshooting - Windows Defender](#windows-defender-blocking-builds) for details.
+
+#### Obfuscated Build Only (without WASM/ngrok)
+
+For server deployment with obfuscation only:
 
 Windows:
 ```powershell
@@ -779,6 +863,74 @@ All transformations verified for reversibility with random inputs:
 - Windows: Ensure PowerShell is available (comes with Windows by default)
 - Linux/macOS: Ensure Bash and curl are installed (usually pre-installed)
 
+### Windows Defender Blocking Builds
+
+**Problem:** Garble-obfuscated binaries trigger false positives in Windows Defender
+
+**Why This Happens:**
+- Garble heavily obfuscates code structure, control flow, and strings
+- Windows Defender's heuristics flag unknown obfuscation patterns as suspicious
+- This affects the `build-prod.ps1` and `build-obfuscated.ps1` scripts
+
+**Solution - Add Exclusions (Run PowerShell as Administrator):**
+
+```powershell
+# Exclude temp directory where garble works
+Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\Temp"
+
+# Exclude output directory
+Add-MpPreference -ExclusionPath "C:\Users\REDACTED_USER\OneDrive - REDACTED_COMPANY\Documentos\Personal\Go\pejelagarto-translator\bin"
+
+# Verify exclusions were added
+Get-MpPreference | Select-Object -ExpandProperty ExclusionPath
+```
+
+**Alternative - Temporarily Disable Real-time Protection:**
+
+Windows Settings → Windows Security → Virus & threat protection → Manage settings → Real-time protection (OFF)
+
+⚠️ **Remember to re-enable after building!**
+
+**What Gets Flagged:**
+- Obfuscated server binaries (`piper-server.exe`)
+- Intermediate build artifacts in `%LOCALAPPDATA%\Temp`
+
+**What's Safe:**
+- Non-obfuscated builds (`pejelagarto-translator.exe`) - no issues
+- WASM modules (`main.wasm`) - no issues
+- Scripts themselves - no issues
+
+### Production Build Troubleshooting
+
+**"garble: command not found":**
+```bash
+# Install garble
+go install mvdan.cc/garble@latest
+
+# Verify installation
+garble version
+```
+
+**Build fails with garble errors:**
+- Ensure Go 1.24.2+ is installed
+- Clean Go cache: `go clean -cache -modcache`
+- Try building without garble (tags only): `go build -tags "obfuscated,frontend,ngrok_default" -o bin/test.exe server_frontend.go`
+
+**WASM build fails:**
+```bash
+# Check GOOS/GOARCH are set correctly
+$env:GOOS="js"
+$env:GOARCH="wasm"
+
+# Verify wasm_exec.js exists in Go installation
+ls "$(go env GOROOT)\lib\wasm\wasm_exec.js"
+```
+
+**Checksums don't match after rebuild:**
+- This is expected! Garble uses `-seed=random`
+- Each build produces different obfuscated code
+- Only compare checksums for the same build artifacts
+
 ### Runtime Issues
 
 **"Language model not installed" or "Piper binary not found":**
@@ -879,6 +1031,72 @@ go test -v
 go run main.go
 ```
 
+### Development Workflow
+
+#### Typical Development Cycle
+
+```bash
+# 1. Make code changes
+vim main.go
+
+# 2. Run tests to verify
+go test -v
+
+# 3. Test with live reload
+go run main.go
+
+# 4. Build and test executable
+go build -o bin/test.exe main.go
+./bin/test.exe
+
+# 5. Run fuzz tests (recommended)
+./run-fuzz-tests.sh
+
+# 6. Build all configurations to verify compatibility
+./test-build-combinations.sh
+```
+
+#### Testing Different Build Modes
+
+**Backend Mode (default):**
+```bash
+go build -o bin/test.exe main.go
+./bin/test.exe
+```
+
+**Frontend Mode (WASM):**
+```bash
+./build-frontend.sh
+go run server_frontend.go
+```
+
+**Obfuscated Mode:**
+```bash
+./obfuscation/build-obfuscated.ps1
+./bin/piper-server.exe
+```
+
+**Production Mode (all features):**
+```bash
+./scripts/helpers/build-prod.ps1
+./bin/piper-server.exe
+```
+
+#### Quick Comparison Test
+
+To verify translation consistency across different builds:
+
+```bash
+# Build all versions
+go build -o bin/backend.exe main.go
+./build-frontend.sh
+./obfuscation/build-obfuscated.ps1
+
+# Test translation output
+echo "hello world" | ./bin/backend.exe
+# Compare with WASM/obfuscated versions
+```
+
 ### Adding New Transformations
 
 To extend the translator with new rules:
@@ -895,62 +1113,195 @@ To extend the translator with new rules:
    - `TranslateToPejelagarto`: Add transformation step
    - `TranslateFromPejelagarto`: Add reverse transformation at mirror position
 
+4. **Add Tests**: Create fuzz tests for new transformations
+   - Test reversibility with random inputs
+   - Add seed corpus in `testdata/fuzz/`
+   - Minimum 30s fuzz time, 120s for full pipeline
+
 ### Testing Strategy
 
 - **Unit Tests**: Test individual transformation functions
-- **Fuzz Tests**: Verify reversibility with random inputs
+- **Fuzz Tests**: Verify reversibility with random inputs (80,000+ executions)
 - **Integration Tests**: Test full translation pipeline
+- **Build Tests**: Verify all build tag combinations work (`test-build-combinations.sh`)
+- **WASM Tests**: Compile WASM tests to verify JS exports (`test-wasm.sh`)
 
 Always ensure your changes maintain 100% reversibility.
 
-## Implementation Details
+### Debugging Tips
+
+**Translation Issues:**
+```go
+// Add debug logging in transformation functions
+fmt.Printf("DEBUG: Before transformation: %q\n", input)
+result := yourTransformation(input)
+fmt.Printf("DEBUG: After transformation: %q\n", result)
+```
+
+**WASM Issues:**
+```bash
+# Check WASM compilation
+GOOS=js GOARCH=wasm go build -tags frontend -o bin/test.wasm wasm_main.go
+
+# Check for syscall/js errors
+# (These indicate frontend tag is incorrectly applied to backend code)
+```
+
+**Build Tag Issues:**
+```bash
+# List files included in build
+go list -tags frontend -f '{{.GoFiles}}'
+go list -tags obfuscated -f '{{.GoFiles}}'
+
+# Check build constraints
+go list -tags frontend -f '{{.IgnoredGoFiles}}'
+```
+
+## Architecture & Implementation
+
+### Build System Architecture
+
+The project uses Go build tags to create different build configurations:
+
+#### Build Tags
+
+| Tag | Purpose | Effects |
+|-----|---------|---------|
+| `frontend` | Client-side WASM translation | Compiles to WebAssembly, excludes syscall/js incompatible code |
+| `obfuscated` | Code obfuscation for production | Uses `piper-server` naming, changes temp directories |
+| `ngrok_default` | Hardcoded ngrok credentials | Embeds auth token and domain, includes `downloadable` |
+| `downloadable` | Embed piper binaries | Includes Windows/Linux piper binaries in executable |
+
+#### Build Tag Relationships
+
+```
+ngrok_default
+    └── Includes: downloadable (automatic)
+    
+downloadable
+    └── OR condition with ngrok_default
+    
+obfuscated
+    └── Compatible with all tags
+    
+frontend
+    └── Compatible with all tags
+    └── Changes compilation target to WASM
+```
+
+#### Build Files
+
+| File | Build Tags | Purpose |
+|------|-----------|---------|
+| `main.go` | None (default) | Backend server entry point |
+| `server_backend.go` | None (default) | Backend HTTP server with server-side translation |
+| `server_frontend.go` | `//go:build ignore` | Frontend HTTP server (WASM client-side translation) |
+| `wasm_main.go` | `//go:build frontend` | WASM entry point with JS exports |
+| `translation_test.go` | None | Shared translation tests (backend + WASM) |
+| `wasm_test.go` | `//go:build frontend` | WASM-specific tests |
+| `tts_test.go` | `//go:build !frontend` | Server-only TTS tests |
+| `obfuscation/constants_normal.go` | `//go:build !obfuscated` | Normal build constants |
+| `obfuscation/constants_obfuscated.go` | `//go:build obfuscated` | Obfuscated build constants |
+
+#### Build Process Flow
+
+**Backend Build:**
+```
+1. main.go entry point
+2. Uses server_backend.go (server-side translation)
+3. Excludes frontend/WASM code
+4. Output: pejelagarto-translator binary
+```
+
+**Frontend Build:**
+```
+1. Step A: Build WASM module
+   - Set GOOS=js, GOARCH=wasm
+   - Build with -tags frontend
+   - Entry: wasm_main.go
+   - Output: main.wasm (~2-3MB)
+
+2. Step B: Build server
+   - Build server_frontend.go directly (has //go:build ignore)
+   - No frontend tag (avoids syscall/js errors)
+   - Output: server binary
+```
+
+**Production Build (scripts/helpers/build-prod.*):**
+```
+1. Check garble installation
+2. Build WASM with frontend tag
+3. Copy wasm_exec.js runtime
+4. Build server with garble (obfuscated + ngrok_default tags)
+5. Generate SHA256 checksums
+```
 
 ### Project Structure
 
 ```
 pejelagarto-translator/
-├── main.go              # Core translator + web server + TTS (~3350 lines)
-├── main_test.go         # Comprehensive test suite with fuzz testing
-├── test_tts.go          # TTS-specific tests
-├── README.md            # This documentation
-├── go.mod               # Go module definition
-├── go.sum               # Go module checksums
-├── get-requirements.ps1 # Embedded in binary - downloads TTS dependencies
-├── .gitignore           # Git ignore patterns
-├── coverage/            # Test coverage reports
-├── obfuscation/         # Obfuscation and service deployment scripts
-│   ├── constants_backend.go             # Constants for backend build
-│   ├── constants_obfuscated.go          # Constants for obfuscated build
-│   ├── build-obfuscated.ps1             # Build script with garble
+├── main.go                  # Core translator + backend server entry point (~3350 lines)
+├── server_backend.go        # Backend HTTP server with server-side translation
+├── server_frontend.go       # Frontend HTTP server (WASM client-side translation)
+├── wasm_main.go             # WASM entry point with JS exports
+├── translation_test.go      # Comprehensive test suite with fuzz testing
+├── wasm_test.go             # WASM-specific tests
+├── tts_test.go              # TTS-specific tests (server-only)
+├── README.md                # This documentation
+├── USAGE_EXAMPLES.md        # Usage examples and workflow (legacy - merged into README)
+├── ARCHITECTURE.md          # Build system details (legacy - merged into README)
+├── go.mod                   # Go module definition
+├── go.sum                   # Go module checksums
+├── get-requirements.ps1     # Embedded in binary - downloads TTS dependencies (Windows)
+├── get-requirements.sh      # Embedded in binary - downloads TTS dependencies (Linux/macOS)
+├── build-frontend.sh        # WASM build helper script
+├── .gitignore               # Git ignore patterns
+├── coverage/                # Test coverage reports
+├── scripts/
+│   └── helpers/
+│       ├── build-prod.ps1   # Production build script (Windows)
+│       ├── build-prod.sh    # Production build script (Linux/macOS)
+│       └── README.md        # Production build documentation (legacy - merged into README)
+├── obfuscation/             # Obfuscation and service deployment scripts
+│   ├── constants_normal.go             # Constants for normal build
+│   ├── constants_obfuscated.go         # Constants for obfuscated build
+│   ├── build-obfuscated.ps1            # Build script with garble
+│   ├── build-obfuscated.sh             # Build script with garble (Linux/macOS)
 │   └── create-obfuscated-server-service.ps1  # Service creation script
-├── bin/                 # Built executables and scripts
-│   ├── pejelagarto-translator.exe  # Main executable (~12MB)
-│   ├── piper-server.exe            # Obfuscated executable (optional)
-│   └── runWithNgrok.ps1            # Helper script for ngrok
-├── testdata/            # Fuzz test corpus
-│   └── fuzz/            # Fuzz testing data
-└── tts/requirements/    # Auto-downloaded at runtime to temp directory
+├── bin/                     # Built executables and scripts
+│   ├── pejelagarto-translator       # Main executable (~12MB, Linux/macOS)
+│   ├── pejelagarto-translator.exe   # Main executable (~12MB, Windows)
+│   ├── piper-server                 # Obfuscated executable (Linux/macOS, optional)
+│   ├── piper-server.exe             # Obfuscated executable (Windows, optional)
+│   ├── main.wasm                    # WASM translation module (~2-3MB)
+│   ├── wasm_exec.js                 # Go WASM runtime
+│   ├── checksums-prod.txt           # Production build checksums
+│   ├── Run-Server.ps1               # Helper script for Windows
+│   └── Run-Server.sh                # Helper script for Linux/macOS
+├── testdata/                # Fuzz test corpus
+│   └── fuzz/                # Fuzz testing data (80,000+ test cases)
+└── tts/requirements/        # Auto-downloaded at runtime to temp directory
     └── (Not tracked in Git - downloaded automatically on first run)
-        ├── piper.exe           # Piper TTS binary
-        ├── *.dll               # Required DLLs
-        ├── espeak-ng-data/     # Phoneme data (~2MB)
-        └── piper/languages/    # 16 language models (~1008MB total)
-            ├── russian/        # ru_RU-dmitri-medium (~63MB)
-            ├── german/         # de_DE-thorsten-medium (~63MB)
-            ├── turkish/        # tr_TR-dfki-medium (~63MB)
-            ├── portuguese/     # pt_BR-faber-medium (~63MB)
-            ├── french/         # fr_FR-siwis-medium (~63MB)
-            ├── hindi/          # hi_HI-medium (~63MB)
-            ├── romanian/       # ro_RO-mihai-medium (~63MB)
-            ├── icelandic/      # is_IS-bui-medium (~63MB)
-            ├── swahili/        # sw_CD-lanfrica-medium (~63MB)
-            ├── swedish/        # sv_SE-nst-medium (~63MB)
-            ├── vietnamese/     # vi_VN-vivos-medium (~63MB)
-            ├── czech/          # cs_CZ-jirka-medium (~63MB)
-            ├── chinese/        # zh_CN-huayan-medium (~63MB)
-            ├── norwegian/      # no_NO-talesyntese-medium (~63MB)
-            ├── hungarian/      # hu_HU-anna-medium (~63MB)
-            └── kazakh/         # kk_KZ-iseke-x_low (~28MB)
+        ├── piper / piper.exe       # Piper TTS binary
+        ├── *.dll / *.so            # Required libraries
+        ├── espeak-ng-data/         # Phoneme data (~2MB)
+        └── piper/languages/        # 16 language models (~1008MB total)
+            ├── russian/            # ru_RU-dmitri-medium (~63MB)
+            ├── german/             # de_DE-thorsten-medium (~63MB)
+            ├── turkish/            # tr_TR-dfki-medium (~63MB)
+            ├── portuguese/         # pt_BR-faber-medium (~63MB)
+            ├── french/             # fr_FR-siwis-medium (~63MB)
+            ├── hindi/              # hi_HI-medium (~63MB)
+            ├── romanian/           # ro_RO-mihai-medium (~63MB)
+            ├── icelandic/          # is_IS-bui-medium (~63MB)
+            ├── swahili/            # sw_CD-lanfrica-medium (~63MB)
+            ├── swedish/            # sv_SE-nst-medium (~63MB)
+            ├── vietnamese/         # vi_VN-vivos-medium (~63MB)
+            ├── czech/              # cs_CZ-jirka-medium (~63MB)
+            ├── chinese/            # zh_CN-huayan-medium (~63MB)
+            ├── norwegian/          # no_NO-talesyntese-medium (~63MB)
+            ├── hungarian/          # hu_HU-anna-medium (~63MB)
+            └── kazakh/             # kk_KZ-iseke-x_low (~28MB)
 ```
 
 ### Unicode Markers (Private Use Area)
@@ -1157,21 +1508,31 @@ Potential areas for expansion:
 
 ## Current Status
 
-**Version**: 2.4.9 (Production Ready)
+**Version**: 2.5.0 (Production Ready)
 
 **Key Achievements:**
 - ✅ **99% Size Reduction**: Binary reduced from 1.14GB → 12-13MB!
 - ✅ **Full Linux/macOS Support**: Native scripts for all platforms
-- ✅ **16 Language TTS Support**: Full multi-language audio support with compass-based organization
+- ✅ **18 Language TTS Support**: Full multi-language audio support with compass-based organization
 - ✅ **Runtime Dependency Management**: OS-specific scripts download all dependencies
 - ✅ **Smart Caching**: Dependencies cached in temp directory, no re-download needed
 - ✅ **Dual-Speed Audio**: Normal and slowed (0.5x) playback with automatic caching
-- ✅ **Simplified Build**: No more `build.ps1`, just `go build`
+- ✅ **Production Build Scripts**: Automated garble obfuscation + WASM + ngrok builds
+- ✅ **Dynamic Port Selection**: Automatic fallback from 8080 to 8090
+- ✅ **Pronunciation Display**: Real-time TTS preprocessing visibility
+- ✅ **Consolidated Documentation**: Single comprehensive README.md
 - ✅ **80,000+ Fuzz Tests**: Proven reliability with comprehensive fuzzing
 - ✅ **Modern UI**: Dark/light theme with responsive design
 - ✅ **Full Reversibility**: All transformations are bidirectional (except timestamp encoding)
 
-**Recent Updates (v2.4.9):**
+**Recent Updates (v2.5.0):**
+- 📚 **Consolidated Documentation**: Merged USAGE_EXAMPLES.md, ARCHITECTURE.md, and scripts/helpers/README.md into main README.md
+- 🏗️ **Architecture Section**: Added comprehensive build system documentation
+- 🔧 **Development Workflow**: Enhanced contributor guide with testing procedures
+- 📋 **Production Build Docs**: Integrated garble build instructions with Windows Defender solutions
+- 🧹 **Repository Cleanup**: Removed redundant markdown files for cleaner structure
+
+**Previous Updates (v2.4.9):**
 - 🐧 **Full Linux/macOS Support**: Native shell scripts for all platforms
 - 🔧 Created `get-requirements.sh` for Linux/macOS dependency downloads
 - 🔧 Created `build-obfuscated.sh` for cross-platform obfuscated builds
@@ -1180,6 +1541,10 @@ Potential areas for expansion:
 - ✅ Removed Windows-only restriction from dependency download
 - 📦 Supports both x86_64 and ARM64 architectures on Linux/macOS
 - ✅ Tested and verified on Linux (Ubuntu 20.04+)
+- 🎤 **Pronunciation Textarea**: Added real-time preprocessTextForTTS display
+- 🔌 **Port Availability**: Automatic port selection (8080-8090 fallbacks)
+- 📝 **File Rename**: server_main.go → server_backend.go for consistency
+- 🏭 **Production Scripts**: scripts/helpers/build-prod.ps1 and build-prod.sh
 
 **Previous Updates (v2.4.8):**
 - 🚀 Embedded PowerShell script instead of large binary files
@@ -1194,7 +1559,7 @@ Potential areas for expansion:
 - **Linux**: Ubuntu 20.04+ with Bash (x86_64 and ARM64)
 - **macOS**: macOS 12+ with Bash (x86_64 and ARM64)
 - Go 1.24.2+
-- All 16 languages verified working
+- All 18 languages verified working
 - Build size: ~12-13MB
 - First run download: ~1.1GB (3-5 minutes)
 - Subsequent runs: instant startup

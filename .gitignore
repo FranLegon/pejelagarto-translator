@@ -11,9 +11,15 @@
 # Output of the go coverage tool
 *.out
 
-# Build directory - ignore all executables
+# Build directory - ignore all executables and build artifacts
 bin/*.exe
 bin/*.exe~
+bin/piper-server*
+bin/pejelagarto-translator
+bin/main.wasm
+bin/translator.wasm
+bin/wasm_exec.js
+bin/checksums*.txt
 
 # Go workspace file
 go.work
