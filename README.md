@@ -81,7 +81,7 @@ Linux/macOS:
 go build -o bin/pejelagarto-translator main.go
 ```
 
-**Frontend Build (NEW - Client-Side Translation via WebAssembly):**
+**Frontend Build (Client-Side Translation via WebAssembly):**
 
 This mode compiles the translation logic to WebAssembly, allowing translation to run entirely in the browser. Only TTS (text-to-speech) uses the server.
 
@@ -1506,63 +1506,33 @@ Potential areas for expansion:
 - Voice customization (pitch, speed, etc.)
 - TTS queue management for multiple requests
 
-## Current Status
+## Project Status
 
-**Version**: 2.5.0 (Production Ready)
+**Production Ready**
 
-**Key Achievements:**
-- ✅ **99% Size Reduction**: Binary reduced from 1.14GB → 12-13MB!
-- ✅ **Full Linux/macOS Support**: Native scripts for all platforms
-- ✅ **18 Language TTS Support**: Full multi-language audio support with compass-based organization
-- ✅ **Runtime Dependency Management**: OS-specific scripts download all dependencies
-- ✅ **Smart Caching**: Dependencies cached in temp directory, no re-download needed
+**Key Features:**
+- ✅ **Compact Binary**: Optimized ~12-13MB executable with runtime dependency management
+- ✅ **Cross-Platform**: Full support for Windows, Linux, and macOS (x86_64 and ARM64)
+- ✅ **18 Language TTS**: Multi-language audio support with compass-based organization
+- ✅ **Smart Dependency Management**: OS-specific scripts automatically download all dependencies
+- ✅ **Intelligent Caching**: Dependencies cached in temp directory for instant subsequent startups
 - ✅ **Dual-Speed Audio**: Normal and slowed (0.5x) playback with automatic caching
-- ✅ **Production Build Scripts**: Automated garble obfuscation + WASM + ngrok builds
+- ✅ **Production Build System**: Automated garble obfuscation + WASM + ngrok builds
 - ✅ **Dynamic Port Selection**: Automatic fallback from 8080 to 8090
 - ✅ **Pronunciation Display**: Real-time TTS preprocessing visibility
-- ✅ **Consolidated Documentation**: Single comprehensive README.md
-- ✅ **80,000+ Fuzz Tests**: Proven reliability with comprehensive fuzzing
+- ✅ **Comprehensive Testing**: 80,000+ fuzz test executions proving reliability
 - ✅ **Modern UI**: Dark/light theme with responsive design
-- ✅ **Full Reversibility**: All transformations are bidirectional (except timestamp encoding)
-
-**Recent Updates (v2.5.0):**
-- 📚 **Consolidated Documentation**: Merged USAGE_EXAMPLES.md, ARCHITECTURE.md, and scripts/helpers/README.md into main README.md
-- 🏗️ **Architecture Section**: Added comprehensive build system documentation
-- 🔧 **Development Workflow**: Enhanced contributor guide with testing procedures
-- 📋 **Production Build Docs**: Integrated garble build instructions with Windows Defender solutions
-- 🧹 **Repository Cleanup**: Removed redundant markdown files for cleaner structure
-
-**Previous Updates (v2.4.9):**
-- 🐧 **Full Linux/macOS Support**: Native shell scripts for all platforms
-- 🔧 Created `get-requirements.sh` for Linux/macOS dependency downloads
-- 🔧 Created `build-obfuscated.sh` for cross-platform obfuscated builds
-- 🔧 Created `Run-Server.sh` for Linux/macOS server launch
-- 🔄 Updated main.go to automatically detect OS and use appropriate scripts
-- ✅ Removed Windows-only restriction from dependency download
-- 📦 Supports both x86_64 and ARM64 architectures on Linux/macOS
-- ✅ Tested and verified on Linux (Ubuntu 20.04+)
-- 🎤 **Pronunciation Textarea**: Added real-time preprocessTextForTTS display
-- 🔌 **Port Availability**: Automatic port selection (8080-8090 fallbacks)
-- 📝 **File Rename**: server_main.go → server_backend.go for consistency
-- 🏭 **Production Scripts**: scripts/helpers/build-prod.ps1 and build-prod.sh
-
-**Previous Updates (v2.4.8):**
-- 🚀 Embedded PowerShell script instead of large binary files
-- 📦 Binary size reduced by 99% (1,135MB → 12MB)
-- 🔄 Runtime dependency downloading with automatic caching
-- 🗑️ Removed redundant `build.ps1` script
-- 🧹 Cleaned up repository (removed 760 large files, ~1.15GB)
-- ✅ Successfully pushed to GitHub (no more file size issues!)
+- ✅ **High Reversibility**: All transformations are bidirectional (except timestamp encoding)
 
 **Tested Configurations:**
 - **Windows**: Windows 10/11 with PowerShell
 - **Linux**: Ubuntu 20.04+ with Bash (x86_64 and ARM64)
 - **macOS**: macOS 12+ with Bash (x86_64 and ARM64)
-- Go 1.24.2+
-- All 18 languages verified working
-- Build size: ~12-13MB
-- First run download: ~1.1GB (3-5 minutes)
-- Subsequent runs: instant startup
+- **Go**: 1.24.2+
+- **Languages**: All 18 TTS languages verified working
+- **Binary Size**: ~12-13MB
+- **First Run**: Downloads ~1.1GB dependencies (3-5 minutes)
+- **Subsequent Runs**: Instant startup from cache
 
 ## AI Training Restriction
 
