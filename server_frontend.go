@@ -1,3 +1,4 @@
+//go:build ignore
 // +build ignore
 
 // Simple HTTP server for frontend mode
@@ -16,412 +17,560 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
 	"unicode"
-	"unicode/utf8"
-	"regexp"
 )
 
 //go:embed get-requirements.ps1 get-requirements.sh
 var embeddedGetRequirements embed.FS
 
-// Import necessary server-side functions for TTS
-// (These are copied from server_main.go since we can't import from build-constrained files)
-
-var tempRequirementsDir string
 var pronunciationLanguage string
 var pronunciationLanguageDropdown bool
+var tempRequirementsDir string
 
+// Audio cache for storing normal and slow versions
 var audioCache = struct {
 	sync.RWMutex
-	cache map[string][]byte
+	cache map[string][]byte // key: text+lang hash -> audio data
 }{
 	cache: make(map[string][]byte),
 }
 
+// Frontend HTML - identical UI to regular mode, but uses WASM for translation
+// This constant is based on htmlUI from main.go with only the handleLiveTranslation() function modified
 const htmlUIFrontend = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pejelagarto Translator (Frontend Mode)</title>
+    <title>Pejelagarto Translator</title>
     <script src="/wasm_exec.js"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <style>
         :root {
-            --bg-primary: #f5f5f5;
-            --bg-secondary: #ffffff;
-            --text-primary: #333333;
-            --text-secondary: #666666;
-            --border-color: #cccccc;
-            --button-bg: #4CAF50;
-            --button-hover: #45a049;
-            --textarea-bg: #ffffff;
-            --shadow: rgba(0, 0, 0, 0.1);
+            --bg-gradient-start: #1a1a2e;
+            --bg-gradient-end: #16213e;
+            --container-bg: #0f3460;
+            --text-primary: #e1e1e1;
+            --text-secondary: #b0b0b0;
+            --heading-color: #53a8e2;
+            --button-gradient-start: #53a8e2;
+            --button-gradient-end: #3d7ea6;
+            --button-shadow: rgba(83, 168, 226, 0.4);
+            --button-hover-shadow: rgba(83, 168, 226, 0.6);
+            --invert-btn-gradient-start: #e94560;
+            --invert-btn-gradient-end: #d62839;
+            --invert-btn-shadow: rgba(233, 69, 96, 0.4);
+            --invert-btn-hover-shadow: rgba(233, 69, 96, 0.6);
+            --border-color: #2a2a40;
+            --textarea-bg: #1a1a2e;
+            --textarea-readonly-bg: #16213e;
+            --textarea-focus-border: #53a8e2;
+            --theme-btn-bg: #53a8e2;
+            --theme-btn-hover: #3d7ea6;
         }
 
-        [data-theme="dark"] {
-            --bg-primary: #1a1a1a;
-            --bg-secondary: #2d2d2d;
-            --text-primary: #e0e0e0;
-            --text-secondary: #b0b0b0;
-            --border-color: #444444;
-            --button-bg: #45a049;
-            --button-hover: #4CAF50;
-            --textarea-bg: #3a3a3a;
-            --shadow: rgba(255, 255, 255, 0.1);
+        [data-theme="light"] {
+            --bg-gradient-start: #667eea;
+            --bg-gradient-end: #764ba2;
+            --container-bg: white;
+            --text-primary: #333;
+            --text-secondary: #666;
+            --heading-color: #667eea;
+            --button-gradient-start: #667eea;
+            --button-gradient-end: #764ba2;
+            --button-shadow: rgba(102, 126, 234, 0.4);
+            --button-hover-shadow: rgba(102, 126, 234, 0.6);
+            --invert-btn-gradient-start: #f093fb;
+            --invert-btn-gradient-end: #f5576c;
+            --invert-btn-shadow: rgba(245, 87, 108, 0.4);
+            --invert-btn-hover-shadow: rgba(245, 87, 108, 0.6);
+            --border-color: #e0e0e0;
+            --textarea-bg: white;
+            --textarea-readonly-bg: #f5f5f5;
+            --textarea-focus-border: #667eea;
+            --theme-btn-bg: #ffd700;
+            --theme-btn-hover: #ffed4e;
         }
 
         * {
-            box-sizing: border-box;
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
         }
-
+        
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
             padding: 20px;
-            color: var(--text-primary);
-            transition: background 0.3s ease, color 0.3s ease;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 900px;
-            background: var(--bg-secondary);
-            border-radius: 20px;
-            box-shadow: 0 10px 40px var(--shadow);
-            padding: 40px;
             transition: background 0.3s ease;
         }
-
+        
+        .container {
+            background: var(--container-bg);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 900px;
+            width: 100%;
+            position: relative;
+            transition: background 0.3s ease;
+        }
+        
+        .theme-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: var(--theme-btn-bg);
+            border: none;
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            z-index: 10;
+        }
+        
+        .theme-toggle:hover {
+            background: var(--theme-btn-hover);
+            transform: scale(1.1) rotate(15deg);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+        }
+        
         h1 {
             text-align: center;
-            margin-bottom: 10px;
-            font-size: 2.5rem;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .mode-badge {
-            text-align: center;
+            color: var(--heading-color);
             margin-bottom: 30px;
-            color: var(--text-secondary);
-            font-size: 0.9rem;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+            transition: color 0.3s ease;
         }
-
-        .mode-badge span {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-weight: bold;
-        }
-
-        .status {
-            text-align: center;
-            padding: 10px;
-            margin-bottom: 20px;
-            border-radius: 8px;
-            font-size: 0.9rem;
-        }
-
-        .status.loading {
-            background: #fff3cd;
-            color: #856404;
-            border: 1px solid #ffc107;
-        }
-
-        .status.ready {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #28a745;
-        }
-
-        .status.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #dc3545;
-        }
-
+        
         .translator-box {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .text-area-container {
             display: flex;
             flex-direction: column;
-            gap: 20px;
         }
-
-        .input-section, .output-section {
-            flex: 1;
-        }
-
+        
         label {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+            font-size: 1.1em;
+            transition: color 0.3s ease;
             display: flex;
             align-items: center;
-            gap: 10px;
-            font-weight: 600;
-            margin-bottom: 10px;
-            color: var(--text-primary);
+            gap: 8px;
+            min-height: 40px;
         }
-
+        
         textarea {
             width: 100%;
-            height: 200px;
+            height: 250px;
             padding: 15px;
             border: 2px solid var(--border-color);
-            border-radius: 12px;
-            font-size: 16px;
+            border-radius: 10px;
+            font-size: 14px;
             font-family: 'Courier New', monospace;
-            resize: vertical;
-            background: var(--textarea-bg);
-            color: var(--text-primary);
+            resize: none;
             transition: all 0.3s ease;
+            background-color: var(--textarea-bg);
+            color: var(--text-primary);
         }
-
+        
         textarea:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: var(--textarea-focus-border);
         }
-
+        
+        textarea[readonly] {
+            background-color: var(--textarea-readonly-bg);
+            cursor: not-allowed;
+            resize: none;
+        }
+        
         .controls {
             display: flex;
+            justify-content: center;
+            align-items: center;
             gap: 15px;
             flex-wrap: wrap;
-            justify-content: center;
-            margin: 20px 0;
         }
-
-        button, .play-btn {
-            padding: 12px 24px;
-            font-size: 16px;
-            font-weight: 600;
+        
+        button {
+            background: linear-gradient(135deg, var(--button-gradient-start) 0%, var(--button-gradient-end) 100%);
+            color: white;
             border: none;
-            border-radius: 8px;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
             cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 6px var(--shadow);
+            transition: background 0.3s ease;
+            box-shadow: 0 4px 15px var(--button-shadow);
         }
-
-        button:hover, .play-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px var(--shadow);
-        }
-
-        button:active, .play-btn:active {
+        
+        button:active {
             transform: translateY(0);
         }
-
-        .translate-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
+        
         .invert-btn {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: white;
+            background: linear-gradient(135deg, var(--invert-btn-gradient-start) 0%, var(--invert-btn-gradient-end) 100%);
             padding: 12px 20px;
+            font-size: 20px;
+            box-shadow: 0 4px 15px var(--invert-btn-shadow);
         }
-
-        .theme-toggle {
-            background: var(--button-bg);
-            color: white;
-        }
-
-        .theme-toggle:hover {
-            background: var(--button-hover);
-        }
-
-        .play-btn {
-            background: #4CAF50;
-            color: white;
-        }
-
+        
         .checkbox-container {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 15px;
-            background: var(--bg-primary);
-            border-radius: 8px;
+            gap: 8px;
+            font-size: 16px;
+            color: var(--text-primary);
+            transition: color 0.3s ease;
         }
-
+        
         input[type="checkbox"] {
             width: 20px;
             height: 20px;
             cursor: pointer;
         }
-
+        
+        .play-btn {
+            background: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%);
+            padding: 8px 16px;
+            font-size: 18px;
+            box-shadow: 0 4px 15px rgba(86, 171, 47, 0.4);
+            min-width: auto;
+        }
+        
+        .play-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
         @media (max-width: 768px) {
+            body {
+                padding: 10px;
+                align-items: flex-start;
+            }
+            
             .container {
-                padding: 20px;
+                padding: 15px;
+                border-radius: 15px;
+                margin-top: 10px;
             }
-
+            
+            .translator-box {
+                grid-template-columns: 1fr;
+                gap: 15px;
+                margin-bottom: 15px;
+            }
+            
             h1 {
-                font-size: 2rem;
+                font-size: 1.5em;
+                margin-bottom: 20px;
+                padding-right: 50px;
             }
-
+            
+            .theme-toggle {
+                width: 40px;
+                height: 40px;
+                top: 15px;
+                right: 15px;
+                font-size: 20px;
+            }
+            
+            label {
+                font-size: 0.95em;
+                margin-bottom: 6px;
+            }
+            
+            textarea {
+                height: 120px;
+                padding: 10px;
+                font-size: 13px;
+            }
+            
+            button {
+                padding: 10px 20px;
+                font-size: 14px;
+            }
+            
+            .play-btn {
+                padding: 6px 12px;
+                font-size: 16px;
+            }
+            
+            .invert-btn {
+                padding: 10px 16px;
+                font-size: 18px;
+            }
+            
             .controls {
-                flex-direction: column;
+                gap: 10px;
             }
-
-            button, .play-btn {
-                width: 100%;
+            
+            .checkbox-container {
+                font-size: 14px;
             }
+            
+            input[type="checkbox"] {
+                width: 18px;
+                height: 18px;
+            }
+        }
+        
+        .htmx-indicator {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid var(--border-color);
+            border-top: 3px solid var(--button-gradient-start);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🦎 Pejelagarto Translator</h1>
-        <div class="mode-badge">
-            <span>⚡ Frontend Mode</span> - Translation runs in your browser
+        <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+            <span id="theme-icon">🌙</span>
+        </button>
+        <h1>🐊 Pejelagarto Translator 🐊</h1>
+        
+        <div class="translator-box">
+            <div class="text-area-container">
+                <label id="input-label">Human:</label>
+                <textarea id="input-text" placeholder="Type your text here..."></textarea>
+            </div>
+            
+            <div class="text-area-container">
+                <label id="output-label">Pejelagarto: <button class="play-btn" id="play-output" onclick="playAudio('output', false)">🔊 Play</button>{{DROPDOWN_PLACEHOLDER}}</label>
+                <textarea id="output-text" readonly placeholder="Translation will appear here..."></textarea>
+            </div>
         </div>
         
-        <div id="status" class="status loading">
-            🔄 Loading WebAssembly module...
-        </div>
-
-        <div class="translator-box">
-            <div class="input-section">
-                <label id="input-label">
-                    Human: 
-                    <button class="play-btn" id="play-input" onclick="playAudio('input', false)" style="display: none;">🔊</button>
-                    {{DROPDOWN_PLACEHOLDER}}
-                </label>
-                <textarea id="input-text" placeholder="Enter text in Human language..."></textarea>
-            </div>
-
-            <div class="controls">
-                <button class="translate-btn" onclick="translate()">Translate</button>
-                <button class="invert-btn" onclick="invertDirection()">⇅ Invert</button>
-                <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn">🌙 Dark Mode</button>
-            </div>
-
-            <div class="output-section">
-                <label id="output-label">
-                    Pejelagarto:
-                    <button class="play-btn" id="play-output" onclick="playAudio('output', false)">🔊</button>
-                    {{DROPDOWN_PLACEHOLDER}}
-                </label>
-                <textarea id="output-text" placeholder="Translation will appear here..." readonly></textarea>
-            </div>
-
+        <div class="controls">
+            <button 
+                id="translate-btn"
+                onclick="handleTranslateClick()">
+                Translate to Pejelagarto
+            </button>
+            
+            <button class="invert-btn" onclick="invertTranslation()">⇅</button>
+            
             <div class="checkbox-container">
                 <input type="checkbox" id="live-translate" onchange="toggleLiveTranslation()">
-                <label for="live-translate" style="margin: 0;">Enable Live Translation</label>
+                <label for="live-translate" style="margin: 0;">Live Translation</label>
             </div>
+            
+            <span id="loading-indicator" class="htmx-indicator"></span>
         </div>
     </div>
-
+    
     <script>
         let isInverted = false;
         let liveTranslateEnabled = false;
         let wasmReady = false;
-
+        
         // Load WASM module
         const go = new Go();
         WebAssembly.instantiateStreaming(fetch("/translator.wasm"), go.importObject).then((result) => {
             go.run(result.instance);
             wasmReady = true;
-            document.getElementById('status').textContent = '✓ Ready - Translation happens in your browser!';
-            document.getElementById('status').className = 'status ready';
+            console.log('WASM module loaded and ready');
         }).catch((err) => {
             console.error("Failed to load WASM:", err);
-            document.getElementById('status').textContent = '✗ Failed to load WebAssembly module';
-            document.getElementById('status').className = 'status error';
+            alert('Failed to load translation module. Please refresh the page.');
         });
-
-        function translate() {
-            if (!wasmReady) {
-                alert('WASM module not ready yet. Please wait...');
-                return;
-            }
-
+        
+        // Initialize theme on page load
+        (function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeIcon(savedTheme);
+        })();
+        
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon(newTheme);
+        }
+        
+        function updateThemeIcon(theme) {
+            const icon = document.getElementById('theme-icon');
+            icon.textContent = theme === 'dark' ? '🌙' : '☀️';
+        }
+        
+        function handleTranslateClick() {
+            handleLiveTranslation();
+        }
+        
+        function invertTranslation() {
             const inputText = document.getElementById('input-text');
             const outputText = document.getElementById('output-text');
-
-            if (!isInverted) {
-                // Human to Pejelagarto (using WASM)
-                outputText.value = GoTranslateToPejelagarto(inputText.value);
-            } else {
-                // Pejelagarto to Human (using WASM)
-                outputText.value = GoTranslateFromPejelagarto(inputText.value);
-            }
-        }
-
-        function invertDirection() {
-            isInverted = !isInverted;
-            const inputLabel = document.getElementById('input-label');
-            const outputLabel = document.getElementById('output-label');
-
-            if (isInverted) {
-                inputLabel.childNodes[0].textContent = 'Pejelagarto: ';
-                outputLabel.childNodes[0].textContent = 'Human: ';
-                document.getElementById('input-text').placeholder = 'Enter text in Pejelagarto language...';
-                document.getElementById('output-text').placeholder = 'Translation will appear here...';
-            } else {
-                inputLabel.childNodes[0].textContent = 'Human: ';
-                outputLabel.childNodes[0].textContent = 'Pejelagarto: ';
-                document.getElementById('input-text').placeholder = 'Enter text in Human language...';
-                document.getElementById('output-text').placeholder = 'Translation will appear here...';
-            }
-
-            // Swap textareas
-            const inputValue = document.getElementById('input-text').value;
-            const outputValue = document.getElementById('output-text').value;
-            document.getElementById('input-text').value = outputValue;
-            document.getElementById('output-text').value = inputValue;
-
-            if (liveTranslateEnabled) {
-                translate();
-            }
-        }
-
-        function toggleLiveTranslation() {
-            liveTranslateEnabled = document.getElementById('live-translate').checked;
-            if (liveTranslateEnabled) {
-                document.getElementById('input-text').addEventListener('input', translate);
-            } else {
-                document.getElementById('input-text').removeEventListener('input', translate);
-            }
-        }
-
-        function toggleTheme() {
-            const body = document.body;
-            const themeBtn = document.getElementById('theme-btn');
+            const translateBtn = document.getElementById('translate-btn');
             
-            if (body.hasAttribute('data-theme')) {
-                body.removeAttribute('data-theme');
-                themeBtn.textContent = '🌙 Dark Mode';
+            const temp = inputText.value;
+            inputText.value = outputText.value;
+            outputText.value = temp;
+            
+            isInverted = !isInverted;
+            
+            if (isInverted) {
+                translateBtn.textContent = 'Translate from Pejelagarto';
             } else {
-                body.setAttribute('data-theme', 'dark');
-                themeBtn.textContent = '☀️ Light Mode';
+                translateBtn.textContent = 'Translate to Pejelagarto';
+            }
+            
+            resetToSingleButton();
+        }
+        
+        function toggleLiveTranslation() {
+            const checkbox = document.getElementById('live-translate');
+            const translateBtn = document.getElementById('translate-btn');
+            const inputText = document.getElementById('input-text');
+            
+            liveTranslateEnabled = checkbox.checked;
+            
+            if (liveTranslateEnabled) {
+                translateBtn.classList.add('hidden');
+                inputText.addEventListener('input', handleLiveTranslation);
+                handleLiveTranslation();
+            } else {
+                translateBtn.classList.remove('hidden');
+                inputText.removeEventListener('input', handleLiveTranslation);
             }
         }
-
-        // TTS functionality (server-side)
+        
+        // MODIFIED FOR WASM: Use WASM functions instead of fetch
+        function handleLiveTranslation() {
+            if (!wasmReady) {
+                console.log('WASM not ready yet, skipping translation');
+                return;
+            }
+            
+            const inputText = document.getElementById('input-text');
+            const outputText = document.getElementById('output-text');
+            
+            try {
+                if (!isInverted) {
+                    // Human to Pejelagarto
+                    outputText.value = GoTranslateToPejelagarto(inputText.value);
+                } else {
+                    // Pejelagarto to Human
+                    outputText.value = GoTranslateFromPejelagarto(inputText.value);
+                }
+            } catch (error) {
+                console.error('Translation error:', error);
+            }
+        }
+        
+        // Rest of the JavaScript is identical to main.go (TTS functions, etc.)
+        let currentOutputText = '';
+        let currentLanguage = '';
+        let currentInvertedState = false;
+        let slowAudioReady = {};
+        
+        function watchOutputChanges() {
+            const outputText = document.getElementById('output-text');
+            const languageDropdown = document.getElementById('tts-language');
+            const selectedLanguage = languageDropdown ? languageDropdown.value : '';
+            
+            if (outputText.value !== currentOutputText || selectedLanguage !== currentLanguage || isInverted !== currentInvertedState) {
+                currentOutputText = outputText.value;
+                currentLanguage = selectedLanguage;
+                currentInvertedState = isInverted;
+                resetToSingleButton();
+                
+                const cacheKey = currentOutputText + ':' + selectedLanguage;
+                if (slowAudioReady[cacheKey]) {
+                    const source = isInverted ? 'input' : 'output';
+                    const container = isInverted ? document.getElementById('input-label') : document.getElementById('output-label');
+                    splitButton(source, container);
+                }
+            }
+        }
+        
+        function resetToSingleButton() {
+            const outputLabel = document.getElementById('output-label');
+            const inputLabel = document.getElementById('input-label');
+            
+            const oldDropdown = document.getElementById('tts-language');
+            const selectedLang = oldDropdown ? oldDropdown.value : 'russian';
+            
+            const dropdownHTML = document.getElementById('tts-language') ? 
+                ' <select id="tts-language" onchange="watchOutputChanges()" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--textarea-bg); color: var(--text-primary); font-size: 14px;"><option value="russian">North</option><option value="kazakh">North-North-East</option><option value="german">North-East</option><option value="turkish">North-East-East</option><option value="portuguese">East</option><option value="french">South-East-East</option><option value="hindi">South-East</option><option value="icelandic">South-South-East</option><option value="romanian">South</option><option value="vietnamese">South-South-West</option><option value="swahili">South-West</option><option value="swedish">South-West-West</option><option value="czech">West</option><option value="chinese">North-West-West</option><option value="norwegian">North-West</option><option value="hungarian">North-North-West</option></select>' : '';
+            
+            if (isInverted) {
+                inputLabel.innerHTML = 'Pejelagarto: <button class="play-btn" id="play-input" onclick="playAudio(&quot;input&quot;, false)" style="width: 104px; height: 38px; padding: 4px 2px; font-size: 16px; overflow: hidden; white-space: nowrap;">🔊 Play</button>' + dropdownHTML;
+                outputLabel.textContent = 'Human:';
+            } else {
+                outputLabel.innerHTML = 'Pejelagarto: <button class="play-btn" id="play-output" onclick="playAudio(&quot;output&quot;, false)" style="width: 104px; height: 38px; padding: 4px 2px; font-size: 16px; overflow: hidden; white-space: nowrap;">🔊 Play</button>' + dropdownHTML;
+                inputLabel.textContent = 'Human:';
+            }
+            
+            const newDropdown = document.getElementById('tts-language');
+            if (newDropdown) {
+                newDropdown.value = selectedLang;
+            }
+        }
+        
+        setInterval(watchOutputChanges, 500);
+        
         function playAudio(source, slow) {
             const inputText = document.getElementById('input-text');
             const outputText = document.getElementById('output-text');
+            const playInputBtn = document.getElementById('play-input');
+            const playOutputBtn = document.getElementById('play-output');
+            const playInputSlowBtn = document.getElementById('play-input-slow');
+            const playOutputSlowBtn = document.getElementById('play-output-slow');
             
             let textToSpeak = '';
             let button = null;
+            let container = null;
             
             if (source === 'input') {
                 textToSpeak = inputText.value;
-                button = document.getElementById('play-input');
+                button = slow ? playInputSlowBtn : playInputBtn;
+                container = document.getElementById('input-label');
             } else {
                 textToSpeak = outputText.value;
-                button = document.getElementById('play-output');
+                button = slow ? playOutputSlowBtn : playOutputBtn;
+                container = document.getElementById('output-label');
             }
             
             if (!textToSpeak || textToSpeak.trim() === '') {
@@ -474,13 +623,85 @@ const htmlUIFrontend = `<!DOCTYPE html>
                 
                 audio.play();
                 button.textContent = '▶️';
+                
+                if (!slow) {
+                    checkForSlowAudio(textToSpeak, selectedLanguage, source, container);
+                }
             })
             .catch(error => {
                 console.error('TTS error:', error);
                 button.disabled = false;
                 button.textContent = originalText;
-                alert('Text-to-speech error:\\n\\n' + error.message);
+                
+                let errorMsg = error.message;
+                if (errorMsg.includes('voice model not found')) {
+                    const lang = selectedLanguage || 'portuguese';
+                    errorMsg = 'Language model not installed for: ' + lang + '\\n\\nTo install the model, run:\\ncd tts/requirements/piper/languages\\n.\\\\download_models.ps1\\n\\nOr download manually from:\\ntts/requirements/piper/languages/README.md';
+                }
+                
+                alert('Text-to-speech error:\\n\\n' + errorMsg);
             });
+        }
+        
+        function checkForSlowAudio(text, language, source, container) {
+            const url = language ? '/tts-check-slow?lang=' + language : '/tts-check-slow';
+            const cacheKey = text + ':' + language;
+            
+            const checkInterval = setInterval(() => {
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain'
+                    },
+                    body: text
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.ready) {
+                        clearInterval(checkInterval);
+                        slowAudioReady[cacheKey] = true;
+                        splitButton(source, container);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking slow audio:', error);
+                    clearInterval(checkInterval);
+                });
+            }, 1000);
+            
+            setTimeout(() => clearInterval(checkInterval), 30000);
+        }
+        
+        function splitButton(source, container) {
+            const expectedSource = isInverted ? 'input' : 'output';
+            if (source !== expectedSource) {
+                return;
+            }
+            
+            const expectedContainer = isInverted ? document.getElementById('input-label') : document.getElementById('output-label');
+            if (container !== expectedContainer) {
+                return;
+            }
+            
+            const oldDropdown = document.getElementById('tts-language');
+            const selectedLang = oldDropdown ? oldDropdown.value : 'russian';
+            
+            const dropdownHTML = document.getElementById('tts-language') ? 
+                ' <select id="tts-language" onchange="watchOutputChanges()" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--textarea-bg); color: var(--text-primary); font-size: 14px;"><option value="russian">North</option><option value="kazakh">North-North-East</option><option value="german">North-East</option><option value="turkish">North-East-East</option><option value="portuguese">East</option><option value="french">South-East-East</option><option value="hindi">South-East</option><option value="icelandic">South-South-East</option><option value="romanian">South</option><option value="vietnamese">South-South-West</option><option value="swahili">South-West</option><option value="swedish">South-West-West</option><option value="czech">West</option><option value="chinese">North-West-West</option><option value="norwegian">North-West</option><option value="hungarian">North-North-West</option></select>' : '';
+            
+            const label = 'Pejelagarto:';
+            const buttonId = source === 'input' ? 'play-input' : 'play-output';
+            const slowButtonId = source === 'input' ? 'play-input-slow' : 'play-output-slow';
+            
+            container.innerHTML = label + 
+                ' <button class="play-btn" id="' + buttonId + '" onclick="playAudio(&quot;' + source + '&quot;, false)" style="width: 50px; height: 38px; padding: 4px 2px; font-size: 16px; overflow: hidden; white-space: nowrap;">🐇🔊</button>' +
+                ' <button class="play-btn" id="' + slowButtonId + '" onclick="playAudio(&quot;' + source + '&quot;, true)" style="width: 50px; height: 38px; padding: 4px 2px; font-size: 16px; overflow: hidden; white-space: nowrap;">🐌🔊</button>' +
+                dropdownHTML;
+            
+            const newDropdown = document.getElementById('tts-language');
+            if (newDropdown) {
+                newDropdown.value = selectedLang;
+            }
         }
     </script>
 </body>
@@ -489,7 +710,7 @@ const htmlUIFrontend = `<!DOCTYPE html>
 // Handler for serving the frontend UI
 func handleFrontendIndex(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	
+
 	html := htmlUIFrontend
 	if pronunciationLanguageDropdown {
 		dropdownHTML := ` <select id="tts-language" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--textarea-bg); color: var(--text-primary); font-size: 14px;">
@@ -514,7 +735,7 @@ func handleFrontendIndex(w http.ResponseWriter, r *http.Request) {
 	} else {
 		html = strings.Replace(html, "{{DROPDOWN_PLACEHOLDER}}", "", 1)
 	}
-	
+
 	fmt.Fprint(w, html)
 }
 
@@ -523,19 +744,21 @@ func main() {
 	pronunciationLangFlag := flag.String("pronunciation_language", "russian", "TTS pronunciation language")
 	pronunciationLangDropdownFlag := flag.Bool("pronunciation_language_dropdown", true, "Show language dropdown in UI for TTS")
 	flag.Parse()
-	
+
 	pronunciationLanguage = *pronunciationLangFlag
 	pronunciationLanguageDropdown = *pronunciationLangDropdownFlag
-	
-	log.Println("Starting Pejelagarto Translator in FRONTEND mode")
+
+	log.Println("Starting Pejelagarto Translator server")
 	log.Println("Translation: Client-side (WebAssembly)")
 	log.Println("TTS Audio: Server-side")
 	log.Printf("TTS Language: %s\n", pronunciationLanguage)
-	
+
 	// Initialize TTS
 	log.Println("Initializing TTS requirements...")
-	// TODO: Add extractEmbeddedRequirements() and TTS functions here
-	
+	if err := extractEmbeddedRequirements(); err != nil {
+		log.Fatalf("Failed to extract TTS requirements: %v", err)
+	}
+
 	// Serve static files
 	http.HandleFunc("/", handleFrontendIndex)
 	http.HandleFunc("/translator.wasm", func(w http.ResponseWriter, r *http.Request) {
@@ -546,19 +769,20 @@ func main() {
 		w.Header().Set("Content-Type", "application/javascript")
 		http.ServeFile(w, r, "bin/wasm_exec.js")
 	})
-	
-	// TODO: Add TTS endpoints here
-	
+
+	// TTS endpoints
+	http.HandleFunc("/tts", handleTextToSpeech)
+	http.HandleFunc("/tts-check-slow", handleCheckSlowAudio)
+
 	addr := ":8080"
 	url := "http://localhost:8080"
-	
+
 	log.Printf("Server starting on %s\n", url)
-	log.Println("Open your browser to test WASM-powered translation!")
-	
+
 	// Open browser
 	time.Sleep(500 * time.Millisecond)
 	openBrowser(url)
-	
+
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
@@ -575,4 +799,561 @@ func openBrowser(url string) error {
 		cmd = exec.Command("xdg-open", url)
 	}
 	return cmd.Start()
+}
+
+// TTS Functions (server_frontend.go is standalone due to //go:build ignore)
+
+func extractEmbeddedRequirements() error {
+	// Determine the requirements directory based on OS
+	var requirementsDir string
+	if runtime.GOOS == "windows" {
+		requirementsDir = filepath.Join(os.TempDir(), "pejelagarto-translator", "requirements")
+	} else {
+		requirementsDir = filepath.Join("/tmp", "pejelagarto-translator", "requirements")
+	}
+
+	tempRequirementsDir = requirementsDir
+
+	// Check what dependencies are missing
+	piperExe := filepath.Join(tempRequirementsDir, "piper")
+	if runtime.GOOS == "windows" {
+		piperExe += ".exe"
+	}
+
+	espeakData := filepath.Join(tempRequirementsDir, "espeak-ng-data")
+	piperDir := filepath.Join(tempRequirementsDir, "piper")
+
+	// Check if all critical components exist
+	piperExists := false
+	espeakExists := false
+	piperDirExists := false
+
+	if _, err := os.Stat(piperExe); err == nil {
+		piperExists = true
+	}
+	if info, err := os.Stat(espeakData); err == nil && info.IsDir() {
+		espeakExists = true
+	}
+	if info, err := os.Stat(piperDir); err == nil && info.IsDir() {
+		piperDirExists = true
+	}
+
+	// If all dependencies exist, no need to download
+	if piperExists && espeakExists && piperDirExists {
+		log.Printf("Using cached TTS requirements at: %s", tempRequirementsDir)
+		return nil
+	}
+
+	log.Printf("Downloading TTS requirements to: %s", tempRequirementsDir)
+
+	// Create temp directory if it doesn't exist
+	if err := os.MkdirAll(tempRequirementsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create temp directory: %w", err)
+	}
+
+	var scriptContent []byte
+	var scriptPath string
+	var cmd *exec.Cmd
+	var err error
+
+	if runtime.GOOS == "windows" {
+		// Use PowerShell script on Windows
+		scriptContent, err = embeddedGetRequirements.ReadFile("get-requirements.ps1")
+		if err != nil {
+			return fmt.Errorf("failed to read embedded PowerShell script: %w", err)
+		}
+
+		// Create a modified version of the script that uses tempRequirementsDir
+		modifiedScript := strings.Replace(string(scriptContent),
+			`$RequirementsDir = Join-Path $PSScriptRoot "tts\requirements"`,
+			`$RequirementsDir = "`+tempRequirementsDir+`"`,
+			1)
+
+		// Write the modified script to a temporary file
+		scriptPath = filepath.Join(os.TempDir(), "pejelagarto-get-requirements.ps1")
+		if err := os.WriteFile(scriptPath, []byte(modifiedScript), 0755); err != nil {
+			return fmt.Errorf("failed to write temporary PowerShell script: %w", err)
+		}
+		defer os.Remove(scriptPath) // Clean up script after execution
+
+		// Execute the PowerShell script
+		log.Println("Running PowerShell script to download dependencies...")
+		cmd = exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath)
+	} else {
+		// Use shell script on Linux/macOS
+		scriptContent, err = embeddedGetRequirements.ReadFile("get-requirements.sh")
+		if err != nil {
+			return fmt.Errorf("failed to read embedded shell script: %w", err)
+		}
+
+		// Create a modified version of the script that uses tempRequirementsDir
+		modifiedScript := strings.Replace(string(scriptContent),
+			`REQUIREMENTS_DIR="${SCRIPT_DIR}/tts/requirements"`,
+			`REQUIREMENTS_DIR="`+tempRequirementsDir+`"`,
+			1)
+
+		// Write the modified script to a temporary file
+		scriptPath = filepath.Join("/tmp", "pejelagarto-get-requirements.sh")
+		if err := os.WriteFile(scriptPath, []byte(modifiedScript), 0755); err != nil {
+			return fmt.Errorf("failed to write temporary shell script: %w", err)
+		}
+		defer os.Remove(scriptPath) // Clean up script after execution
+
+		// Execute the shell script
+		log.Println("Running shell script to download dependencies...")
+		cmd = exec.Command("/bin/bash", scriptPath)
+	}
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to execute dependency download script: %w", err)
+	}
+
+	// Verify that the dependencies were downloaded
+	if _, err := os.Stat(piperExe); err != nil {
+		return fmt.Errorf("piper binary not found after download: %w", err)
+	}
+	if _, err := os.Stat(espeakData); err != nil {
+		return fmt.Errorf("espeak-ng-data not found after download: %w", err)
+	}
+	if _, err := os.Stat(piperDir); err != nil {
+		return fmt.Errorf("piper directory not found after download: %w", err)
+	}
+
+	log.Printf("Successfully downloaded TTS requirements")
+	return nil
+}
+
+func getPiperBinaryPath() string {
+	binaryPath := filepath.Join(tempRequirementsDir, "piper")
+	if runtime.GOOS == "windows" {
+		binaryPath += ".exe"
+	}
+	return binaryPath
+}
+
+func getModelPath(language string) string {
+	modelsDir := filepath.Join(tempRequirementsDir, "piper", "languages", language)
+	files, _ := filepath.Glob(filepath.Join(modelsDir, "*.onnx"))
+	if len(files) > 0 {
+		return files[0]
+	}
+	return filepath.Join(modelsDir, "model.onnx")
+}
+
+func getBaseVowelForTTS(r rune) rune {
+	vowelMap := map[rune]rune{
+		'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'ä': 'a', 'å': 'a', 'ā': 'a', 'ă': 'a',
+		'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e', 'ē': 'e', 'ė': 'e', 'ę': 'e', 'ě': 'e',
+		'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i', 'ī': 'i', 'į': 'i', 'ı': 'i',
+		'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o', 'ö': 'o', 'ō': 'o', 'ő': 'o',
+		'ù': 'u', 'ú': 'u', 'û': 'u', 'ü': 'u', 'ū': 'u', 'ű': 'u', 'ų': 'u',
+	}
+	if base, ok := vowelMap[r]; ok {
+		return base
+	}
+	return 0
+}
+
+func preprocessTextForTTS(input string, pronunciationLanguage string) string {
+	// Convert numbers from Pejelagarto format
+	input = applyNumbersLogicFromPejelagarto(input)
+
+	var vowels, consonants, allowed string
+
+	switch pronunciationLanguage {
+	case "portuguese":
+		vowels = "aeiouáéíóúâêôãõàü"
+		consonants = "bcdfghjklmnpqrstvwxyzç"
+		allowed = vowels + consonants + " "
+	case "french":
+		vowels = "aeiouyàâäæçéèêëîïôœùûüÿ"
+		consonants = "bcdfghjklmnpqrstvwxz"
+		allowed = vowels + consonants + " "
+	case "russian":
+		vowels = "аеёиоуыэюя"
+		consonants = "бвгджзйклмнпрстфхцчшщъьї"
+		allowed = vowels + consonants + " "
+	case "german":
+		vowels = "aeiouyäöü"
+		consonants = "bcdfghjklmnpqrstvwxzß"
+		allowed = vowels + consonants + " "
+	case "hindi":
+		// Hindi uses Devanagari script
+		return input
+	case "romanian":
+		vowels = "aeiouăâî"
+		consonants = "bcdfghjklmnpqrstvwxyzțș"
+		allowed = vowels + consonants + " "
+	case "swahili":
+		vowels = "aeiou"
+		consonants = "bcdfghjklmnpqrstvwxyz"
+		allowed = vowels + consonants + " "
+	case "czech":
+		vowels = "aeiouyáéíóúůýě"
+		consonants = "bcčdďfghjklmnňpqrřsštťvwxzž"
+		allowed = vowels + consonants + " "
+	case "icelandic":
+		vowels = "aeiouyáéíóúýæöþð"
+		consonants = "bcdfghjklmnpqrstvwxz"
+		allowed = vowels + consonants + " "
+	case "kazakh":
+		// Kazakh uses Cyrillic
+		vowels = "аәеёиоөұүыэюя"
+		consonants = "бвгғджзйкқлмнңопрстуфхһцчшщъыьіэюя"
+		allowed = vowels + consonants + " "
+	case "norwegian":
+		vowels = "aeiouyæøåäöü"
+		consonants = "bcdfghjklmnpqrstvwxz"
+		allowed = vowels + consonants + " "
+	case "swedish":
+		vowels = "aeiouyåäö"
+		consonants = "bcdfghjklmnpqrstvwxz"
+		allowed = vowels + consonants + " "
+	case "turkish":
+		vowels = "aeıioöuüâî"
+		consonants = "bcçdfgğhjklmnprsştvyzw"
+		allowed = vowels + consonants + " "
+	case "vietnamese":
+		vowels = "aăâeêioôơuưy"
+		consonants = "bcđdfghjklmnpqrstvxz"
+		allowed = vowels + consonants + " "
+	case "hungarian":
+		vowels = "aáeéiíoóöőuúüű"
+		consonants = "bcdfghjklmnpqrstvwxyz"
+		allowed = vowels + consonants + " "
+	case "chinese":
+		// Chinese uses Han characters - minimal preprocessing
+		return input
+	default:
+		vowels = "aeiou"
+		consonants = "bcdfghjklmnpqrstvwxyz"
+		allowed = vowels + consonants + " "
+	}
+
+	vowels = strings.ToLower(vowels) + strings.ToUpper(vowels)
+	consonants = strings.ToLower(consonants) + strings.ToUpper(consonants)
+	allowed = strings.ToLower(allowed) + strings.ToUpper(allowed)
+
+	var result []rune
+	consecutiveConsonants := 0
+
+	for _, r := range input {
+		lowerR := unicode.ToLower(r)
+
+		if baseVowel := getBaseVowelForTTS(lowerR); baseVowel != 0 {
+			if !strings.ContainsRune(vowels, baseVowel) {
+				if unicode.IsUpper(r) {
+					r = unicode.ToUpper(baseVowel)
+				} else {
+					r = baseVowel
+				}
+			}
+		}
+
+		if !strings.ContainsRune(allowed, r) && r != ' ' {
+			continue
+		}
+
+		if strings.ContainsRune(consonants, r) {
+			consecutiveConsonants++
+			if consecutiveConsonants > 2 {
+				continue
+			}
+		} else {
+			consecutiveConsonants = 0
+		}
+
+		result = append(result, r)
+	}
+
+	output := string(result)
+	if strings.TrimSpace(output) == "" {
+		return "..."
+	}
+	return output
+}
+
+func textToSpeech(input string, pronunciationLanguage string) (outputPath string, err error) {
+	input = preprocessTextForTTS(input, pronunciationLanguage)
+
+	modelPath := getModelPath(pronunciationLanguage)
+	binaryPath := getPiperBinaryPath()
+
+	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
+		return "", fmt.Errorf("piper binary not found at %s: %w", binaryPath, err)
+	}
+
+	if _, err := os.Stat(modelPath); os.IsNotExist(err) {
+		return "", fmt.Errorf("voice model not found at %s: %w", modelPath, err)
+	}
+
+	tempFile, err := os.CreateTemp("", "piper-tts-*.wav")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temporary output file: %w", err)
+	}
+	outputPath = tempFile.Name()
+	tempFile.Close()
+
+	absOutputPath, err := filepath.Abs(outputPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path for output: %w", err)
+	}
+	absModelPath, err := filepath.Abs(modelPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path for model: %w", err)
+	}
+
+	absBinaryPath, err := filepath.Abs(binaryPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path for binary: %w", err)
+	}
+
+	absRequirementsDir := tempRequirementsDir
+
+	cmd := exec.Command(
+		absBinaryPath,
+		"-m", absModelPath,
+		"--output_file", absOutputPath,
+	)
+
+	cmd.Dir = absRequirementsDir
+	cmd.Stdin = strings.NewReader(input)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		os.Remove(outputPath)
+		return "", fmt.Errorf("piper command failed: %w\nOutput: %s", err, string(output))
+	}
+
+	fileInfo, err := os.Stat(outputPath)
+	if err != nil {
+		return "", fmt.Errorf("output file not created: %w", err)
+	}
+	if fileInfo.Size() == 0 {
+		os.Remove(outputPath)
+		return "", fmt.Errorf("output file is empty (piper output: %s)", string(output))
+	}
+
+	return outputPath, nil
+}
+
+func slowDownAudio(inputPath string) (outputPath string, err error) {
+	tempFile, err := os.CreateTemp("", "piper-tts-slow-*.wav")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temporary output file: %w", err)
+	}
+	outputPath = tempFile.Name()
+	tempFile.Close()
+
+	cmd := exec.Command(
+		"ffmpeg",
+		"-i", inputPath,
+		"-filter:a", "atempo=0.5",
+		"-y",
+		outputPath,
+	)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		os.Remove(outputPath)
+		return "", fmt.Errorf("ffmpeg command failed: %w\nOutput: %s", err, string(output))
+	}
+
+	return outputPath, nil
+}
+
+func handleTextToSpeech(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Error reading request body", http.StatusBadRequest)
+		return
+	}
+
+	lang := r.URL.Query().Get("lang")
+	if lang == "" {
+		lang = pronunciationLanguage
+	}
+
+	slow := r.URL.Query().Get("slow") == "true"
+
+	validLanguages := map[string]bool{
+		"russian": true, "portuguese": true, "french": true, "german": true,
+		"hindi": true, "romanian": true, "swahili": true, "czech": true,
+		"icelandic": true, "kazakh": true, "norwegian": true, "swedish": true,
+		"turkish": true, "vietnamese": true, "hungarian": true, "chinese": true,
+	}
+	if !validLanguages[lang] {
+		http.Error(w, fmt.Sprintf("Invalid language '%s'", lang), http.StatusBadRequest)
+		return
+	}
+
+	input := string(body)
+
+	cacheKey := fmt.Sprintf("%s:%s:%v", input, lang, slow)
+
+	audioCache.RLock()
+	cachedAudio, exists := audioCache.cache[cacheKey]
+	audioCache.RUnlock()
+
+	if exists {
+		w.Header().Set("Content-Type", "audio/wav")
+		w.Header().Set("Content-Disposition", "inline")
+		w.Write(cachedAudio)
+		return
+	}
+
+	wavPath, err := textToSpeech(input, lang)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("TTS error: %v", err), http.StatusInternalServerError)
+		return
+	}
+	defer os.Remove(wavPath)
+
+	if slow {
+		slowWavPath, err := slowDownAudio(wavPath)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Audio slowdown error: %v", err), http.StatusInternalServerError)
+			return
+		}
+		defer os.Remove(slowWavPath)
+		wavPath = slowWavPath
+	}
+
+	wavData, err := os.ReadFile(wavPath)
+	if err != nil {
+		http.Error(w, "Error reading audio file", http.StatusInternalServerError)
+		return
+	}
+
+	audioCache.Lock()
+	audioCache.cache[cacheKey] = wavData
+	audioCache.Unlock()
+
+	w.Header().Set("Content-Type", "audio/wav")
+	w.Header().Set("Content-Disposition", "inline")
+	w.Write(wavData)
+}
+
+func handleCheckSlowAudio(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Error reading request body", http.StatusBadRequest)
+		return
+	}
+
+	lang := r.URL.Query().Get("lang")
+	if lang == "" {
+		lang = pronunciationLanguage
+	}
+
+	input := string(body)
+	cacheKey := fmt.Sprintf("%s:%s:true", input, lang)
+
+	audioCache.RLock()
+	_, exists := audioCache.cache[cacheKey]
+	audioCache.RUnlock()
+
+	if exists {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"ready":true}`)
+		return
+	}
+
+	go func() {
+		audioCache.RLock()
+		_, exists := audioCache.cache[cacheKey]
+		audioCache.RUnlock()
+		if exists {
+			return
+		}
+
+		wavPath, err := textToSpeech(input, lang)
+		if err != nil {
+			return
+		}
+		defer os.Remove(wavPath)
+
+		slowWavPath, err := slowDownAudio(wavPath)
+		if err != nil {
+			return
+		}
+		defer os.Remove(slowWavPath)
+
+		slowData, err := os.ReadFile(slowWavPath)
+		if err != nil {
+			return
+		}
+
+		audioCache.Lock()
+		audioCache.cache[cacheKey] = slowData
+		audioCache.Unlock()
+	}()
+
+	w.Header().Set("Content-Type", "application/json")
+	fmt.Fprint(w, `{"ready":false}`)
+}
+
+// applyNumbersLogicFromPejelagarto is needed by preprocessTextForTTS
+func applyNumbersLogicFromPejelagarto(input string) string {
+	// Pattern to match base-8 sequences for positive numbers (prefixed with optional +, not -)
+	base8Pattern := regexp.MustCompile(`(?:^|[^-])\+?([0-7]+)`)
+
+	// Pattern to match base-7 sequences for negative numbers (prefixed with -)
+	base7Pattern := regexp.MustCompile(`-([0-6]+)`)
+
+	result := input
+
+	// Process positive numbers (base-8)
+	result = base8Pattern.ReplaceAllStringFunc(result, func(match string) string {
+		// Extract the number part
+		num := strings.TrimLeft(match, "+")
+		num = strings.TrimLeft(num, " ")
+
+		// Skip if contains digits 8 or 9 (not base-8)
+		if strings.ContainsAny(num, "89") {
+			return match
+		}
+
+		// Convert from base-8 to base-10
+		val := int64(0)
+		for _, digit := range num {
+			val = val*8 + int64(digit-'0')
+		}
+
+		return fmt.Sprintf("%d", val)
+	})
+
+	// Process negative numbers (base-7)
+	result = base7Pattern.ReplaceAllStringFunc(result, func(match string) string {
+		// Extract the number part (without the minus sign)
+		num := strings.TrimPrefix(match, "-")
+
+		// Skip if contains digits 7, 8, or 9 (not base-7)
+		if strings.ContainsAny(num, "789") {
+			return match
+		}
+
+		// Convert from base-7 to base-10
+		val := int64(0)
+		for _, digit := range num {
+			val = val*7 + int64(digit-'0')
+		}
+
+		return fmt.Sprintf("-%d", val)
+	})
+
+	return result
 }

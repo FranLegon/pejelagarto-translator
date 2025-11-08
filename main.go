@@ -3,21 +3,14 @@ package main
 import (
 	"embed"
 	"fmt"
-	"log"
 	"math/big"
 	"math/rand"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"regexp"
-	"runtime"
 	"sort"
 	"strings"
 	"time"
 	"unicode"
 	"unicode/utf8"
-
-	"pejelagarto-translator/obfuscation"
 )
 
 //go:embed get-requirements.ps1 get-requirements.sh
@@ -25,156 +18,6 @@ var embeddedGetRequirements embed.FS
 
 // tempRequirementsDir stores the path to extracted requirements
 var tempRequirementsDir string
-
-// extractEmbeddedRequirements downloads TTS requirements by running the embedded PowerShell script
-func extractEmbeddedRequirements() error {
-	// Determine temp directory based on OS
-	var baseDir string
-	if runtime.GOOS == "windows" {
-		baseDir = os.Getenv("TEMP")
-		if baseDir == "" {
-			baseDir = os.Getenv("TMP")
-		}
-		if baseDir == "" {
-			baseDir = "C:\\Windows\\Temp"
-		}
-	} else {
-		baseDir = "/tmp"
-	}
-
-	// Create a unique directory for this application
-	tempRequirementsDir = filepath.Join(baseDir, obfuscation.ProjectName(), "requirements")
-
-	// Check what dependencies are missing
-	piperExe := filepath.Join(tempRequirementsDir, "piper")
-	if runtime.GOOS == "windows" {
-		piperExe += ".exe"
-	}
-
-	espeakData := filepath.Join(tempRequirementsDir, "espeak-ng-data")
-	piperDir := filepath.Join(tempRequirementsDir, "piper")
-
-	// Check if all critical components exist
-	piperExists := false
-	espeakExists := false
-	piperDirExists := false
-
-	if _, err := os.Stat(piperExe); err == nil {
-		piperExists = true
-	}
-	if info, err := os.Stat(espeakData); err == nil && info.IsDir() {
-		espeakExists = true
-	}
-	if info, err := os.Stat(piperDir); err == nil && info.IsDir() {
-		piperDirExists = true
-	}
-
-	// If all dependencies exist, no need to download
-	if piperExists && espeakExists && piperDirExists {
-		log.Printf("Using cached TTS requirements at: %s", tempRequirementsDir)
-		return nil
-	}
-
-	if !obfuscation.Obfuscated() {
-		log.Printf("Downloading TTS requirements to: %s", tempRequirementsDir)
-		if !piperExists {
-			log.Printf("  - Missing: piper binary")
-		}
-		if !espeakExists {
-			log.Printf("  - Missing: espeak-ng-data")
-		}
-		if !piperDirExists {
-			log.Printf("  - Missing: piper directory (language models)")
-		}
-	}
-
-	// Create temp directory if it doesn't exist
-	if err := os.MkdirAll(tempRequirementsDir, 0755); err != nil {
-		return fmt.Errorf("failed to create temp directory: %w", err)
-	}
-
-	var scriptContent []byte
-	var scriptPath string
-	var cmd *exec.Cmd
-	var err error
-
-	if runtime.GOOS == "windows" {
-		// Use PowerShell script on Windows
-		scriptContent, err = embeddedGetRequirements.ReadFile("get-requirements.ps1")
-		if err != nil {
-			return fmt.Errorf("failed to read embedded PowerShell script: %w", err)
-		}
-
-		// Create a modified version of the script that uses tempRequirementsDir
-		modifiedScript := strings.Replace(string(scriptContent),
-			`$RequirementsDir = Join-Path $PSScriptRoot "tts\requirements"`,
-			`$RequirementsDir = "`+tempRequirementsDir+`"`,
-			1)
-
-		// Write the modified script to a temporary file
-		scriptPath = filepath.Join(baseDir, obfuscation.ScriptSuffix()+".ps1")
-		if err := os.WriteFile(scriptPath, []byte(modifiedScript), 0755); err != nil {
-			return fmt.Errorf("failed to write temporary PowerShell script: %w", err)
-		}
-		defer os.Remove(scriptPath) // Clean up script after execution
-
-		// Execute the PowerShell script
-		if !obfuscation.Obfuscated() {
-			log.Println("Running PowerShell script to download dependencies...")
-		}
-		cmd = exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath)
-	} else {
-		// Use shell script on Linux/macOS
-		scriptContent, err = embeddedGetRequirements.ReadFile("get-requirements.sh")
-		if err != nil {
-			return fmt.Errorf("failed to read embedded shell script: %w", err)
-		}
-
-		// Create a modified version of the script that uses tempRequirementsDir
-		modifiedScript := strings.Replace(string(scriptContent),
-			`REQUIREMENTS_DIR="${SCRIPT_DIR}/tts/requirements"`,
-			`REQUIREMENTS_DIR="`+tempRequirementsDir+`"`,
-			1)
-
-		// Write the modified script to a temporary file
-		scriptPath = filepath.Join(baseDir, obfuscation.ScriptSuffix()+".sh")
-		if err := os.WriteFile(scriptPath, []byte(modifiedScript), 0755); err != nil {
-			return fmt.Errorf("failed to write temporary shell script: %w", err)
-		}
-		defer os.Remove(scriptPath) // Clean up script after execution
-
-		// Execute the shell script
-		if !obfuscation.Obfuscated() {
-			log.Println("Running shell script to download dependencies...")
-		}
-		cmd = exec.Command("/bin/bash", scriptPath)
-	}
-
-	if !obfuscation.Obfuscated() {
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-	}
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to execute dependency download script: %w", err)
-	}
-
-	// Verify that the dependencies were downloaded
-	if _, err := os.Stat(piperExe); err != nil {
-		return fmt.Errorf("piper binary not found after download: %w", err)
-	}
-	if _, err := os.Stat(espeakData); err != nil {
-		return fmt.Errorf("espeak-ng-data not found after download: %w", err)
-	}
-	if _, err := os.Stat(piperDir); err != nil {
-		return fmt.Errorf("piper directory not found after download: %w", err)
-	}
-
-	if !obfuscation.Obfuscated() {
-		log.Printf("Successfully downloaded TTS requirements")
-	}
-	return nil
-}
 
 // Translation maps for conjunction (letter pair) replacements
 // NOTE: All values must have SAME length as keys (rune count)
