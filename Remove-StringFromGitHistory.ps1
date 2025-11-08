@@ -450,5 +450,7 @@ $replacementCommands
     Write-Host "="*60 -ForegroundColor Cyan
 }
 
-# Export functions
-Export-ModuleMember -Function Remove-StringFromGitHistory, Remove-StringsFromGitHistory
+# Export functions (only works when loaded as module, not when dot-sourced)
+if ((Get-Command -Name Export-ModuleMember -ErrorAction SilentlyContinue) -and $MyInvocation.MyCommand.ModuleName) {
+    Export-ModuleMember -Function Remove-StringFromGitHistory, Remove-StringsFromGitHistory
+}
