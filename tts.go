@@ -1,3 +1,5 @@
+//go:build !frontend
+
 package main
 
 import (
@@ -704,4 +706,29 @@ func handleCheckSlowAudio(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprint(w, `{"ready":false}`)
+}
+
+func handlePronunciation(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+		return
+	}
+	input := string(body)
+
+	// Get language from query parameter, default to pronunciationLanguage global
+	lang := r.URL.Query().Get("lang")
+	if lang == "" {
+		lang = pronunciationLanguage
+	}
+
+	// Return the preprocessed text as pronunciation
+	pronunciation := preprocessTextForTTS(input, lang)
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	fmt.Fprint(w, pronunciation)
 }

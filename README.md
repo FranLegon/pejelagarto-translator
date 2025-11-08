@@ -1193,48 +1193,61 @@ frontend
 
 | File | Build Tags | Purpose |
 |------|-----------|---------|
-| `main.go` | None (default) | Backend server entry point |
-| `server_backend.go` | None (default) | Backend HTTP server with server-side translation |
-| `server_frontend.go` | `//go:build ignore` | Frontend HTTP server (WASM client-side translation) |
+| `main.go` | None (all builds) | Core translation logic (shared by all builds) |
+| `tts.go` | `//go:build !frontend` | TTS functions (backend + frontendserver) |
+| `server_backend.go` | `//go:build !frontend && !frontendserver` | Backend HTTP server with server-side translation |
+| `server_frontend.go` | `//go:build frontendserver` | Frontend HTTP server (WASM client-side translation) |
 | `wasm_main.go` | `//go:build frontend` | WASM entry point with JS exports |
-| `translation_test.go` | None | Shared translation tests (backend + WASM) |
+| `translation_test.go` | None (all builds) | Shared translation tests |
 | `wasm_test.go` | `//go:build frontend` | WASM-specific tests |
 | `tts_test.go` | `//go:build !frontend` | Server-only TTS tests |
-| `obfuscation/constants_normal.go` | `//go:build !obfuscated` | Normal build constants |
+| `version.go` | None (all builds) | Version constant |
+| `downloadable.go` | `//go:build downloadable \|\| ngrok_default` | Embeds binaries for download |
+| `not_downloadable.go` | `//go:build !downloadable && !ngrok_default` | No embedded binaries |
+| `ngrok_default.go` | `//go:build ngrok_default` | Hardcoded ngrok credentials |
+| `ngrok_not_default.go` | `//go:build !ngrok_default` | No hardcoded credentials |
+| `obfuscation/constants_backend.go` | `//go:build !obfuscated` | Normal build constants |
 | `obfuscation/constants_obfuscated.go` | `//go:build obfuscated` | Obfuscated build constants |
 
 #### Build Process Flow
 
-**Backend Build:**
-```
-1. main.go entry point
-2. Uses server_backend.go (server-side translation)
-3. Excludes frontend/WASM code
-4. Output: pejelagarto-translator binary
+**Backend Build (Default):**
+```bash
+go build .
+# Includes: main.go, tts.go, server_backend.go, version.go
+# Excludes: server_frontend.go, wasm_main.go (via build tags)
+# Output: pejelagarto-translator binary (~40MB)
 ```
 
-**Frontend Build:**
-```
-1. Step A: Build WASM module
-   - Set GOOS=js, GOARCH=wasm
-   - Build with -tags frontend
-   - Entry: wasm_main.go
-   - Output: main.wasm (~2-3MB)
+**Frontend Server Build:**
+```bash
+# Step 1: Build WASM module
+GOOS=js GOARCH=wasm go build -tags frontend -o bin/main.wasm .
+# Includes: main.go, wasm_main.go, version.go
+# Output: main.wasm (~3MB)
 
-2. Step B: Build server
-   - Build server_frontend.go directly (has //go:build ignore)
-   - No frontend tag (avoids syscall/js errors)
-   - Output: server binary
+# Step 2: Build frontend server
+go build -tags frontendserver .
+# Includes: main.go, tts.go, server_frontend.go, version.go
+# Excludes: server_backend.go (via build tags)
+# Output: server binary (~40MB)
 ```
 
 **Production Build (scripts/helpers/build-prod.*):**
-```
+```bash
+# All builds now use tags exclusively - no explicit file lists
 1. Check garble installation
-2. Build WASM with frontend tag
+2. Build WASM: garble build -tags frontend
 3. Copy wasm_exec.js runtime
-4. Build server with garble (obfuscated + ngrok_default tags)
+4. Build server: garble build -tags "frontendserver,obfuscated,ngrok_default,downloadable"
 5. Generate SHA256 checksums
 ```
+
+**Key Improvements in v1.0.3:**
+- **Tag-based builds**: All builds now use `-tags` with `.` - no more explicit file lists
+- **No code duplication**: Removed 629 lines of duplicate code from server_frontend.go
+- **Shared modules**: main.go (translation), tts.go (TTS), version.go shared across builds
+- **Mutual exclusion**: server_backend.go and server_frontend.go are mutually exclusive via tags
 
 ### Project Structure
 

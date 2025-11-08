@@ -80,16 +80,16 @@ export GOOS="$OS"
 export GOARCH="$ARCH"
 export CGO_ENABLED=0
 
-echo "  Tags: obfuscated,ngrok_default,downloadable"
-echo "  Source: server_frontend.go version.go ngrok_default.go downloadable.go"
+echo "  Tags: frontendserver,obfuscated,ngrok_default,downloadable"
+echo "  Build: Using tags to auto-select files"
 echo "  Output: $OUTPUT_PATH"
 
 garble -tiny -literals -seed=random build \
-    -tags "obfuscated,ngrok_default,downloadable" \
+    -tags "frontendserver,obfuscated,ngrok_default,downloadable" \
     -ldflags="-s -w -extldflags '-static'" \
     -trimpath \
     -o "$OUTPUT_PATH" \
-    server_frontend.go version.go ngrok_default.go downloadable.go
+    .
 
 if [ $? -ne 0 ]; then
     echo "Failed to build server"

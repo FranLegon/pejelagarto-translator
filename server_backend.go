@@ -1,9 +1,10 @@
-//go:build !frontend
+//go:build !frontend && !frontendserver
 
 package main
 
-// This file contains the main() function and server-specific code
+// This file contains the main() function and server-specific code for the backend server
 // When building with -tags frontend, this file is excluded and wasm_main.go's main() is used instead
+// When building with -tags frontendserver, this file is excluded and server_frontend.go's main() is used instead
 
 import (
 	"context"

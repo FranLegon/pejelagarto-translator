@@ -91,8 +91,8 @@ $outputPath = "bin\$outputName"
 # Build server (frontend server for WASM mode)
 Write-Host "[4/6] Building obfuscated frontend server..." -ForegroundColor Green
 
-Write-Host "  Tags: obfuscated,ngrok_default,downloadable" -ForegroundColor White
-Write-Host "  Source: server_frontend.go version.go ngrok_default.go downloadable.go" -ForegroundColor White
+Write-Host "  Tags: frontendserver,obfuscated,ngrok_default,downloadable" -ForegroundColor White
+Write-Host "  Build: Using tags to auto-select files" -ForegroundColor White
 Write-Host "  Output: $outputPath" -ForegroundColor White
 
 & {
@@ -101,11 +101,11 @@ Write-Host "  Output: $outputPath" -ForegroundColor White
     $env:CGO_ENABLED = "0"
     
     garble -tiny -literals -seed=random build `
-        -tags "obfuscated,ngrok_default,downloadable" `
+        -tags "frontendserver,obfuscated,ngrok_default,downloadable" `
         -ldflags="-s -w -extldflags '-static'" `
         -trimpath `
         -o $outputPath `
-        server_frontend.go version.go ngrok_default.go downloadable.go
+        .
 }
 
 if ($LASTEXITCODE -ne 0) {
