@@ -529,7 +529,7 @@ const htmlUIFrontend = `<!DOCTYPE html>
             <a href="/download/linux" download="pejelagarto-translator" class="download-btn">
                 🐧 Linux/Mac
             </a>
-            <a href="/download/android" download="pejelagarto-translator.apk" class="download-btn">
+            <a href="/download/android" download="pejelagarto-translator-webview.apk" class="download-btn">
                 🤖 Android
             </a>
         </div>
@@ -1015,7 +1015,7 @@ func handleDownloadAndroid(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, err := embeddedBinaries.ReadFile("bin/pejelagarto-translator.apk")
+	data, err := embeddedBinaries.ReadFile("bin/pejelagarto-translator-webview.apk")
 	if err != nil {
 		http.Error(w, "Android APK not found", http.StatusNotFound)
 		if !config.Obfuscated() {
@@ -1025,7 +1025,7 @@ func handleDownloadAndroid(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/vnd.android.package-archive")
-	w.Header().Set("Content-Disposition", "attachment; filename=pejelagarto-translator.apk")
+	w.Header().Set("Content-Disposition", "attachment; filename=pejelagarto-translator-webview.apk")
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(data)))
 	w.Write(data)
 }

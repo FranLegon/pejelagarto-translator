@@ -60,4 +60,13 @@ package config
 //   - FIXED: ngrok domain configuration (empty for random URLs)
 //   - DOCUMENTED: Garble+ngrok incompatibility (definitively proven)
 //   - DEPRECATED: Garble production build for ngrok use
-const Version = "v1.2.7"
+//
+// Changelog v1.2.9:
+//   - FIXED: Android WebView translation functionality (renamed translate() to doTranslate())
+//   - FIXED: WebView JavaScript caching (added cache clearing on load)
+//   - ENHANCED: Added WebChromeClient for better console logging and debugging
+//   - IMPROVED: Android app now fully functional with bidirectional translation
+//   - VERIFIED: JavaScript bridge successfully calls Go translation functions
+
+// Version is the current version of the application
+const Version = "1.2.9"
