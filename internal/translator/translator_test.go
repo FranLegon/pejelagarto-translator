@@ -158,9 +158,9 @@ func FuzzSpecialCharDateTimeEncoding(f *testing.F) {
 
 		// Clean both for comparison (remove special characters and timestamps)
 		inputCleanedTemp, _ := removeISO8601timestamp(input)
-		inputCleaned := removeTimestampSpecialCharacters(inputCleanedTemp)
+		inputCleaned := RemoveTimestampSpecialCharacters(inputCleanedTemp)
 		restoredCleanedTemp, _ := removeISO8601timestamp(restored)
-		restoredCleaned := removeTimestampSpecialCharacters(restoredCleanedTemp)
+		restoredCleaned := RemoveTimestampSpecialCharacters(restoredCleanedTemp)
 
 		if inputCleaned != restoredCleaned {
 			t.Errorf("Reversibility failed after cleaning.\nInput (cleaned):    %q\nRestored (cleaned): %q", inputCleaned, restoredCleaned)
@@ -185,9 +185,9 @@ func FuzzTranslatePejelagarto(f *testing.F) {
 
 		// Since special character/timestamp logic is now integrated, we need to clean for comparison
 		inputCleanedTemp, _ := removeISO8601timestamp(input)
-		inputCleaned := removeTimestampSpecialCharacters(inputCleanedTemp)
+		inputCleaned := RemoveTimestampSpecialCharacters(inputCleanedTemp)
 		reversedCleanedTemp, _ := removeISO8601timestamp(reversed)
-		reversedCleaned := removeTimestampSpecialCharacters(reversedCleanedTemp)
+		reversedCleaned := RemoveTimestampSpecialCharacters(reversedCleanedTemp)
 
 		if reversedCleaned != inputCleaned {
 			t.Errorf("TranslateToPejelagarto->TranslateFromPejelagarto failed\nInput (cleaned):       %q\nPejelagarto: %q\nReversed (cleaned):    %q", inputCleaned, pejelagarto, reversedCleaned)
@@ -202,7 +202,7 @@ func FuzzTranslatePejelagarto(f *testing.F) {
 				reversed = TranslateToPejelagarto(human)
 
 				reversedCleanedTemp, _ = removeISO8601timestamp(reversed)
-				reversedCleaned = removeTimestampSpecialCharacters(reversedCleanedTemp)
+				reversedCleaned = RemoveTimestampSpecialCharacters(reversedCleanedTemp)
 
 				if reversedCleaned != inputCleaned {
 					t.Errorf("TranslateFromPejelagarto->TranslateToPejelagarto failed\nInput (cleaned):       %q\nHuman:      %q\nReversed (cleaned):    %q", inputCleaned, human, reversedCleaned)
@@ -212,4 +212,3 @@ func FuzzTranslatePejelagarto(f *testing.F) {
 
 	})
 }
-

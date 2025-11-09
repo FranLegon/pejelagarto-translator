@@ -310,14 +310,16 @@ func getBaseVowelForTTS(r rune) rune {
 	return 0
 }
 
-// preprocessTextForTTS prepares text for TTS by:
-// 1. Converting numbers from Pejelagarto format to standard format
+// preprocessTextForTTS prepares Pejelagarto text for TTS pronunciation by:
+// 1. Removing timestamp special characters (U+2300-U+23FB range)
 // 2. Converting accented vowels to base vowels when accent not available in language
 // 3. Removing non-language-specific characters
 // 4. Limiting consonant clusters to max 2 adjacent consonants
+// Note: This function expects Pejelagarto text as input, NOT Human text.
+// Numbers are kept in Pejelagarto format (base-7/base-8) for pronunciation.
 func preprocessTextForTTS(input string, PronunciationLanguage string) string {
-	// Step 1: Apply number conversion from Pejelagarto format
-	input = translator.ApplyNumbersLogicFromPejelagarto(input)
+	// Step 1: Remove timestamp special characters used by Pejelagarto encoding
+	input = translator.RemoveTimestampSpecialCharacters(input)
 
 	// Define language-specific vowels and consonants
 	var vowels, consonants, allowed string
@@ -765,6 +767,8 @@ func HandleCheckSlowAudio(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, `{"ready":false}`)
 }
 
+// HandlePronunciation processes Pejelagarto text and returns its pronunciation
+// The input should be Pejelagarto text (not Human text)
 func HandlePronunciation(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -776,7 +780,7 @@ func HandlePronunciation(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to read request body", http.StatusBadRequest)
 		return
 	}
-	input := string(body)
+	pejelagartoText := string(body)
 
 	// Get language from query parameter, default to PronunciationLanguage global
 	lang := r.URL.Query().Get("lang")
@@ -784,8 +788,8 @@ func HandlePronunciation(w http.ResponseWriter, r *http.Request) {
 		lang = PronunciationLanguage
 	}
 
-	// Return the preprocessed text as pronunciation
-	pronunciation := preprocessTextForTTS(input, lang)
+	// Return the preprocessed Pejelagarto text as pronunciation
+	pronunciation := preprocessTextForTTS(pejelagartoText, lang)
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	fmt.Fprint(w, pronunciation)
 }
