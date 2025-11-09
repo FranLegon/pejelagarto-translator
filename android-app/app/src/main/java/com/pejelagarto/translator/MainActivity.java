@@ -188,7 +188,7 @@ public class MainActivity extends AppCompatActivity {
             "        <div class=\"subtitle\">Native Android App</div>\n" +
             "        \n" +
             "        <div class=\"input-group\">\n" +
-            "            <label id=\"inputLabel\">English:</label>\n" +
+            "            <label id=\"inputLabel\">Human:</label>\n" +
             "            <textarea id=\"inputText\" placeholder=\"Type your text here...\"></textarea>\n" +
             "        </div>\n" +
             "        \n" +
@@ -237,10 +237,10 @@ public class MainActivity extends AppCompatActivity {
             "            if (direction === 'toPejelagarto') {\n" +
             "                direction = 'fromPejelagarto';\n" +
             "                document.getElementById('inputLabel').textContent = 'Pejelagarto:';\n" +
-            "                document.getElementById('outputLabel').textContent = 'English:';\n" +
+            "                document.getElementById('outputLabel').textContent = 'Human:';\n" +
             "            } else {\n" +
             "                direction = 'toPejelagarto';\n" +
-            "                document.getElementById('inputLabel').textContent = 'English:';\n" +
+            "                document.getElementById('inputLabel').textContent = 'Human:';\n" +
             "                document.getElementById('outputLabel').textContent = 'Pejelagarto:';\n" +
             "            }\n" +
             "            clearText();\n" +
