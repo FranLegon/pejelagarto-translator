@@ -4,5 +4,5 @@ package main
 
 import "embed"
 
-//go:embed bin/pejelagarto-translator.exe bin/pejelagarto-translator bin/pejelagarto-translator-webview.apk
+//go:embed bin/pejelagarto-translator-windows-amd64.exe bin/pejelagarto-translator-linux-amd64 bin/pejelagarto-translator-darwin-amd64 bin/pejelagarto-translator.apk
 var embeddedBinaries embed.FS
