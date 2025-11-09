@@ -1280,8 +1280,6 @@ pejelagarto-translator/
 ├── server_frontend.go       # Frontend HTTP server (WASM client-side translation)
 ├── wasm_main.go             # WASM entry point with JS exports
 ├── wasm_test.go             # WASM-specific tests
-├── tts_test.go              # TTS-specific tests (server-only)
-├── tts.go                   # Text-to-speech functionality
 ├── embedded_binaries.go     # Embed binaries for downloadable builds (main package)
 ├── embedded_binaries_not_downloadable.go  # Empty embed for non-downloadable builds
 ├── README.md                # This documentation
@@ -1301,9 +1299,12 @@ pejelagarto-translator/
 │   ├── ngrok_default.go             # Hardcoded ngrok credentials
 │   └── ngrok_not_default.go         # No hardcoded ngrok credentials
 ├── internal/                # Internal packages (not for external import)
-│   └── translator/          # Core translation logic package (~1850 lines)
-│       ├── translator.go    # Translation engine implementation
-│       └── translator_test.go  # Comprehensive test suite with fuzz testing
+│   ├── translator/          # Core translation logic package (~1850 lines)
+│   │   ├── translator.go    # Translation engine implementation
+│   │   └── translator_test.go  # Comprehensive test suite with fuzz testing
+│   └── tts/                 # Text-to-speech package (~780 lines)
+│       ├── tts.go           # TTS functionality and audio processing
+│       └── tts_test.go      # TTS-specific tests (server-only)
 ├── scripts/
 │   ├── requirements/
 │   │   ├── get-requirements.ps1     # Embedded in binary - downloads TTS dependencies (Windows)
@@ -1705,15 +1706,17 @@ When preparing a new release:
 
 ### Version History
 
-#### v1.0.9 (Current - First Major Refactoring)
-- **New package structure**: Created `internal/translator/` package
-- **Code separation**: Moved ~1850 lines of translation logic from main.go
+#### v1.0.9 (Current - Major Refactoring: Package Structure)
+- **New package structure**: Created `internal/translator/` and `internal/tts/` packages
+- **Translation logic**: Moved ~1850 lines from main.go to internal/translator/
+- **TTS logic**: Moved ~780 lines from root to internal/tts/
 - **Reduced main.go**: Now only contains HTML template and embed directives (~840 lines)
-- **New exports**: TranslateToPejelagarto, TranslateFromPejelagarto, maps, constants
-- **Test migration**: Moved translation_test.go to internal/translator/
-- **Import updates**: Updated 8 files to use new translator package
-- **Validated builds**: All 12 build tag combinations tested and passing
-- **Gradual approach**: First step in incremental refactoring strategy
+- **Translator exports**: TranslateToPejelagarto, TranslateFromPejelagarto, maps, constants
+- **TTS exports**: HandleTextToSpeech, HandleCheckSlowAudio, HandlePronunciation, config variables
+- **Test migration**: Moved translation_test.go and tts_test.go to respective packages
+- **Import updates**: Updated 9 files to use new package structure
+- **Validated builds**: All 12 build tag combinations tested and passing after each refactoring step
+- **Gradual approach**: Incremental refactoring strategy with continuous testing
 
 #### v1.0.8 (Project Reorganization)
 - **Major restructuring**: Moved configuration files to `config/` package
