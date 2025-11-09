@@ -104,6 +104,12 @@ package config
 //   - IMPROVED: Better pronunciation for semi-vowels in all TTS languages
 //   - OPTIMIZED: More natural-sounding text-to-speech output
 //   - FIXED: TTS test file function name references (PronunciationLanguage, HandleTextToSpeech)
+//
+// Changelog v1.3.5:
+//   - FIXED: embedded binary file patterns to match actual bin/ contents
+//   - RESOLVED: production build failure in embedded_binaries.go
+//   - IMPROVED: build system reliability for downloadable/ngrok_default tags
+//   - VERIFIED: all production builds now complete successfully
 
 // Version is the current version of the application
-const Version = "1.3.4"
+const Version = "1.3.5"
