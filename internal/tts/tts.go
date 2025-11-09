@@ -475,6 +475,10 @@ func preprocessTextForTTS(input string, PronunciationLanguage string) string {
 
 	finalResult := final.String()
 
+	// Step 3: Replace w with u and y with i for better TTS pronunciation
+	finalResult = strings.ReplaceAll(finalResult, "w", "u")
+	finalResult = strings.ReplaceAll(finalResult, "y", "i")
+
 	// If the result is empty or only whitespace, return a space to prevent TTS errors
 	if strings.TrimSpace(finalResult) == "" {
 		return " "

@@ -64,7 +64,7 @@ func TestHandleTextToSpeech(t *testing.T) {
 	}
 
 	// Set global variables
-	pronunciationLanguage = "russian"
+	PronunciationLanguage = "russian"
 
 	testCases := []struct {
 		name           string
@@ -105,7 +105,7 @@ func TestHandleTextToSpeech(t *testing.T) {
 			req := httptest.NewRequest(tc.method, "/tts?lang="+tc.lang, strings.NewReader(tc.body))
 			w := httptest.NewRecorder()
 
-			handleTextToSpeech(w, req)
+			HandleTextToSpeech(w, req)
 
 			if w.Code != tc.expectedStatus {
 				t.Errorf("Expected status %d, got %d", tc.expectedStatus, w.Code)

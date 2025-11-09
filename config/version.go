@@ -98,6 +98,12 @@ package config
 //   - IMPROVED: Battery-friendly settings (continues on battery power)
 //   - TOOLING: create-scheduled-task.ps1 for easy task management
 //   - TOOLING: create-windows-service.ps1 for production deployments
+//
+// Changelog v1.3.4:
+//   - ENHANCED: TTS preprocessing now replaces 'w' with 'u' and 'y' with 'i'
+//   - IMPROVED: Better pronunciation for semi-vowels in all TTS languages
+//   - OPTIMIZED: More natural-sounding text-to-speech output
+//   - FIXED: TTS test file function name references (PronunciationLanguage, HandleTextToSpeech)
 
 // Version is the current version of the application
-const Version = "1.3.3"
+const Version = "1.3.4"
