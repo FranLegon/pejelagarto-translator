@@ -2,8 +2,4 @@
 
 package config
 
-import "embed"
-
-var EmbeddedBinaries embed.FS
-
 const IsDownloadable = false

@@ -26,7 +26,7 @@ import (
 )
 
 // Downloadable feature - constants come from downloadable.go or not_downloadable.go based on build tags
-// var config.EmbeddedBinaries embed.FS and const config.IsDownloadable are defined in those files
+// var embeddedBinaries embed.FS and const config.IsDownloadable are defined in those files
 
 // Frontend HTML - identical UI to regular mode, but uses WASM for translation
 // This constant is based on htmlUI from main.go with only the handleLiveTranslation() function modified
@@ -943,7 +943,7 @@ func handleDownloadWindows(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, err := config.EmbeddedBinaries.ReadFile("bin/pejelagarto-translator.exe")
+	data, err := embeddedBinaries.ReadFile("bin/pejelagarto-translator.exe")
 	if err != nil {
 		http.Error(w, "Windows binary not found", http.StatusNotFound)
 		if !config.Obfuscated() {
@@ -965,7 +965,7 @@ func handleDownloadLinux(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, err := config.EmbeddedBinaries.ReadFile("bin/pejelagarto-translator")
+	data, err := embeddedBinaries.ReadFile("bin/pejelagarto-translator")
 	if err != nil {
 		http.Error(w, "Linux/Mac binary not found", http.StatusNotFound)
 		if !config.Obfuscated() {

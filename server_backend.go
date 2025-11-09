@@ -440,7 +440,7 @@ func handleDownloadWindows(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, err := config.EmbeddedBinaries.ReadFile("bin/pejelagarto-translator.exe")
+	data, err := embeddedBinaries.ReadFile("bin/pejelagarto-translator.exe")
 	if err != nil {
 		http.Error(w, "Windows binary not found", http.StatusNotFound)
 		if !config.Obfuscated() {
@@ -462,7 +462,7 @@ func handleDownloadLinux(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, err := config.EmbeddedBinaries.ReadFile("bin/pejelagarto-translator")
+	data, err := embeddedBinaries.ReadFile("bin/pejelagarto-translator")
 	if err != nil {
 		http.Error(w, "Linux/Mac binary not found", http.StatusNotFound)
 		if !config.Obfuscated() {
