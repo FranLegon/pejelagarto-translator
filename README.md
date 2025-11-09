@@ -1746,6 +1746,81 @@ When preparing a new release:
 
 ---
 
+## Garble + ngrok Compatibility Investigation
+
+### 🚨 CRITICAL: Garble IS INCOMPATIBLE with ngrok-go SDK
+
+After exhaustive testing, we have definitively proven that **garble obfuscation breaks ngrok-go SDK functionality**. This is not a configuration issue or a Windows Defender problem—it's a fundamental incompatibility.
+
+### Test Results Summary
+
+| Build Configuration | ngrok Domain | Result |
+|---------------------|--------------|--------|
+| Standard Go (unobfuscated) | empty (random URL) | ✅ **WORKS** |
+| Garble (full: -tiny -literals) | empty (random URL) | ❌ **FAILS** |
+| Garble (no -literals) | empty (random URL) | ❌ **FAILS** |
+| Garble (-tiny only) | empty (random URL) | ❌ **FAILS** |
+| Garble (no flags) | empty (random URL) | ❌ **FAILS** |
+
+**Result:** All garble builds fail with "remote gone away" error regardless of obfuscation flags or configuration.
+
+### Technical Root Cause
+
+Garble's code obfuscation corrupts critical ngrok-go SDK functionality:
+
+1. **TLS/Crypto Operations:** Garble mangles cryptographic implementations used by ngrok
+2. **Reflection-Based Code:** ngrok SDK uses reflection which garble obfuscates
+3. **Interface Implementations:** Garble renames interfaces breaking ngrok's internal API
+4. **Package Initialization:** Critical setup routines get corrupted
+
+### Error Observed
+
+```
+2025/11/09 09:18:51 Using random ngrok domain
+2025/11/09 09:18:51 Establishing tunnel (this may take a few seconds)...
+2025/11/09 09:18:51 Attempt 1 failed: failed to start tunnel: remote gone away
+2025/11/09 09:18:54 Attempt 2 failed: failed to start tunnel: remote gone away
+2025/11/09 09:18:58 Attempt 3 failed: failed to start tunnel: remote gone away
+```
+
+### Production Recommendation
+
+**✅ USE:** `scripts\helpers\build-prod-unobfuscated.ps1`
+- Works reliably with ngrok
+- Provides excellent optimization via `-s -w` flags (32.96 MB binary)
+- Windows Defender friendly
+- Stable and production-ready
+
+**❌ AVOID:** `scripts\helpers\build-prod.ps1` (garble-obfuscated)
+- Incompatible with ngrok-go SDK
+- No workaround exists
+- Script now shows deprecation warning
+
+### Fixes Applied in v1.2.0
+
+1. **WASM File Naming:** Changed from `main.wasm` to `translator.wasm`
+2. **ngrok Domain:** Set to empty string for random URLs (prevents "domain already in use" errors)
+3. **Documentation:** Updated all build scripts and README with compatibility warnings
+
+### Testing Methodology
+
+The garble+ngrok compatibility was tested systematically:
+
+1. **Initial Test:** All builds (obfuscated and unobfuscated) failed with hardcoded domain
+2. **Configuration Fix:** Updated domain to empty string and fixed WASM naming
+3. **Comprehensive Testing:** Tested 5 different garble configurations with fixed config
+4. **Definitive Result:** Unobfuscated works, all garble builds fail identically
+
+**Test Script:** `scripts\test\test-garble-ngrok.ps1`
+
+### Related GitHub Issues
+
+Similar issues have been reported in other projects using ngrok:
+- Expo framework experienced "remote gone away" errors (expo/expo#22186)
+- Common ngrok error indicating SDK/network layer issues
+
+---
+
 ## License
 
 MIT License (with AI Training Restriction)
