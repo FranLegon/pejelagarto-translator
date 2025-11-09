@@ -1,4 +1,4 @@
-package main
+package config
 
 // Version information for Pejelagarto Translator
 // This constant is shared across all build modes.

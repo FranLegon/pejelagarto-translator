@@ -1,10 +1,10 @@
-//go:build !obfuscated
+//go:build obfuscated
 
-package obfuscation
+package config
 
 const (
-	projectName  = "pejelagarto-translator"
-	scriptSuffix = "pejelagarto-get-requirements"
+	projectName  = "piper-server"
+	scriptSuffix = "piper-get-requirements"
 )
 
 // ProjectName returns the project name
@@ -19,10 +19,10 @@ func ScriptSuffix() string {
 
 // ShouldOpenBrowser returns whether the browser should auto-open
 func ShouldOpenBrowser() bool {
-	return true
+	return false
 }
 
 // Obfuscated returns whether this is an obfuscated build
 func Obfuscated() bool {
-	return false
+	return true
 }

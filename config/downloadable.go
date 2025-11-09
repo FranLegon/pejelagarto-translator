@@ -1,10 +1,10 @@
 //go:build downloadable || ngrok_default
 
-package main
+package config
 
 import "embed"
 
 //go:embed bin/pejelagarto-translator.exe bin/pejelagarto-translator
-var embeddedBinaries embed.FS
+var EmbeddedBinaries embed.FS
 
-const isDownloadable = true
+const IsDownloadable = true

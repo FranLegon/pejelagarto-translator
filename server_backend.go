@@ -22,9 +22,9 @@ import (
 	"unicode/utf8"
 
 	"golang.ngrok.com/ngrok"
-	"golang.ngrok.com/ngrok/config"
+	ngrokconfig "golang.ngrok.com/ngrok/config"
 
-	"pejelagarto-translator/obfuscation"
+	"pejelagarto-translator/config"
 )
 
 // Global TTS configuration variables are now declared in tts.go
@@ -59,7 +59,7 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Replace version placeholder
-	html = strings.Replace(html, "{{VERSION}}", Version, 1)
+	html = strings.Replace(html, "{{VERSION}}", config.Version, 1)
 
 	fmt.Fprint(w, html)
 }
@@ -399,7 +399,7 @@ func validateConstants() error {
 // getFlagUsage returns the usage string for flags based on build mode
 // Returns the actual usage for backend builds, empty string for obfuscated builds
 func getFlagUsage(usage string) string {
-	if !obfuscation.Obfuscated() {
+	if !config.Obfuscated() {
 		return usage
 	}
 	return ""
@@ -426,7 +426,7 @@ func findAvailablePort() int {
 // handleIsDownloadable returns JSON indicating if this build supports downloads
 func handleIsDownloadable(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	if isDownloadable {
+	if config.IsDownloadable {
 		fmt.Fprint(w, `{"downloadable": true}`)
 	} else {
 		fmt.Fprint(w, `{"downloadable": false}`)
@@ -435,15 +435,15 @@ func handleIsDownloadable(w http.ResponseWriter, r *http.Request) {
 
 // handleDownloadWindows serves the embedded Windows binary
 func handleDownloadWindows(w http.ResponseWriter, r *http.Request) {
-	if !isDownloadable {
+	if !config.IsDownloadable {
 		http.Error(w, "Downloads not available in this build", http.StatusNotFound)
 		return
 	}
 
-	data, err := embeddedBinaries.ReadFile("bin/pejelagarto-translator.exe")
+	data, err := config.EmbeddedBinaries.ReadFile("bin/pejelagarto-translator.exe")
 	if err != nil {
 		http.Error(w, "Windows binary not found", http.StatusNotFound)
-		if !obfuscation.Obfuscated() {
+		if !config.Obfuscated() {
 			log.Printf("Error reading Windows binary: %v", err)
 		}
 		return
@@ -457,15 +457,15 @@ func handleDownloadWindows(w http.ResponseWriter, r *http.Request) {
 
 // handleDownloadLinux serves the embedded Linux/Mac binary
 func handleDownloadLinux(w http.ResponseWriter, r *http.Request) {
-	if !isDownloadable {
+	if !config.IsDownloadable {
 		http.Error(w, "Downloads not available in this build", http.StatusNotFound)
 		return
 	}
 
-	data, err := embeddedBinaries.ReadFile("bin/pejelagarto-translator")
+	data, err := config.EmbeddedBinaries.ReadFile("bin/pejelagarto-translator")
 	if err != nil {
 		http.Error(w, "Linux/Mac binary not found", http.StatusNotFound)
-		if !obfuscation.Obfuscated() {
+		if !config.Obfuscated() {
 			log.Printf("Error reading Linux/Mac binary: %v", err)
 		}
 		return
@@ -480,7 +480,7 @@ func handleDownloadLinux(w http.ResponseWriter, r *http.Request) {
 // HTTP handler for the main UI
 func main() {
 	// Disable -help flag for obfuscated builds
-	if obfuscation.Obfuscated() {
+	if config.Obfuscated() {
 		flag.Usage = func() {}
 	}
 
@@ -488,7 +488,7 @@ func main() {
 	if err := validateConstants(); err != nil {
 		log.Fatalf("Constants validation failed: %v", err)
 	}
-	if !obfuscation.Obfuscated() {
+	if !config.Obfuscated() {
 		log.Println("Constants validation passed ✓")
 	}
 
@@ -496,13 +496,13 @@ func main() {
 	var ngrokToken *string
 	var ngrokDomain *string
 
-	if useNgrokDefault {
+	if config.UseNgrokDefault {
 		// Use hardcoded values for ngrok_default builds
-		token := defaultNgrokToken
-		domain := defaultNgrokDomain
+		token := config.DefaultNgrokToken
+		domain := config.DefaultNgrokDomain
 		ngrokToken = &token
 		ngrokDomain = &domain
-		if !obfuscation.Obfuscated() {
+		if !config.Obfuscated() {
 			log.Println("Using hardcoded ngrok configuration (ngrok_default build)")
 		}
 	} else {
@@ -521,7 +521,7 @@ func main() {
 	}
 
 	// Extract embedded TTS requirements to temp directory
-	if !obfuscation.Obfuscated() {
+	if !config.Obfuscated() {
 		log.Println("Initializing TTS requirements...")
 	}
 	var languageToDownload string
@@ -546,7 +546,7 @@ func main() {
 	}
 	pronunciationLanguage = *pronunciationLangFlag
 	pronunciationLanguageDropdown = *pronunciationLangDropdownFlag
-	if !obfuscation.Obfuscated() {
+	if !config.Obfuscated() {
 		log.Printf("TTS pronunciation language set to: %s", pronunciationLanguage)
 		log.Printf("TTS language dropdown enabled: %v", pronunciationLanguageDropdown)
 	}
@@ -563,7 +563,7 @@ func main() {
 
 	if *ngrokToken != "" {
 		// Use ngrok to expose server publicly
-		if !obfuscation.Obfuscated() {
+		if !config.Obfuscated() {
 			log.Println("Initializing ngrok tunnel...")
 			log.Printf("Using auth token: %s...\n", (*ngrokToken)[:10])
 			log.Println("Connecting to ngrok service...")
@@ -579,7 +579,7 @@ func main() {
 			domain = strings.TrimPrefix(domain, "https://")
 			domain = strings.TrimPrefix(domain, "http://")
 
-			if !obfuscation.Obfuscated() {
+			if !config.Obfuscated() {
 				log.Printf("Using persistent domain: %s\n", domain)
 				log.Println("Establishing tunnel (this may take a few seconds)...")
 			}
@@ -592,8 +592,8 @@ func main() {
 			resultChan := make(chan result)
 			go func() {
 				l, e := ngrok.Listen(context.Background(),
-					config.HTTPEndpoint(
-						config.WithDomain(domain),
+					ngrokconfig.HTTPEndpoint(
+						ngrokconfig.WithDomain(domain),
 					),
 					ngrok.WithAuthtoken(*ngrokToken),
 				)
@@ -609,7 +609,7 @@ func main() {
 				log.Fatalf("Failed to start ngrok listener: connection timeout after 30 seconds")
 			}
 		} else {
-			if !obfuscation.Obfuscated() {
+			if !config.Obfuscated() {
 				log.Println("Using random ngrok domain")
 				log.Println("Establishing tunnel (this may take a few seconds)...")
 			}
@@ -622,7 +622,7 @@ func main() {
 			resultChan := make(chan result)
 			go func() {
 				l, e := ngrok.Listen(context.Background(),
-					config.HTTPEndpoint(),
+					ngrokconfig.HTTPEndpoint(),
 					ngrok.WithAuthtoken(*ngrokToken),
 				)
 				resultChan <- result{listener: l, err: e}
@@ -643,17 +643,17 @@ func main() {
 		}
 
 		url := listener.URL()
-		if !obfuscation.Obfuscated() {
+		if !config.Obfuscated() {
 			log.Printf("ngrok tunnel established successfully! ✓\n")
 			log.Printf("Public URL: %s\n", url)
 		}
 
 		// Open browser with ngrok URL (only if configured to do so)
-		if obfuscation.ShouldOpenBrowser() {
+		if config.ShouldOpenBrowser() {
 			go func() {
 				time.Sleep(1 * time.Second)
 				if err := openBrowser(url); err != nil {
-					if !obfuscation.Obfuscated() {
+					if !config.Obfuscated() {
 						log.Printf("Could not open browser automatically: %v\n", err)
 						log.Printf("Please open your browser and navigate to %s\n", url)
 					}
@@ -676,7 +676,7 @@ func main() {
 
 		// Start server in goroutine
 		go func() {
-			if !obfuscation.Obfuscated() {
+			if !config.Obfuscated() {
 				log.Printf("Starting Pejelagarto Translator server on %s\n", url)
 			}
 			if err := http.ListenAndServe(addr, nil); err != nil {
@@ -686,9 +686,9 @@ func main() {
 
 		// Wait a moment for server to start, then open browser (only if configured to do so)
 		time.Sleep(500 * time.Millisecond)
-		if obfuscation.ShouldOpenBrowser() {
+		if config.ShouldOpenBrowser() {
 			if err := openBrowser(url); err != nil {
-				if !obfuscation.Obfuscated() {
+				if !config.Obfuscated() {
 					log.Printf("Could not open browser automatically: %v\n", err)
 					log.Printf("Please open your browser and navigate to %s\n", url)
 				}

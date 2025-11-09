@@ -13,7 +13,7 @@ import (
 	"unicode/utf8"
 )
 
-//go:embed get-requirements.ps1 get-requirements.sh
+//go:embed scripts/requirements/get-requirements.ps1 scripts/requirements/get-requirements.sh
 var embeddedGetRequirements embed.FS
 
 // tempRequirementsDir stores the path to extracted requirements

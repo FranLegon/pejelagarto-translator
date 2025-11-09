@@ -20,13 +20,13 @@ import (
 	"time"
 
 	"golang.ngrok.com/ngrok"
-	"golang.ngrok.com/ngrok/config"
+	ngrokconfig "golang.ngrok.com/ngrok/config"
 
-	"pejelagarto-translator/obfuscation"
+	"pejelagarto-translator/config"
 )
 
 // Downloadable feature - constants come from downloadable.go or not_downloadable.go based on build tags
-// var embeddedBinaries embed.FS and const isDownloadable are defined in those files
+// var config.EmbeddedBinaries embed.FS and const config.IsDownloadable are defined in those files
 
 // Frontend HTML - identical UI to regular mode, but uses WASM for translation
 // This constant is based on htmlUI from main.go with only the handleLiveTranslation() function modified
@@ -430,7 +430,7 @@ const htmlUIFrontend = `<!DOCTYPE html>
             }
         }
         
-        .version-display {
+        .config.Version-display {
             position: fixed;
             bottom: 10px;
             right: 10px;
@@ -441,19 +441,19 @@ const htmlUIFrontend = `<!DOCTYPE html>
             z-index: 1000;
         }
         
-        .version-display a {
+        .config.Version-display a {
             color: var(--text-secondary);
             text-decoration: none;
             transition: opacity 0.2s ease;
         }
         
-        .version-display a:hover {
+        .config.Version-display a:hover {
             opacity: 1;
             text-decoration: underline;
         }
         
         @media (max-width: 768px) {
-            .version-display {
+            .config.Version-display {
                 font-size: 10px;
                 bottom: 5px;
                 right: 5px;
@@ -550,7 +550,7 @@ const htmlUIFrontend = `<!DOCTYPE html>
             inputText.addEventListener('input', handleLiveTranslation);
         })();
         
-        // Check if downloadable version and show download section
+        // Check if downloadable config.Version and show download section
         (function initDownloadSection() {
             fetch('/api/is-downloadable')
                 .then(response => response.json())
@@ -887,7 +887,7 @@ const htmlUIFrontend = `<!DOCTYPE html>
         }
     </script>
     
-    <div class="version-display"><a href="https://github.com/FranLegon/pejelagarto-translator" target="_blank">{{VERSION}}</a></div>
+    <div class="config.Version-display"><a href="https://github.com/FranLegon/pejelagarto-translator" target="_blank">{{config.Version}}</a></div>
 </body>
 </html>`
 
@@ -920,8 +920,8 @@ func handleFrontendIndex(w http.ResponseWriter, r *http.Request) {
 		html = strings.Replace(html, "{{DROPDOWN_PLACEHOLDER}}", "", 1)
 	}
 
-	// Replace version placeholder
-	html = strings.Replace(html, "{{VERSION}}", Version, 1)
+	// Replace config.Version placeholder
+	html = strings.Replace(html, "{{config.Version}}", config.Version, 1)
 
 	fmt.Fprint(w, html)
 }
@@ -929,7 +929,7 @@ func handleFrontendIndex(w http.ResponseWriter, r *http.Request) {
 // handleIsDownloadable returns JSON indicating if this build supports downloads
 func handleIsDownloadable(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	if isDownloadable {
+	if config.IsDownloadable {
 		fmt.Fprint(w, `{"downloadable": true}`)
 	} else {
 		fmt.Fprint(w, `{"downloadable": false}`)
@@ -938,15 +938,15 @@ func handleIsDownloadable(w http.ResponseWriter, r *http.Request) {
 
 // handleDownloadWindows serves the embedded Windows binary
 func handleDownloadWindows(w http.ResponseWriter, r *http.Request) {
-	if !isDownloadable {
+	if !config.IsDownloadable {
 		http.Error(w, "Downloads not available in this build", http.StatusNotFound)
 		return
 	}
 
-	data, err := embeddedBinaries.ReadFile("bin/pejelagarto-translator.exe")
+	data, err := config.EmbeddedBinaries.ReadFile("bin/pejelagarto-translator.exe")
 	if err != nil {
 		http.Error(w, "Windows binary not found", http.StatusNotFound)
-		if !obfuscation.Obfuscated() {
+		if !config.Obfuscated() {
 			log.Printf("Error reading Windows binary: %v", err)
 		}
 		return
@@ -960,15 +960,15 @@ func handleDownloadWindows(w http.ResponseWriter, r *http.Request) {
 
 // handleDownloadLinux serves the embedded Linux/Mac binary
 func handleDownloadLinux(w http.ResponseWriter, r *http.Request) {
-	if !isDownloadable {
+	if !config.IsDownloadable {
 		http.Error(w, "Downloads not available in this build", http.StatusNotFound)
 		return
 	}
 
-	data, err := embeddedBinaries.ReadFile("bin/pejelagarto-translator")
+	data, err := config.EmbeddedBinaries.ReadFile("bin/pejelagarto-translator")
 	if err != nil {
 		http.Error(w, "Linux/Mac binary not found", http.StatusNotFound)
-		if !obfuscation.Obfuscated() {
+		if !config.Obfuscated() {
 			log.Printf("Error reading Linux/Mac binary: %v", err)
 		}
 		return
@@ -1003,13 +1003,13 @@ func main() {
 	var ngrokToken *string
 	var ngrokDomain *string
 
-	if useNgrokDefault {
+	if config.UseNgrokDefault {
 		// Use hardcoded values for ngrok_default builds
-		token := defaultNgrokToken
-		domain := defaultNgrokDomain
+		token := config.DefaultNgrokToken
+		domain := config.DefaultNgrokDomain
 		ngrokToken = &token
 		ngrokDomain = &domain
-		if !obfuscation.Obfuscated() {
+		if !config.Obfuscated() {
 			log.Println("Using hardcoded ngrok configuration (ngrok_default build)")
 		}
 	} else {
@@ -1029,7 +1029,7 @@ func main() {
 	pronunciationLanguage = *pronunciationLangFlag
 	pronunciationLanguageDropdown = *pronunciationLangDropdownFlag
 
-	if !obfuscation.Obfuscated() {
+	if !config.Obfuscated() {
 		log.Println("Starting Pejelagarto Translator server")
 		log.Println("Translation: Client-side (WebAssembly)")
 		log.Println("TTS Audio: Server-side")
@@ -1037,7 +1037,7 @@ func main() {
 	}
 
 	// Initialize TTS
-	if !obfuscation.Obfuscated() {
+	if !config.Obfuscated() {
 		log.Println("Initializing TTS requirements...")
 	}
 	var languageToDownload string
@@ -1073,7 +1073,7 @@ func main() {
 
 	if *ngrokToken != "" {
 		// Use ngrok to expose server publicly
-		if !obfuscation.Obfuscated() {
+		if !config.Obfuscated() {
 			log.Println("Initializing ngrok tunnel...")
 			log.Printf("Using auth token: %s...\n", (*ngrokToken)[:10])
 			log.Println("Connecting to ngrok service...")
@@ -1089,7 +1089,7 @@ func main() {
 			domain = strings.TrimPrefix(domain, "https://")
 			domain = strings.TrimPrefix(domain, "http://")
 
-			if !obfuscation.Obfuscated() {
+			if !config.Obfuscated() {
 				log.Printf("Using persistent domain: %s\n", domain)
 				log.Println("Establishing tunnel (this may take a few seconds)...")
 			}
@@ -1105,7 +1105,7 @@ func main() {
 
 			for attempt := 1; attempt <= maxRetries; attempt++ {
 				if attempt > 1 {
-					if !obfuscation.Obfuscated() {
+					if !config.Obfuscated() {
 						log.Printf("Retry attempt %d/%d after %v delay...\n", attempt, maxRetries, retryDelay)
 					}
 					time.Sleep(retryDelay)
@@ -1117,8 +1117,8 @@ func main() {
 					// Use background context for the listener itself - it should live as long as the server
 					// The timeout is only for waiting for the connection to establish
 					l, e := ngrok.Listen(context.Background(),
-						config.HTTPEndpoint(
-							config.WithDomain(domain),
+						ngrokconfig.HTTPEndpoint(
+							ngrokconfig.WithDomain(domain),
 						),
 						ngrok.WithAuthtoken(*ngrokToken),
 						ngrok.WithHeartbeatInterval(10*time.Second),
@@ -1136,12 +1136,12 @@ func main() {
 						// Success!
 						goto ngrokSuccess
 					}
-					if !obfuscation.Obfuscated() {
+					if !config.Obfuscated() {
 						log.Printf("Attempt %d failed: %v\n", attempt, err)
 					}
 				case <-time.After(45 * time.Second):
 					err = fmt.Errorf("connection timeout after 45 seconds")
-					if !obfuscation.Obfuscated() {
+					if !config.Obfuscated() {
 						log.Printf("Attempt %d timed out\n", attempt)
 					}
 				}
@@ -1152,7 +1152,7 @@ func main() {
 				log.Fatalf("Failed to start ngrok listener after %d attempts: %v\n\nPossible causes:\n  - Network connectivity issues\n  - ngrok service temporarily unavailable\n  - Domain '%s' configuration issues\n\nTry:\n  - Check internet connectivity\n  - Run without -ngrok_domain to use random URL\n  - Wait a few minutes and retry\n  - Check ngrok service status at status.ngrok.com", maxRetries, err, domain)
 			}
 		} else {
-			if !obfuscation.Obfuscated() {
+			if !config.Obfuscated() {
 				log.Println("Using random ngrok domain")
 				log.Println("Establishing tunnel (this may take a few seconds)...")
 			}
@@ -1168,7 +1168,7 @@ func main() {
 
 			for attempt := 1; attempt <= maxRetries; attempt++ {
 				if attempt > 1 {
-					if !obfuscation.Obfuscated() {
+					if !config.Obfuscated() {
 						log.Printf("Retry attempt %d/%d after %v delay...\n", attempt, maxRetries, retryDelay)
 					}
 					time.Sleep(retryDelay)
@@ -1180,7 +1180,7 @@ func main() {
 					// Use background context for the listener itself - it should live as long as the server
 					// The timeout is only for waiting for the connection to establish
 					l, e := ngrok.Listen(context.Background(),
-						config.HTTPEndpoint(),
+						ngrokconfig.HTTPEndpoint(),
 						ngrok.WithAuthtoken(*ngrokToken),
 						ngrok.WithHeartbeatInterval(10*time.Second),
 						ngrok.WithHeartbeatTolerance(15*time.Second),
@@ -1197,12 +1197,12 @@ func main() {
 						// Success!
 						goto ngrokSuccess
 					}
-					if !obfuscation.Obfuscated() {
+					if !config.Obfuscated() {
 						log.Printf("Attempt %d failed: %v\n", attempt, err)
 					}
 				case <-time.After(35 * time.Second):
 					err = fmt.Errorf("connection timeout after 35 seconds")
-					if !obfuscation.Obfuscated() {
+					if !config.Obfuscated() {
 						log.Printf("Attempt %d timed out\n", attempt)
 					}
 				}
@@ -1229,17 +1229,17 @@ func main() {
 		}
 
 		url := listener.URL()
-		if !obfuscation.Obfuscated() {
+		if !config.Obfuscated() {
 			log.Printf("ngrok tunnel established successfully! ✓\n")
 			log.Printf("Public URL: %s\n", url)
 		}
 
 		// Open browser with ngrok URL (only if configured to do so)
-		if obfuscation.ShouldOpenBrowser() {
+		if config.ShouldOpenBrowser() {
 			go func() {
 				time.Sleep(1 * time.Second)
 				if err := openBrowser(url); err != nil {
-					if !obfuscation.Obfuscated() {
+					if !config.Obfuscated() {
 						log.Printf("Could not open browser automatically: %v\n", err)
 						log.Printf("Please open your browser and navigate to %s\n", url)
 					}
@@ -1260,7 +1260,7 @@ func main() {
 		addr := fmt.Sprintf(":%d", port)
 		url := fmt.Sprintf("http://localhost:%d", port)
 
-		if !obfuscation.Obfuscated() {
+		if !config.Obfuscated() {
 			log.Printf("Server starting on %s\n", url)
 		}
 

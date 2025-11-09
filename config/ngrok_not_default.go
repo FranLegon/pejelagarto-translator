@@ -1,10 +1,10 @@
 //go:build !ngrok_default
 
-package main
+package config
 
 // No hardcoded ngrok configuration for regular builds
 const (
-	defaultNgrokToken  = ""
-	defaultNgrokDomain = ""
-	useNgrokDefault    = false
+	DefaultNgrokToken  = ""
+	DefaultNgrokDomain = ""
+	UseNgrokDefault    = false
 )

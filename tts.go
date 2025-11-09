@@ -15,7 +15,7 @@ import (
 	"sync"
 	"unicode"
 
-	"pejelagarto-translator/obfuscation"
+	"pejelagarto-translator/config"
 )
 
 // Global TTS configuration variables
@@ -41,7 +41,7 @@ func extractEmbeddedRequirements(singleLanguage string) error {
 	}
 
 	// Create a unique directory for this application
-	tempRequirementsDir = filepath.Join(baseDir, obfuscation.ProjectName(), "requirements")
+	tempRequirementsDir = filepath.Join(baseDir, config.ProjectName(), "requirements")
 
 	// Check what dependencies are missing
 	piperExe := filepath.Join(tempRequirementsDir, "piper")
@@ -107,13 +107,13 @@ func extractEmbeddedRequirements(singleLanguage string) error {
 
 	// If all dependencies exist, no need to download
 	if piperExists && espeakExists && piperDirExists && allLanguagesExist {
-		if !obfuscation.Obfuscated() {
+		if !config.Obfuscated() {
 			log.Printf("Using cached TTS requirements at: %s", tempRequirementsDir)
 		}
 		return nil
 	}
 
-	if !obfuscation.Obfuscated() {
+	if !config.Obfuscated() {
 		log.Printf("Downloading TTS requirements to: %s", tempRequirementsDir)
 		if !piperExists {
 			log.Printf("  - Missing: piper binary")
@@ -141,7 +141,7 @@ func extractEmbeddedRequirements(singleLanguage string) error {
 
 	if runtime.GOOS == "windows" {
 		// Use PowerShell script on Windows
-		scriptContent, err = embeddedGetRequirements.ReadFile("get-requirements.ps1")
+		scriptContent, err = embeddedGetRequirements.ReadFile("scripts/requirements/get-requirements.ps1")
 		if err != nil {
 			return fmt.Errorf("failed to read embedded PowerShell script: %w", err)
 		}
@@ -153,7 +153,7 @@ func extractEmbeddedRequirements(singleLanguage string) error {
 			1)
 
 		// Write the modified script to a temporary file with UTF-8 BOM
-		scriptPath = filepath.Join(baseDir, obfuscation.ScriptSuffix()+".ps1")
+		scriptPath = filepath.Join(baseDir, config.ScriptSuffix()+".ps1")
 		// Add UTF-8 BOM to help PowerShell parse the file correctly
 		utf8Bom := []byte{0xEF, 0xBB, 0xBF}
 		scriptBytes := append(utf8Bom, []byte(modifiedScript)...)
@@ -163,7 +163,7 @@ func extractEmbeddedRequirements(singleLanguage string) error {
 		defer os.Remove(scriptPath) // Clean up script after execution
 
 		// Execute the PowerShell script
-		if !obfuscation.Obfuscated() {
+		if !config.Obfuscated() {
 			if singleLanguage != "" {
 				log.Printf("Running PowerShell script to download dependencies for language: %s...\n", singleLanguage)
 			} else {
@@ -177,7 +177,7 @@ func extractEmbeddedRequirements(singleLanguage string) error {
 		}
 	} else {
 		// Use shell script on Linux/macOS
-		scriptContent, err = embeddedGetRequirements.ReadFile("get-requirements.sh")
+		scriptContent, err = embeddedGetRequirements.ReadFile("scripts/requirements/get-requirements.sh")
 		if err != nil {
 			return fmt.Errorf("failed to read embedded shell script: %w", err)
 		}
@@ -189,14 +189,14 @@ func extractEmbeddedRequirements(singleLanguage string) error {
 			1)
 
 		// Write the modified script to a temporary file
-		scriptPath = filepath.Join(baseDir, obfuscation.ScriptSuffix()+".sh")
+		scriptPath = filepath.Join(baseDir, config.ScriptSuffix()+".sh")
 		if err := os.WriteFile(scriptPath, []byte(modifiedScript), 0755); err != nil {
 			return fmt.Errorf("failed to write temporary shell script: %w", err)
 		}
 		defer os.Remove(scriptPath) // Clean up script after execution
 
 		// Execute the shell script
-		if !obfuscation.Obfuscated() {
+		if !config.Obfuscated() {
 			if singleLanguage != "" {
 				log.Printf("Running shell script to download dependencies for language: %s...\n", singleLanguage)
 			} else {
@@ -218,7 +218,7 @@ func extractEmbeddedRequirements(singleLanguage string) error {
 		return fmt.Errorf("failed to execute requirements script: %w", err)
 	}
 
-	if !obfuscation.Obfuscated() {
+	if !config.Obfuscated() {
 		log.Println("TTS requirements downloaded successfully")
 	}
 
