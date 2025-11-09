@@ -108,45 +108,46 @@ go run server_frontend.go version.go
 - ✅ Same translation quality and features
 - 📦 WASM module: ~2-3MB (one-time download)
 
-#### Production Build (Obfuscated + WASM + ngrok)
+#### Production Build (WASM + ngrok)
 
-For production server deployment with code obfuscation, client-side WASM translation, and hardcoded ngrok credentials:
+For production server deployment with client-side WASM translation and hardcoded ngrok credentials:
 
-**Requirements:**
-- [Garble](https://github.com/burrowers/garble) code obfuscator installed
-- Go 1.24.2 or higher
-- Build tags: `obfuscated`, `frontend`, `ngrok_default`
+**⚠️ Important:** Garble obfuscation breaks the ngrok SDK. Use the **unobfuscated** production build for reliable ngrok connectivity.
 
-**Installation:**
+**Recommended Build (Unobfuscated + Optimized):**
 
-Windows PowerShell:
+Windows:
 ```powershell
-go install mvdan.cc/garble@latest
+.\scripts\helpers\build-prod-unobfuscated.ps1
 ```
 
 Linux/macOS:
 ```bash
-go install mvdan.cc/garble@latest
+./scripts/helpers/build-prod-unobfuscated.sh
 ```
 
-**Build Commands:**
+**Requirements:**
+- Go 1.24.2 or higher
+- Build tags: `obfuscated`, `frontend`, `ngrok_default`
+- Uses standard Go optimization (`-ldflags="-s -w"`) instead of garble
+
+**Alternative: Garble-Obfuscated Build (Not Recommended for ngrok):**
+
+⚠️ **Warning:** Garble obfuscation causes ngrok SDK failures ("remote gone away" errors). Only use this for local deployments or testing without ngrok.
+
+Installation:
+```bash
+go install mvdan.cc/garble@latest
+```
 
 Windows:
 ```powershell
 .\scripts\helpers\build-prod.ps1
-
-# Or with custom OS/architecture:
-.\scripts\helpers\build-prod.ps1 -OS windows -Arch amd64
-.\scripts\helpers\build-prod.ps1 -OS linux -Arch arm64
 ```
 
 Linux/macOS:
 ```bash
 ./scripts/helpers/build-prod.sh
-
-# Or with custom OS/architecture:
-./scripts/helpers/build-prod.sh linux amd64
-./scripts/helpers/build-prod.sh darwin arm64
 ```
 
 **Output:**
@@ -865,12 +866,31 @@ All transformations verified for reversibility with random inputs:
 
 ### Windows Defender Blocking Builds
 
-**Problem:** Garble-obfuscated binaries trigger false positives in Windows Defender
+**Problem:** Garble-obfuscated binaries may be blocked by Windows Defender or cause ngrok connection failures
 
 **Why This Happens:**
 - Garble heavily obfuscates code structure, control flow, and strings
 - Windows Defender's heuristics flag unknown obfuscation patterns as suspicious
+- **Critical:** Garble obfuscation breaks the ngrok SDK, causing "remote gone away" errors
 - This affects the `build-prod.ps1` and `build-obfuscated.ps1` scripts
+
+**Recommended Solution:** Use the unobfuscated production build for deployments requiring ngrok:
+
+Windows:
+```powershell
+.\scripts\helpers\build-prod-unobfuscated.ps1
+```
+
+Linux/macOS:
+```bash
+./scripts/helpers/build-prod-unobfuscated.sh
+```
+
+This build includes all production features (WASM, hardcoded ngrok, embedded binaries) but uses standard Go compiler optimization (`-ldflags="-s -w"`) instead of garble, which:
+- ✅ Works reliably with ngrok
+- ✅ Bypasses Windows Defender false positives
+- ✅ Strips debug symbols and symbol table (still optimized)
+- ❌ Does not obfuscate code structure or strings
 
 **Solution - Add Exclusions (Run PowerShell as Administrator):**
 

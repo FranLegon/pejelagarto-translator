@@ -1094,29 +1094,62 @@ func main() {
 				log.Println("Establishing tunnel (this may take a few seconds)...")
 			}
 
-			// Use a channel to receive the result with timeout
+			// Use a channel to receive the result with timeout and retry logic
 			type result struct {
 				listener ngrok.Tunnel
 				err      error
 			}
-			resultChan := make(chan result)
-			go func() {
-				l, e := ngrok.Listen(context.Background(),
-					config.HTTPEndpoint(
-						config.WithDomain(domain),
-					),
-					ngrok.WithAuthtoken(*ngrokToken),
-				)
-				resultChan <- result{listener: l, err: e}
-			}()
 
-			// Wait for completion or timeout (increased to 45 seconds for slower connections)
-			select {
-			case res := <-resultChan:
-				listener = res.listener
-				err = res.err
-			case <-time.After(45 * time.Second):
-				log.Fatalf("Failed to start ngrok listener: connection timeout after 45 seconds.\n\nPossible causes:\n  - Slow internet connection\n  - ngrok service unavailable\n  - Domain '%s' may be in use\n\nTry:\n  - Check internet connectivity\n  - Run without -ngrok_domain to use random URL\n  - Wait a few minutes and retry", domain)
+			maxRetries := 3
+			retryDelay := 2 * time.Second
+
+			for attempt := 1; attempt <= maxRetries; attempt++ {
+				if attempt > 1 {
+					if !obfuscation.Obfuscated() {
+						log.Printf("Retry attempt %d/%d after %v delay...\n", attempt, maxRetries, retryDelay)
+					}
+					time.Sleep(retryDelay)
+					retryDelay *= 2 // Exponential backoff
+				}
+
+				resultChan := make(chan result)
+				go func() {
+					// Use background context for the listener itself - it should live as long as the server
+					// The timeout is only for waiting for the connection to establish
+					l, e := ngrok.Listen(context.Background(),
+						config.HTTPEndpoint(
+							config.WithDomain(domain),
+						),
+						ngrok.WithAuthtoken(*ngrokToken),
+						ngrok.WithHeartbeatInterval(10*time.Second),
+						ngrok.WithHeartbeatTolerance(15*time.Second),
+					)
+					resultChan <- result{listener: l, err: e}
+				}()
+
+				// Wait for completion or timeout
+				select {
+				case res := <-resultChan:
+					listener = res.listener
+					err = res.err
+					if err == nil {
+						// Success!
+						goto ngrokSuccess
+					}
+					if !obfuscation.Obfuscated() {
+						log.Printf("Attempt %d failed: %v\n", attempt, err)
+					}
+				case <-time.After(45 * time.Second):
+					err = fmt.Errorf("connection timeout after 45 seconds")
+					if !obfuscation.Obfuscated() {
+						log.Printf("Attempt %d timed out\n", attempt)
+					}
+				}
+			}
+
+			// All retries failed
+			if err != nil {
+				log.Fatalf("Failed to start ngrok listener after %d attempts: %v\n\nPossible causes:\n  - Network connectivity issues\n  - ngrok service temporarily unavailable\n  - Domain '%s' configuration issues\n\nTry:\n  - Check internet connectivity\n  - Run without -ngrok_domain to use random URL\n  - Wait a few minutes and retry\n  - Check ngrok service status at status.ngrok.com", maxRetries, err, domain)
 			}
 		} else {
 			if !obfuscation.Obfuscated() {
@@ -1124,29 +1157,64 @@ func main() {
 				log.Println("Establishing tunnel (this may take a few seconds)...")
 			}
 
-			// Use a channel to receive the result with timeout
+			// Use a channel to receive the result with timeout and retry logic
 			type result struct {
 				listener ngrok.Tunnel
 				err      error
 			}
-			resultChan := make(chan result)
-			go func() {
-				l, e := ngrok.Listen(context.Background(),
-					config.HTTPEndpoint(),
-					ngrok.WithAuthtoken(*ngrokToken),
-				)
-				resultChan <- result{listener: l, err: e}
-			}()
 
-			// Wait for completion or timeout
-			select {
-			case res := <-resultChan:
-				listener = res.listener
-				err = res.err
-			case <-time.After(10 * time.Second):
-				log.Fatalf("Failed to start ngrok listener: connection timeout after 10 seconds")
+			maxRetries := 3
+			retryDelay := 2 * time.Second
+
+			for attempt := 1; attempt <= maxRetries; attempt++ {
+				if attempt > 1 {
+					if !obfuscation.Obfuscated() {
+						log.Printf("Retry attempt %d/%d after %v delay...\n", attempt, maxRetries, retryDelay)
+					}
+					time.Sleep(retryDelay)
+					retryDelay *= 2 // Exponential backoff
+				}
+
+				resultChan := make(chan result)
+				go func() {
+					// Use background context for the listener itself - it should live as long as the server
+					// The timeout is only for waiting for the connection to establish
+					l, e := ngrok.Listen(context.Background(),
+						config.HTTPEndpoint(),
+						ngrok.WithAuthtoken(*ngrokToken),
+						ngrok.WithHeartbeatInterval(10*time.Second),
+						ngrok.WithHeartbeatTolerance(15*time.Second),
+					)
+					resultChan <- result{listener: l, err: e}
+				}()
+
+				// Wait for completion or timeout
+				select {
+				case res := <-resultChan:
+					listener = res.listener
+					err = res.err
+					if err == nil {
+						// Success!
+						goto ngrokSuccess
+					}
+					if !obfuscation.Obfuscated() {
+						log.Printf("Attempt %d failed: %v\n", attempt, err)
+					}
+				case <-time.After(35 * time.Second):
+					err = fmt.Errorf("connection timeout after 35 seconds")
+					if !obfuscation.Obfuscated() {
+						log.Printf("Attempt %d timed out\n", attempt)
+					}
+				}
+			}
+
+			// All retries failed
+			if err != nil {
+				log.Fatalf("Failed to start ngrok listener after %d attempts: %v\n\nPossible causes:\n  - Network connectivity issues\n  - ngrok service temporarily unavailable\n  - Authentication issues\n\nTry:\n  - Check internet connectivity\n  - Verify ngrok authtoken is valid\n  - Check ngrok service status at status.ngrok.com", maxRetries, err)
 			}
 		}
+
+	ngrokSuccess:
 
 		if err != nil {
 			// Check for specific error types and provide helpful messages
