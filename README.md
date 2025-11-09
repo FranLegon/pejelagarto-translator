@@ -1715,8 +1715,10 @@ When preparing a new release:
 - **TTS exports**: HandleTextToSpeech, HandleCheckSlowAudio, HandlePronunciation, config variables
 - **Test migration**: Moved translation_test.go and tts_test.go to respective packages
 - **Import updates**: Updated 9 files to use new package structure
+- **Architecture decisions**: Server files, WASM files, and embed files remain at root (build tag constraints)
+- **Code organization**: ~2630 lines moved to internal packages while preserving all 12 build configurations
 - **Validated builds**: All 12 build tag combinations tested and passing after each refactoring step
-- **Gradual approach**: Incremental refactoring strategy with continuous testing
+- **Gradual approach**: Incremental refactoring strategy with continuous testing between changes
 
 #### v1.0.8 (Project Reorganization)
 - **Major restructuring**: Moved configuration files to `config/` package
