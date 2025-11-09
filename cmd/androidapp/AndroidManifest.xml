@@ -1,16 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.pejelagarto.translator"
-    android:versionCode="1"
-    android:versionName="1.0">
+    android:versionCode="3"
+    android:versionName="1.2.7">
     
     <application
         android:label="Pejelagarto Translator"
-        android:allowBackup="true">
+        android:allowBackup="true"
+        android:hardwareAccelerated="true">
         <activity
             android:name="org.golang.app.GoNativeActivity"
+            android:label="Pejelagarto Translator"
             android:exported="true"
-            android:configChanges="orientation|keyboardHidden">
+            android:configChanges="orientation|keyboardHidden|screenSize">
             <meta-data android:name="android.app.lib_name" android:value="androidapp" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

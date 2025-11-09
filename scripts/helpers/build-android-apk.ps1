@@ -277,14 +277,15 @@ if (-not (Test-Path "bin")) {
 
 try {
     Write-Host "  Building multi-architecture APK..." -ForegroundColor Cyan
-    Write-Host "  Target API: 21 (Android 5.0+)" -ForegroundColor Gray
-    Write-Host "  Architectures: ARM64 (primary), ARMv7 (fallback)" -ForegroundColor Gray
+    Write-Host "  Min SDK: 24 (Android 7.0+)" -ForegroundColor Gray
+    Write-Host "  Target SDK: 34 (Android 14)" -ForegroundColor Gray
+    Write-Host "  Architectures: ARM, ARM64, x86, x86_64 (all platforms)" -ForegroundColor Gray
     Write-Host "  This may take several minutes on first build..." -ForegroundColor Gray
     
-    # Build with lower API level and primary ARM architectures for better compatibility
-    # -androidapi 21 = Android 5.0 (Lollipop) minimum
-    # Only targeting ARM to reduce APK size and ensure compatibility
-    gomobile build -androidapi 21 -target android -o bin/pejelagarto-translator-unsigned.apk ./cmd/androidapp
+    # Build with API 24 for modern Android compatibility
+    # Android 15 requires minSdkVersion >= 24 for app installation
+    # Using 'android' target builds for all architectures automatically
+    gomobile build -androidapi 24 -target android -o bin/pejelagarto-translator-unsigned.apk ./cmd/androidapp
     
     if (Test-Path "bin/pejelagarto-translator-unsigned.apk") {
         Write-Host "  ✓ APK built" -ForegroundColor Green
@@ -319,8 +320,39 @@ try {
         
         # Sign the APK
         if (Test-Path $apksigner) {
-            & $apksigner sign --ks $debugKeystore --ks-pass pass:android --key-pass pass:android --out bin/pejelagarto-translator.apk bin/pejelagarto-translator-unsigned.apk 2>&1 | Out-Null
+            # Patch the APK to set targetSdkVersion using apktool
+            Write-Host "  Patching targetSdkVersion to 34..." -ForegroundColor Cyan
+            
+            # Decompile APK
+            & "$env:JAVA_HOME\bin\java.exe" -jar bin/apktool.jar d bin/pejelagarto-translator-unsigned.apk -o bin/apk-decoded -f 2>&1 | Out-Null
+            
+            # Modify AndroidManifest.xml
+            $manifestPath = "bin/apk-decoded/AndroidManifest.xml"
+            if (Test-Path $manifestPath) {
+                $manifestContent = Get-Content $manifestPath -Raw
+                # Add targetSdkVersion to uses-sdk element
+                $manifestContent = $manifestContent -replace '(<uses-sdk[^>]*android:minSdkVersion="\d+")', '$1 android:targetSdkVersion="34"'
+                # If no uses-sdk, add it
+                if ($manifestContent -notmatch '<uses-sdk') {
+                    $manifestContent = $manifestContent -replace '(<manifest[^>]*>)', "`$1`n    <uses-sdk android:minSdkVersion=`"24`" android:targetSdkVersion=`"34`" />"
+                }
+                $manifestContent | Set-Content $manifestPath -NoNewline
+                Write-Host "  ✓ Manifest patched" -ForegroundColor Green
+            }
+            
+            # Recompile APK
+            & "$env:JAVA_HOME\bin\java.exe" -jar bin/apktool.jar b bin/apk-decoded -o bin/pejelagarto-translator-patched.apk 2>&1 | Out-Null
+            
+            # Clean up
+            if (Test-Path "bin/apk-decoded") {
+                Remove-Item "bin/apk-decoded" -Recurse -Force
+            }
             Remove-Item "bin/pejelagarto-translator-unsigned.apk" -Force
+            
+            # Sign the patched APK
+            Write-Host "  Signing patched APK..." -ForegroundColor Cyan
+            & $apksigner sign --ks $debugKeystore --ks-pass pass:android --key-pass pass:android --out bin/pejelagarto-translator.apk bin/pejelagarto-translator-patched.apk 2>&1 | Out-Null
+            Remove-Item "bin/pejelagarto-translator-patched.apk" -Force
             
             if (Test-Path "bin/pejelagarto-translator.apk") {
                 $apkSize = (Get-Item "bin/pejelagarto-translator.apk").Length / 1MB
@@ -330,13 +362,14 @@ try {
                 Write-Host "  APK Build Complete!" -ForegroundColor Green
                 Write-Host "======================================" -ForegroundColor Green
                 Write-Host "`nAPK Location: bin\pejelagarto-translator.apk" -ForegroundColor Cyan
-                Write-Host "Minimum Android: 5.0 (API 21)" -ForegroundColor Gray
-                Write-Host "Architectures: ARM64, ARMv7" -ForegroundColor Gray
+                Write-Host "Minimum Android: 7.0 (API 24)" -ForegroundColor Gray
+                Write-Host "Target Android: 14 (API 34)" -ForegroundColor Gray
+                Write-Host "Architectures: ARM64, ARMv7, x86, x86_64" -ForegroundColor Gray
                 Write-Host "`nTo install on device:" -ForegroundColor Cyan
                 Write-Host "  adb install bin\pejelagarto-translator.apk" -ForegroundColor White
                 Write-Host ""
             }
-        } else {
+        } else{
             # Fallback: rename unsigned to signed (less secure but will work)
             Write-Host "  ⚠️  apksigner not found, using unsigned APK" -ForegroundColor Yellow
             Move-Item "bin/pejelagarto-translator-unsigned.apk" "bin/pejelagarto-translator.apk" -Force
