@@ -11,7 +11,7 @@ Write-Host "======================================" -ForegroundColor Cyan
 Write-Host ""
 
 # Get paths
-$rootDir = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
+$rootDir = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $androidDir = Join-Path $rootDir "android"
 $libsDir = Join-Path $androidDir "app\libs"
 $binDir = Join-Path $rootDir "bin"
