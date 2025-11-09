@@ -160,7 +160,7 @@ Linux/macOS:
 1. ✅ **Code Obfuscation**: Uses garble with `-tiny -literals -seed=random` flags
 2. ✅ **WASM Frontend**: Compiles translation to WebAssembly for client-side execution
 3. ✅ **Hardcoded ngrok**: Embeds ngrok credentials (no command-line flags needed)
-4. ✅ **Embedded Binaries**: Includes Windows/Linux piper binaries
+4. ✅ **Embedded Binaries**: Includes Windows/Linux/Android binaries
 5. ✅ **Checksum Generation**: Creates SHA256 checksums for integrity verification
 
 **Build Process:**
@@ -226,7 +226,7 @@ All combinations of build tags work together seamlessly:
 | Build Tags | Description | Binary Output | TTS Downloads |
 |------------|-------------|---------------|---------------|
 | None | Backend server (default) | `pejelagarto-translator` | All languages (default) |
-| `downloadable` | Embeds Windows/Linux binaries | `pejelagarto-translator` + embedded bins | All languages |
+| `downloadable` | Embeds Windows/Linux/Android binaries | `pejelagarto-translator` + embedded bins | All languages |
 | `ngrok_default` | Hardcoded ngrok credentials (includes downloadable) | `pejelagarto-translator` + embedded bins | All languages |
 | `obfuscated` | Code obfuscation for deployment | `piper-server` | All languages |
 | `frontend` | Client-side WASM translation | `translator.wasm` | All languages |
@@ -1190,7 +1190,7 @@ The project uses Go build tags to create different build configurations:
 | `frontend` | Client-side WASM translation | Compiles to WebAssembly, excludes syscall/js incompatible code |
 | `obfuscated` | Code obfuscation for production | Uses `piper-server` naming, changes temp directories |
 | `ngrok_default` | Hardcoded ngrok credentials | Embeds auth token and domain, includes `downloadable` |
-| `downloadable` | Embed piper binaries | Includes Windows/Linux piper binaries in executable |
+| `downloadable` | Embed binaries | Includes Windows/Linux/Android binaries in executable |
 
 #### Build Tag Relationships
 
