@@ -1275,11 +1275,10 @@ go build -tags frontendserver .
 
 ```
 pejelagarto-translator/
-├── main.go                  # Core translator + backend server entry point (~3350 lines)
+├── main.go                  # HTML template and embed directives only (~840 lines)
 ├── server_backend.go        # Backend HTTP server with server-side translation
 ├── server_frontend.go       # Frontend HTTP server (WASM client-side translation)
 ├── wasm_main.go             # WASM entry point with JS exports
-├── translation_test.go      # Comprehensive test suite with fuzz testing
 ├── wasm_test.go             # WASM-specific tests
 ├── tts_test.go              # TTS-specific tests (server-only)
 ├── tts.go                   # Text-to-speech functionality
@@ -1294,13 +1293,17 @@ pejelagarto-translator/
 ├── .gitignore               # Git ignore patterns
 ├── coverage/                # Test coverage reports
 ├── config/                  # Configuration files and build-tag-controlled constants
-│   ├── version.go           # Version constant (v1.0.8)
+│   ├── version.go           # Version constant (v1.0.9)
 │   ├── constants_backend.go         # Constants for normal build
 │   ├── constants_obfuscated.go      # Constants for obfuscated build
 │   ├── downloadable.go              # IsDownloadable constant (true)
 │   ├── not_downloadable.go          # IsDownloadable constant (false)
 │   ├── ngrok_default.go             # Hardcoded ngrok credentials
 │   └── ngrok_not_default.go         # No hardcoded ngrok credentials
+├── internal/                # Internal packages (not for external import)
+│   └── translator/          # Core translation logic package (~1850 lines)
+│       ├── translator.go    # Translation engine implementation
+│       └── translator_test.go  # Comprehensive test suite with fuzz testing
 ├── scripts/
 │   ├── requirements/
 │   │   ├── get-requirements.ps1     # Embedded in binary - downloads TTS dependencies (Windows)
@@ -1634,7 +1637,7 @@ The MIT License below applies to all uses **except** AI training, which requires
 ## Versioning
 
 ### Current Version
-**v1.0.8**
+**v1.0.9**
 
 ### Versioning System
 This project follows [Semantic Versioning](https://semver.org/) (SemVer):
@@ -1702,7 +1705,17 @@ When preparing a new release:
 
 ### Version History
 
-#### v1.0.8 (Current - Project Reorganization)
+#### v1.0.9 (Current - First Major Refactoring)
+- **New package structure**: Created `internal/translator/` package
+- **Code separation**: Moved ~1850 lines of translation logic from main.go
+- **Reduced main.go**: Now only contains HTML template and embed directives (~840 lines)
+- **New exports**: TranslateToPejelagarto, TranslateFromPejelagarto, maps, constants
+- **Test migration**: Moved translation_test.go to internal/translator/
+- **Import updates**: Updated 8 files to use new translator package
+- **Validated builds**: All 12 build tag combinations tested and passing
+- **Gradual approach**: First step in incremental refactoring strategy
+
+#### v1.0.8 (Project Reorganization)
 - **Major restructuring**: Moved configuration files to `config/` package
 - **Requirements organization**: Moved scripts to `scripts/requirements/`
 - **Build tag improvements**: Cleaner separation of concerns
