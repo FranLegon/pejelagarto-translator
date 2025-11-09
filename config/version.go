@@ -7,4 +7,10 @@ package config
 //   Backend server:  go build -tags "ngrok_default,downloadable" .
 //   Frontend server: go build -tags "frontendserver,ngrok_default,downloadable" .
 //   WASM module:     GOOS=js GOARCH=wasm go build -tags frontend .
-const Version = "v1.1.0"
+//
+// Changelog v1.2.0:
+//   - FIXED: WASM file naming (translator.wasm)
+//   - FIXED: ngrok domain configuration (empty for random URLs)
+//   - DOCUMENTED: Garble+ngrok incompatibility (definitively proven)
+//   - DEPRECATED: Garble production build for ngrok use
+const Version = "v1.2.0"

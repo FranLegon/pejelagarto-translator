@@ -14,6 +14,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -1058,11 +1059,27 @@ func main() {
 	http.HandleFunc("/", handleFrontendIndex)
 	http.HandleFunc("/translator.wasm", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/wasm")
-		http.ServeFile(w, r, "bin/translator.wasm")
+		// Try multiple possible locations for WASM file
+		wasmPaths := []string{"translator.wasm", "bin/translator.wasm", "../bin/translator.wasm"}
+		for _, path := range wasmPaths {
+			if _, err := os.Stat(path); err == nil {
+				http.ServeFile(w, r, path)
+				return
+			}
+		}
+		http.Error(w, "translator.wasm not found", http.StatusNotFound)
 	})
 	http.HandleFunc("/wasm_exec.js", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/javascript")
-		http.ServeFile(w, r, "bin/wasm_exec.js")
+		// Try multiple possible locations for wasm_exec.js
+		jsPaths := []string{"wasm_exec.js", "bin/wasm_exec.js", "../bin/wasm_exec.js"}
+		for _, path := range jsPaths {
+			if _, err := os.Stat(path); err == nil {
+				http.ServeFile(w, r, path)
+				return
+			}
+		}
+		http.Error(w, "wasm_exec.js not found", http.StatusNotFound)
 	})
 
 	// TTS endpoints

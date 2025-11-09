@@ -35,7 +35,7 @@ $wasmEnv = @{
     GOARCH = "wasm"
 }
 
-$wasmOutput = "bin/main.wasm"
+$wasmOutput = "bin/translator.wasm"
 Write-Host "  Output: $wasmOutput" -ForegroundColor White
 
 & {
@@ -68,7 +68,7 @@ if (Test-Path $wasmExecSrc) {
 Write-Host ""
 
 # Determine output filename
-$outputName = "piper-server"
+$outputName = "pejelagarto-server"
 if ($OS -eq "windows") {
     $outputName += ".exe"
 }
