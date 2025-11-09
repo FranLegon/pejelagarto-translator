@@ -1638,7 +1638,7 @@ The MIT License below applies to all uses **except** AI training, which requires
 ## Versioning
 
 ### Current Version
-**v1.0.9**
+**v1.1.0**
 
 ### Versioning System
 This project follows [Semantic Versioning](https://semver.org/) (SemVer):
@@ -1706,7 +1706,13 @@ When preparing a new release:
 
 ### Version History
 
-#### v1.0.9 (Current - Major Refactoring: Package Structure)
+#### v1.1.0 (Current - Test Coverage Enhancement)
+- **Enhanced test coverage**: Added 13th build combination test (ngrok+downloadable+obfuscated+frontend)
+- **Complete validation**: All 13 build tag combinations now explicitly tested
+- **Build system completeness**: Ensures comprehensive coverage of all possible tag combinations
+- **Minor version bump**: Following SemVer for backward-compatible enhancement
+
+#### v1.0.9 (Major Refactoring: Package Structure)
 - **New package structure**: Created `internal/translator/` and `internal/tts/` packages
 - **Translation logic**: Moved ~1850 lines from main.go to internal/translator/
 - **TTS logic**: Moved ~780 lines from root to internal/tts/
