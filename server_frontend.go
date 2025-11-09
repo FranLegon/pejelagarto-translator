@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -1075,8 +1076,27 @@ func main() {
 	http.HandleFunc("/", handleFrontendIndex)
 	http.HandleFunc("/translator.wasm", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/wasm")
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		w.Header().Set("Pragma", "no-cache")
+		w.Header().Set("Expires", "0")
 		// Try multiple possible locations for WASM file
-		wasmPaths := []string{"translator.wasm", "bin/translator.wasm", "../bin/translator.wasm"}
+		wasmPaths := []string{
+			"translator.wasm",
+			"bin/translator.wasm",
+			"../bin/translator.wasm",
+			"../translator.wasm",
+		}
+		
+		// Also try relative to executable directory
+		if exePath, err := os.Executable(); err == nil {
+			exeDir := filepath.Dir(exePath)
+			wasmPaths = append(wasmPaths,
+				filepath.Join(exeDir, "translator.wasm"),
+				filepath.Join(exeDir, "..", "translator.wasm"),
+				filepath.Join(exeDir, "..", "bin", "translator.wasm"),
+			)
+		}
+		
 		for _, path := range wasmPaths {
 			if _, err := os.Stat(path); err == nil {
 				http.ServeFile(w, r, path)
@@ -1088,7 +1108,23 @@ func main() {
 	http.HandleFunc("/wasm_exec.js", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/javascript")
 		// Try multiple possible locations for wasm_exec.js
-		jsPaths := []string{"wasm_exec.js", "bin/wasm_exec.js", "../bin/wasm_exec.js"}
+		jsPaths := []string{
+			"wasm_exec.js",
+			"bin/wasm_exec.js",
+			"../bin/wasm_exec.js",
+			"../wasm_exec.js",
+		}
+		
+		// Also try relative to executable directory
+		if exePath, err := os.Executable(); err == nil {
+			exeDir := filepath.Dir(exePath)
+			jsPaths = append(jsPaths,
+				filepath.Join(exeDir, "wasm_exec.js"),
+				filepath.Join(exeDir, "..", "wasm_exec.js"),
+				filepath.Join(exeDir, "..", "bin", "wasm_exec.js"),
+			)
+		}
+		
 		for _, path := range jsPaths {
 			if _, err := os.Stat(path); err == nil {
 				http.ServeFile(w, r, path)

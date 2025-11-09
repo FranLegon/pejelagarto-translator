@@ -38,3 +38,5 @@ tts/requirements/
 
 # Coverage output
 coverage
+translator.wasm
+wasm_exec.js
