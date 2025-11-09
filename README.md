@@ -1453,6 +1453,40 @@ Just share the binary file:
 
 **Note**: For slow audio playback feature, FFmpeg must be installed separately and available in system PATH.
 
+### Android Distribution
+
+An Android APK is available for mobile devices. The APK includes native libraries for all Android architectures (ARM, ARM64, x86, x86_64).
+
+**Download the APK:**
+- Android: `bin/pejelagarto-translator.apk` (~14MB)
+
+**Installation:**
+1. Enable "Install from unknown sources" in Android settings
+2. Transfer the APK to your Android device
+3. Open the APK file to install
+4. The app provides translation functionality with a simple interface
+
+**Building the Android APK:**
+
+Prerequisites:
+```bash
+# Install gomobile
+go install golang.org/x/mobile/cmd/gomobile@latest
+
+# Initialize gomobile (downloads Android SDK/NDK if needed)
+gomobile init
+```
+
+Build command:
+```bash
+export PATH=$PATH:$(go env GOPATH)/bin
+export ANDROID_NDK_HOME=/path/to/android/sdk/ndk/26.3.11579264
+export ANDROID_HOME=/path/to/android/sdk
+gomobile build -androidapi=21 -target=android -o bin/pejelagarto-translator.apk ./cmd/androidapp
+```
+
+See `android/README.md` and `cmd/androidapp/README.md` for detailed documentation.
+
 ### Server Deployment (Obfuscated)
 
 For production server deployment with obfuscation:
