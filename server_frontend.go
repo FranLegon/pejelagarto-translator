@@ -103,6 +103,7 @@ const htmlUIFrontend = `<!DOCTYPE html>
             background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
             min-height: 100vh;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             padding: 20px;
@@ -290,7 +291,8 @@ const htmlUIFrontend = `<!DOCTYPE html>
         @media (max-width: 768px) {
             body {
                 padding: 10px;
-                align-items: flex-start;
+                justify-content: flex-start;
+                align-items: stretch;
             }
             
             .container {
@@ -376,11 +378,14 @@ const htmlUIFrontend = `<!DOCTYPE html>
         }
         
         .download-section {
-            margin-top: 30px;
             padding: 15px;
             background: var(--textarea-bg);
             border-radius: 8px;
             border: 1px solid var(--border-color);
+            box-sizing: border-box;
+            margin: 20px auto 80px auto;
+            max-width: 900px;
+            width: 100%;
         }
         
         .download-buttons {
@@ -421,9 +426,10 @@ const htmlUIFrontend = `<!DOCTYPE html>
                 position: fixed;
                 bottom: 20px;
                 left: 20px;
-                margin-top: 0;
+                margin: 0;
                 max-width: 280px;
                 z-index: 100;
+                width: auto;
             }
             
             .download-buttons {
@@ -1086,7 +1092,7 @@ func main() {
 			"../bin/translator.wasm",
 			"../translator.wasm",
 		}
-		
+
 		// Also try relative to executable directory
 		if exePath, err := os.Executable(); err == nil {
 			exeDir := filepath.Dir(exePath)
@@ -1096,7 +1102,7 @@ func main() {
 				filepath.Join(exeDir, "..", "bin", "translator.wasm"),
 			)
 		}
-		
+
 		for _, path := range wasmPaths {
 			if _, err := os.Stat(path); err == nil {
 				http.ServeFile(w, r, path)
@@ -1114,7 +1120,7 @@ func main() {
 			"../bin/wasm_exec.js",
 			"../wasm_exec.js",
 		}
-		
+
 		// Also try relative to executable directory
 		if exePath, err := os.Executable(); err == nil {
 			exeDir := filepath.Dir(exePath)
@@ -1124,7 +1130,7 @@ func main() {
 				filepath.Join(exeDir, "..", "bin", "wasm_exec.js"),
 			)
 		}
-		
+
 		for _, path := range jsPaths {
 			if _, err := os.Stat(path); err == nil {
 				http.ServeFile(w, r, path)

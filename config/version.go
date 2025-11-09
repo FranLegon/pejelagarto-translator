@@ -8,6 +8,12 @@ package config
 //   Frontend server: go build -tags "frontendserver,ngrok_default,downloadable" .
 //   WASM module:     GOOS=js GOARCH=wasm go build -tags frontend .
 //
+// Changelog v1.2.4:
+//   - FIXED: Mobile download section layout (now appears below translator instead of to the right)
+//   - ENHANCED: Body uses flex-direction: column for proper vertical stacking
+//   - IMPROVED: Mobile layout with justify-content: flex-start and align-items: stretch
+//   - SYNCED: Both main.go and server_frontend.go CSS are now consistent
+//
 // Changelog v1.2.3:
 //   - FIXED: WASM loading issue on ngrok deployments ('Failed to load translation module')
 //   - ENHANCED: server_frontend.go now searches multiple paths including executable directory
@@ -31,4 +37,4 @@ package config
 //   - FIXED: ngrok domain configuration (empty for random URLs)
 //   - DOCUMENTED: Garble+ngrok incompatibility (definitively proven)
 //   - DEPRECATED: Garble production build for ngrok use
-const Version = "v1.2.3"
+const Version = "v1.2.4"
