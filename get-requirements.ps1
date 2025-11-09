@@ -246,11 +246,27 @@ if ($MissingLanguages.Count -eq 0) {
     Write-Host "Will download $($MissingLanguages.Count) language model(s)..." -ForegroundColor Yellow
 }
 
+# Initialize counters for progress tracking
+$TotalLanguages = $LanguagesToDownload.Count
+$CurrentLanguageIndex = 0
+$DownloadedCount = 0
+$SkippedCount = 0
+
 foreach ($LangName in $LanguagesToDownload) {
+    $CurrentLanguageIndex++
     $LangInfo = $Languages[$LangName]
     $LangDir = Join-Path $LanguagesDir $LangName
     
-    Write-Host "`n  Checking $LangName - $($LangInfo.direction) ($($LangInfo.voice))..." -ForegroundColor Yellow
+    # Calculate progress percentage
+    $ProgressPercent = [math]::Round(($CurrentLanguageIndex / $TotalLanguages) * 100)
+    
+    # Display progress bar
+    Write-Progress -Activity "Processing Language Models" `
+                   -Status "[$CurrentLanguageIndex/$TotalLanguages] Checking $LangName" `
+                   -PercentComplete $ProgressPercent `
+                   -CurrentOperation "Downloaded: $DownloadedCount | Already present: $SkippedCount"
+    
+    Write-Host "`n  [$CurrentLanguageIndex/$TotalLanguages] Checking $LangName - $($LangInfo.direction) ($($LangInfo.voice))..." -ForegroundColor Yellow
     
     # Create language directory if it doesn't exist
     if (-not (Test-Path $LangDir)) {
@@ -289,17 +305,27 @@ foreach ($LangName in $LanguagesToDownload) {
         $ModelJsonUrl = "$($LangInfo.url_base)/$($LangInfo.voice).onnx.json"
         if (Download-File -Url $ModelJsonUrl -OutputPath $ModelJsonFile) {
             Write-Host "    ✓ Downloaded model.onnx.json" -ForegroundColor Green
+            $DownloadedCount++
         } else {
             Write-Host "    ✗ Failed to download model.onnx.json" -ForegroundColor Red
             continue
         }
     } else {
         Write-Host "    ✓ Model files already present" -ForegroundColor Green
+        $SkippedCount++
     }
 }
 
+# Clear progress bar when done
+Write-Progress -Activity "Processing Language Models" -Completed
+
 # Final summary
 Write-Host "`n=== Dependency Check Complete ===" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Language Models Summary:" -ForegroundColor White
+Write-Host "  Downloaded: $DownloadedCount" -ForegroundColor Green
+Write-Host "  Already present: $SkippedCount" -ForegroundColor Cyan
+Write-Host "  Total processed: $TotalLanguages" -ForegroundColor White
 Write-Host ""
 Write-Host "All dependencies are ready!" -ForegroundColor Green
 Write-Host ""
