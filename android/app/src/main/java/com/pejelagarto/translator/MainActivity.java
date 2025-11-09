@@ -1,13 +1,24 @@
 package com.pejelagarto.translator;
 
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.webkit.ConsoleMessage;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceError;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import androidx.appcompat.app.AppCompatActivity;
+
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import translator.Translator;
 
@@ -15,11 +26,18 @@ public class MainActivity extends AppCompatActivity {
     
     private WebView webView;
     private static final String TAG = "PejeLagartoApp";
+    private static final String REMOTE_URL = "https://emptiest-unwieldily-kiana.ngrok-free.dev/";
+    private static final int CONNECTION_TIMEOUT = 5000; // 5 seconds
+    private ExecutorService executorService;
+    private Handler mainHandler;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        
+        executorService = Executors.newSingleThreadExecutor();
+        mainHandler = new Handler(Looper.getMainLooper());
         
         webView = findViewById(R.id.webview);
         WebSettings webSettings = webView.getSettings();
@@ -36,11 +54,87 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         
-        // Add JavaScript interface to call Go functions
+        // Add JavaScript interface to call Go functions (for offline mode)
         webView.addJavascriptInterface(new TranslatorBridge(), "AndroidTranslator");
         
-        // Clear cache and load the HTML content
+        // Clear cache
         webView.clearCache(true);
+        
+        // Check if remote URL is available
+        checkRemoteAvailability();
+    }
+    
+    /**
+     * Check if the remote URL is available
+     */
+    private void checkRemoteAvailability() {
+        Log.d(TAG, "Checking if remote URL is available: " + REMOTE_URL);
+        
+        executorService.execute(() -> {
+            boolean isAvailable = isUrlReachable(REMOTE_URL);
+            
+            mainHandler.post(() -> {
+                if (isAvailable) {
+                    Log.d(TAG, "Remote URL is available, loading from server");
+                    loadRemoteUrl();
+                } else {
+                    Log.d(TAG, "Remote URL not available, using offline mode");
+                    loadOfflineMode();
+                }
+            });
+        });
+    }
+    
+    /**
+     * Check if a URL is reachable
+     */
+    private boolean isUrlReachable(String urlString) {
+        HttpURLConnection connection = null;
+        try {
+            URL url = new URL(urlString);
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("HEAD");
+            connection.setConnectTimeout(CONNECTION_TIMEOUT);
+            connection.setReadTimeout(CONNECTION_TIMEOUT);
+            connection.setInstanceFollowRedirects(true);
+            
+            int responseCode = connection.getResponseCode();
+            Log.d(TAG, "URL check response code: " + responseCode);
+            
+            // Accept 200-399 as success (including redirects)
+            return responseCode >= 200 && responseCode < 400;
+        } catch (IOException e) {
+            Log.d(TAG, "URL not reachable: " + e.getMessage());
+            return false;
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+    }
+    
+    /**
+     * Load the remote URL in WebView
+     */
+    private void loadRemoteUrl() {
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                super.onReceivedError(view, request, error);
+                Log.e(TAG, "Error loading remote URL, falling back to offline mode");
+                loadOfflineMode();
+            }
+        });
+        
+        Log.d(TAG, "Loading remote URL: " + REMOTE_URL);
+        webView.loadUrl(REMOTE_URL);
+    }
+    
+    /**
+     * Load offline mode with embedded HTML
+     */
+    private void loadOfflineMode() {
+        webView.setWebViewClient(new WebViewClient());
         webView.loadDataWithBaseURL("file:///android_asset/", getHtmlContent(), "text/html", "UTF-8", null);
     }
     
@@ -65,6 +159,14 @@ public class MainActivity extends AppCompatActivity {
             } catch (Exception e) {
                 return "Error: " + e.getMessage();
             }
+        }
+    }
+    
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (executorService != null && !executorService.isShutdown()) {
+            executorService.shutdown();
         }
     }
     
