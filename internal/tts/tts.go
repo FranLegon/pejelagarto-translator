@@ -1,8 +1,9 @@
 //go:build !frontend
 
-package main
+package tts
 
 import (
+	"embed"
 	"fmt"
 	"io"
 	"log"
@@ -21,12 +22,23 @@ import (
 
 // Global TTS configuration variables
 // These are set by server_backend.go or server_frontend.go at startup
-var pronunciationLanguage string
-var pronunciationLanguageDropdown bool
+var PronunciationLanguage string
+var PronunciationLanguageDropdown bool
+
+// TempRequirementsDir stores the path to extracted requirements
+var TempRequirementsDir string
+
+// embeddedGetRequirements holds the embedded requirement scripts
+var embeddedGetRequirements embed.FS
+
+// SetEmbeddedRequirements sets the embedded FS for requirement scripts
+func SetEmbeddedRequirements(fs embed.FS) {
+	embeddedGetRequirements = fs
+}
 
 // extractEmbeddedRequirements extracts and runs the get-requirements script to download TTS dependencies
 // If singleLanguage is not empty, only that language will be downloaded
-func extractEmbeddedRequirements(singleLanguage string) error {
+func ExtractEmbeddedRequirements(singleLanguage string) error {
 	// Determine temp directory based on OS
 	var baseDir string
 	if runtime.GOOS == "windows" {
@@ -42,16 +54,16 @@ func extractEmbeddedRequirements(singleLanguage string) error {
 	}
 
 	// Create a unique directory for this application
-	tempRequirementsDir = filepath.Join(baseDir, config.ProjectName(), "requirements")
+	TempRequirementsDir = filepath.Join(baseDir, config.ProjectName(), "requirements")
 
 	// Check what dependencies are missing
-	piperExe := filepath.Join(tempRequirementsDir, "piper")
+	piperExe := filepath.Join(TempRequirementsDir, "piper")
 	if runtime.GOOS == "windows" {
 		piperExe += ".exe"
 	}
 
-	espeakData := filepath.Join(tempRequirementsDir, "espeak-ng-data")
-	piperDir := filepath.Join(tempRequirementsDir, "piper")
+	espeakData := filepath.Join(TempRequirementsDir, "espeak-ng-data")
+	piperDir := filepath.Join(TempRequirementsDir, "piper")
 
 	// Check if all critical components exist
 	piperExists := false
@@ -109,13 +121,13 @@ func extractEmbeddedRequirements(singleLanguage string) error {
 	// If all dependencies exist, no need to download
 	if piperExists && espeakExists && piperDirExists && allLanguagesExist {
 		if !config.Obfuscated() {
-			log.Printf("Using cached TTS requirements at: %s", tempRequirementsDir)
+			log.Printf("Using cached TTS requirements at: %s", TempRequirementsDir)
 		}
 		return nil
 	}
 
 	if !config.Obfuscated() {
-		log.Printf("Downloading TTS requirements to: %s", tempRequirementsDir)
+		log.Printf("Downloading TTS requirements to: %s", TempRequirementsDir)
 		if !piperExists {
 			log.Printf("  - Missing: piper binary")
 		}
@@ -131,7 +143,7 @@ func extractEmbeddedRequirements(singleLanguage string) error {
 	}
 
 	// Create temp directory if it doesn't exist
-	if err := os.MkdirAll(tempRequirementsDir, 0755); err != nil {
+	if err := os.MkdirAll(TempRequirementsDir, 0755); err != nil {
 		return fmt.Errorf("failed to create temp directory: %w", err)
 	}
 
@@ -147,10 +159,10 @@ func extractEmbeddedRequirements(singleLanguage string) error {
 			return fmt.Errorf("failed to read embedded PowerShell script: %w", err)
 		}
 
-		// Create a modified version of the script that uses tempRequirementsDir
+		// Create a modified version of the script that uses TempRequirementsDir
 		modifiedScript := strings.Replace(string(scriptContent),
 			`$RequirementsDir = Join-Path $PSScriptRoot "tts\requirements"`,
-			`$RequirementsDir = "`+tempRequirementsDir+`"`,
+			`$RequirementsDir = "`+TempRequirementsDir+`"`,
 			1)
 
 		// Write the modified script to a temporary file with UTF-8 BOM
@@ -183,10 +195,10 @@ func extractEmbeddedRequirements(singleLanguage string) error {
 			return fmt.Errorf("failed to read embedded shell script: %w", err)
 		}
 
-		// Create a modified version of the script that uses tempRequirementsDir
+		// Create a modified version of the script that uses TempRequirementsDir
 		modifiedScript := strings.Replace(string(scriptContent),
 			`REQUIREMENTS_DIR="$(dirname "$0")/tts/requirements"`,
-			`REQUIREMENTS_DIR="`+tempRequirementsDir+`"`,
+			`REQUIREMENTS_DIR="`+TempRequirementsDir+`"`,
 			1)
 
 		// Write the modified script to a temporary file
@@ -235,7 +247,7 @@ var audioCache = struct {
 }
 
 func getPiperBinaryPath() string {
-	binaryPath := filepath.Join(tempRequirementsDir, "piper")
+	binaryPath := filepath.Join(TempRequirementsDir, "piper")
 	if runtime.GOOS == "windows" {
 		binaryPath += ".exe"
 	}
@@ -254,7 +266,7 @@ func getModelPath(language string) string {
 			return ""
 		}
 	}
-	return filepath.Join(tempRequirementsDir, "piper", "languages", language, "model.onnx")
+	return filepath.Join(TempRequirementsDir, "piper", "languages", language, "model.onnx")
 }
 
 // getBaseVowelForTTS returns the base (unaccented) vowel for a given character
@@ -303,14 +315,14 @@ func getBaseVowelForTTS(r rune) rune {
 // 2. Converting accented vowels to base vowels when accent not available in language
 // 3. Removing non-language-specific characters
 // 4. Limiting consonant clusters to max 2 adjacent consonants
-func preprocessTextForTTS(input string, pronunciationLanguage string) string {
+func preprocessTextForTTS(input string, PronunciationLanguage string) string {
 	// Step 1: Apply number conversion from Pejelagarto format
 	input = translator.ApplyNumbersLogicFromPejelagarto(input)
 
 	// Define language-specific vowels and consonants
 	var vowels, consonants, allowed string
 
-	switch pronunciationLanguage {
+	switch PronunciationLanguage {
 	case "portuguese":
 		vowels = "aeiouáéíóúâêôãõàü"
 		consonants = "bcdfghjklmnpqrstvwxyzç"
@@ -471,12 +483,12 @@ func preprocessTextForTTS(input string, pronunciationLanguage string) string {
 
 // textToSpeech executes the Piper Text-to-Speech binary to convert text to audio.
 // It generates a unique temporary WAV file for the output audio.
-func textToSpeech(input string, pronunciationLanguage string) (outputPath string, err error) {
+func textToSpeech(input string, PronunciationLanguage string) (outputPath string, err error) {
 	// Preprocess text for better TTS pronunciation
-	input = preprocessTextForTTS(input, pronunciationLanguage)
+	input = preprocessTextForTTS(input, PronunciationLanguage)
 
 	// Get language-specific model path
-	modelPath := getModelPath(pronunciationLanguage)
+	modelPath := getModelPath(PronunciationLanguage)
 
 	// Get the Piper binary path
 	binaryPath := getPiperBinaryPath()
@@ -516,7 +528,7 @@ func textToSpeech(input string, pronunciationLanguage string) (outputPath string
 	}
 
 	// Get absolute path for the requirements directory
-	absRequirementsDir := tempRequirementsDir
+	absRequirementsDir := TempRequirementsDir
 
 	// Build the command to execute Piper
 	// Use absolute path to binary and run from its directory to find DLLs/espeak-ng-data
@@ -595,7 +607,7 @@ func slowDownAudio(inputPath string) (outputPath string, err error) {
 }
 
 // HTTP handler for text-to-speech conversion
-func handleTextToSpeech(w http.ResponseWriter, r *http.Request) {
+func HandleTextToSpeech(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -610,7 +622,7 @@ func handleTextToSpeech(w http.ResponseWriter, r *http.Request) {
 	// Get language from query parameter, default to global flag value
 	lang := r.URL.Query().Get("lang")
 	if lang == "" {
-		lang = pronunciationLanguage
+		lang = PronunciationLanguage
 	}
 
 	// Get slow parameter to determine if audio should be slowed down
@@ -683,7 +695,7 @@ func handleTextToSpeech(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleCheckSlowAudio checks if slow audio is ready and returns status
-func handleCheckSlowAudio(w http.ResponseWriter, r *http.Request) {
+func HandleCheckSlowAudio(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -697,7 +709,7 @@ func handleCheckSlowAudio(w http.ResponseWriter, r *http.Request) {
 
 	lang := r.URL.Query().Get("lang")
 	if lang == "" {
-		lang = pronunciationLanguage
+		lang = PronunciationLanguage
 	}
 
 	input := string(body)
@@ -753,7 +765,7 @@ func handleCheckSlowAudio(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, `{"ready":false}`)
 }
 
-func handlePronunciation(w http.ResponseWriter, r *http.Request) {
+func HandlePronunciation(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -766,10 +778,10 @@ func handlePronunciation(w http.ResponseWriter, r *http.Request) {
 	}
 	input := string(body)
 
-	// Get language from query parameter, default to pronunciationLanguage global
+	// Get language from query parameter, default to PronunciationLanguage global
 	lang := r.URL.Query().Get("lang")
 	if lang == "" {
-		lang = pronunciationLanguage
+		lang = PronunciationLanguage
 	}
 
 	// Return the preprocessed text as pronunciation

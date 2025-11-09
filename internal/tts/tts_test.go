@@ -1,6 +1,6 @@
 //go:build !frontend
 
-package main
+package tts
 
 import (
 	"net/http"

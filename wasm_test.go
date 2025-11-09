@@ -5,7 +5,7 @@ package main
 import (
 	"syscall/js"
 	"testing"
-	
+
 	"pejelagarto-translator/internal/translator"
 )
 

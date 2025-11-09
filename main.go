@@ -7,9 +7,6 @@ import (
 //go:embed scripts/requirements/get-requirements.ps1 scripts/requirements/get-requirements.sh
 var embeddedGetRequirements embed.FS
 
-// tempRequirementsDir stores the path to extracted requirements
-var tempRequirementsDir string
-
 const htmlUI = `<!DOCTYPE html>
 <html lang="en">
 <head>

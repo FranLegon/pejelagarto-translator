@@ -26,6 +26,7 @@ import (
 
 	"pejelagarto-translator/config"
 	"pejelagarto-translator/internal/translator"
+	"pejelagarto-translator/internal/tts"
 )
 
 // Global TTS configuration variables are now declared in tts.go
@@ -35,7 +36,7 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 
 	// Conditionally inject the language dropdown and version
 	html := htmlUI
-	if pronunciationLanguageDropdown {
+	if tts.PronunciationLanguageDropdown {
 		dropdownHTML := ` <select id="tts-language" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--textarea-bg); color: var(--text-primary); font-size: 14px;">
                     <option value="russian">North</option>
                     <option value="kazakh">North-North-East</option>
@@ -521,6 +522,9 @@ func main() {
 		*ngrokDomain = "https://" + *ngrokDomain
 	}
 
+	// Set embedded requirements for TTS
+	tts.SetEmbeddedRequirements(embeddedGetRequirements)
+
 	// Extract embedded TTS requirements to temp directory
 	if !config.Obfuscated() {
 		log.Println("Initializing TTS requirements...")
@@ -531,7 +535,7 @@ func main() {
 		languageToDownload = *pronunciationLangFlag
 	}
 	// If dropdown is enabled, languageToDownload remains empty and all languages are downloaded
-	if err := extractEmbeddedRequirements(languageToDownload); err != nil {
+	if err := tts.ExtractEmbeddedRequirements(languageToDownload); err != nil {
 		log.Fatalf("Failed to extract TTS requirements: %v", err)
 	}
 
@@ -545,19 +549,19 @@ func main() {
 	if !validLanguages[*pronunciationLangFlag] {
 		log.Fatalf("Invalid pronunciation language '%s'. Allowed: portuguese, spanish, english, russian", *pronunciationLangFlag)
 	}
-	pronunciationLanguage = *pronunciationLangFlag
-	pronunciationLanguageDropdown = *pronunciationLangDropdownFlag
+	tts.PronunciationLanguage = *pronunciationLangFlag
+	tts.PronunciationLanguageDropdown = *pronunciationLangDropdownFlag
 	if !config.Obfuscated() {
-		log.Printf("TTS pronunciation language set to: %s", pronunciationLanguage)
-		log.Printf("TTS language dropdown enabled: %v", pronunciationLanguageDropdown)
+		log.Printf("TTS pronunciation language set to: %s", tts.PronunciationLanguage)
+		log.Printf("TTS language dropdown enabled: %v", tts.PronunciationLanguageDropdown)
 	}
 
 	// Set up HTTP routes
 	http.HandleFunc("/", handleIndex)
 	http.HandleFunc("/to", handleTranslateTo)
 	http.HandleFunc("/from", handleTranslateFrom)
-	http.HandleFunc("/tts", handleTextToSpeech)
-	http.HandleFunc("/tts-check-slow", handleCheckSlowAudio)
+	http.HandleFunc("/tts", tts.HandleTextToSpeech)
+	http.HandleFunc("/tts-check-slow", tts.HandleCheckSlowAudio)
 	http.HandleFunc("/api/is-downloadable", handleIsDownloadable)
 	http.HandleFunc("/download/windows", handleDownloadWindows)
 	http.HandleFunc("/download/linux", handleDownloadLinux)

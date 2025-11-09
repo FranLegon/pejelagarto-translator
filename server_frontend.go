@@ -23,7 +23,7 @@ import (
 	ngrokconfig "golang.ngrok.com/ngrok/config"
 
 	"pejelagarto-translator/config"
-	"pejelagarto-translator/internal/translator"
+	"pejelagarto-translator/internal/tts"
 )
 
 // Downloadable feature - constants come from downloadable.go or not_downloadable.go based on build tags
@@ -897,7 +897,7 @@ func handleFrontendIndex(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	html := htmlUIFrontend
-	if pronunciationLanguageDropdown {
+	if tts.PronunciationLanguageDropdown {
 		dropdownHTML := ` <select id="tts-language" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--textarea-bg); color: var(--text-primary); font-size: 14px;">
                     <option value="russian">North</option>
                     <option value="kazakh">North-North-East</option>
@@ -1027,15 +1027,18 @@ func main() {
 		*ngrokDomain = "https://" + *ngrokDomain
 	}
 
-	pronunciationLanguage = *pronunciationLangFlag
-	pronunciationLanguageDropdown = *pronunciationLangDropdownFlag
+	tts.PronunciationLanguage = *pronunciationLangFlag
+	tts.PronunciationLanguageDropdown = *pronunciationLangDropdownFlag
 
 	if !config.Obfuscated() {
 		log.Println("Starting Pejelagarto Translator server")
 		log.Println("Translation: Client-side (WebAssembly)")
 		log.Println("TTS Audio: Server-side")
-		log.Printf("TTS Language: %s\n", pronunciationLanguage)
+		log.Printf("TTS Language: %s\n", tts.PronunciationLanguage)
 	}
+
+	// Set embedded requirements for TTS
+	tts.SetEmbeddedRequirements(embeddedGetRequirements)
 
 	// Initialize TTS
 	if !config.Obfuscated() {
@@ -1047,7 +1050,7 @@ func main() {
 		languageToDownload = *pronunciationLangFlag
 	}
 	// If dropdown is enabled, languageToDownload remains empty and all languages are downloaded
-	if err := extractEmbeddedRequirements(languageToDownload); err != nil {
+	if err := tts.ExtractEmbeddedRequirements(languageToDownload); err != nil {
 		log.Fatalf("Failed to extract TTS requirements: %v", err)
 	}
 
@@ -1063,9 +1066,9 @@ func main() {
 	})
 
 	// TTS endpoints
-	http.HandleFunc("/tts", handleTextToSpeech)
-	http.HandleFunc("/tts-check-slow", handleCheckSlowAudio)
-	http.HandleFunc("/pronunciation", handlePronunciation)
+	http.HandleFunc("/tts", tts.HandleTextToSpeech)
+	http.HandleFunc("/tts-check-slow", tts.HandleCheckSlowAudio)
+	http.HandleFunc("/pronunciation", tts.HandlePronunciation)
 
 	// Download endpoints
 	http.HandleFunc("/api/is-downloadable", handleIsDownloadable)
