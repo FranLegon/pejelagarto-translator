@@ -5,7 +5,8 @@
     android:versionName="1.0">
     
     <application
-        android:label="Pejelagarto Translator">
+        android:label="Pejelagarto Translator"
+        android:allowBackup="true">
         <activity
             android:name="org.golang.app.GoNativeActivity"
             android:exported="true"

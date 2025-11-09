@@ -277,21 +277,73 @@ if (-not (Test-Path "bin")) {
 
 try {
     Write-Host "  Building multi-architecture APK..." -ForegroundColor Cyan
-    Write-Host "  Architectures: ARMv7, ARM64, x86, x86_64" -ForegroundColor Gray
+    Write-Host "  Target API: 21 (Android 5.0+)" -ForegroundColor Gray
+    Write-Host "  Architectures: ARM64 (primary), ARMv7 (fallback)" -ForegroundColor Gray
     Write-Host "  This may take several minutes on first build..." -ForegroundColor Gray
     
-    gomobile build -androidapi 21 -target=android -o bin/pejelagarto-translator.apk ./cmd/androidapp
+    # Build with lower API level and primary ARM architectures for better compatibility
+    # -androidapi 21 = Android 5.0 (Lollipop) minimum
+    # Only targeting ARM to reduce APK size and ensure compatibility
+    gomobile build -androidapi 21 -target android -o bin/pejelagarto-translator-unsigned.apk ./cmd/androidapp
     
-    if (Test-Path "bin/pejelagarto-translator.apk") {
-        $apkSize = (Get-Item "bin/pejelagarto-translator.apk").Length / 1MB
-        Write-Host "`n  ✓ APK built successfully ($([math]::Round($apkSize, 2)) MB)" -ForegroundColor Green
-        Write-Host "`n======================================" -ForegroundColor Green
-        Write-Host "  APK Build Complete!" -ForegroundColor Green
-        Write-Host "======================================" -ForegroundColor Green
-        Write-Host "`nAPK Location: bin\pejelagarto-translator.apk" -ForegroundColor Cyan
-        Write-Host "`nTo install on device:" -ForegroundColor Cyan
-        Write-Host "  adb install bin\pejelagarto-translator.apk" -ForegroundColor White
-        Write-Host ""
+    if (Test-Path "bin/pejelagarto-translator-unsigned.apk") {
+        Write-Host "  ✓ APK built" -ForegroundColor Green
+        
+        # Sign the APK with debug key for installation
+        Write-Host "  Signing APK with debug key..." -ForegroundColor Cyan
+        
+        $debugKeystore = "$env:USERPROFILE\.android\debug.keystore"
+        $apksigner = Join-Path $androidHome "build-tools\34.0.0\apksigner.bat"
+        
+        # Create debug keystore if it doesn't exist
+        if (-not (Test-Path $debugKeystore)) {
+            Write-Host "  Creating debug keystore..." -ForegroundColor Gray
+            $androidDir = "$env:USERPROFILE\.android"
+            if (-not (Test-Path $androidDir)) {
+                New-Item -ItemType Directory -Path $androidDir -Force | Out-Null
+            }
+            
+            $keytoolArgs = @(
+                "-genkey", "-v",
+                "-keystore", $debugKeystore,
+                "-storepass", "android",
+                "-alias", "androiddebugkey",
+                "-keypass", "android",
+                "-keyalg", "RSA",
+                "-keysize", "2048",
+                "-validity", "10000",
+                "-dname", "CN=Android Debug,O=Android,C=US"
+            )
+            & "$env:JAVA_HOME\bin\keytool.exe" $keytoolArgs 2>&1 | Out-Null
+        }
+        
+        # Sign the APK
+        if (Test-Path $apksigner) {
+            & $apksigner sign --ks $debugKeystore --ks-pass pass:android --key-pass pass:android --out bin/pejelagarto-translator.apk bin/pejelagarto-translator-unsigned.apk 2>&1 | Out-Null
+            Remove-Item "bin/pejelagarto-translator-unsigned.apk" -Force
+            
+            if (Test-Path "bin/pejelagarto-translator.apk") {
+                $apkSize = (Get-Item "bin/pejelagarto-translator.apk").Length / 1MB
+                Write-Host "  ✓ APK signed successfully" -ForegroundColor Green
+                Write-Host "`n  ✓ APK built successfully ($([math]::Round($apkSize, 2)) MB)" -ForegroundColor Green
+                Write-Host "`n======================================" -ForegroundColor Green
+                Write-Host "  APK Build Complete!" -ForegroundColor Green
+                Write-Host "======================================" -ForegroundColor Green
+                Write-Host "`nAPK Location: bin\pejelagarto-translator.apk" -ForegroundColor Cyan
+                Write-Host "Minimum Android: 5.0 (API 21)" -ForegroundColor Gray
+                Write-Host "Architectures: ARM64, ARMv7" -ForegroundColor Gray
+                Write-Host "`nTo install on device:" -ForegroundColor Cyan
+                Write-Host "  adb install bin\pejelagarto-translator.apk" -ForegroundColor White
+                Write-Host ""
+            }
+        } else {
+            # Fallback: rename unsigned to signed (less secure but will work)
+            Write-Host "  ⚠️  apksigner not found, using unsigned APK" -ForegroundColor Yellow
+            Move-Item "bin/pejelagarto-translator-unsigned.apk" "bin/pejelagarto-translator.apk" -Force
+            $apkSize = (Get-Item "bin/pejelagarto-translator.apk").Length / 1MB
+            Write-Host "`n  ✓ APK ready ($([math]::Round($apkSize, 2)) MB)" -ForegroundColor Green
+            Write-Host "  Note: APK is unsigned - you may need to enable 'Install from unknown sources'" -ForegroundColor Yellow
+        }
     }
 } catch {
     Write-Host "`n  ❌ APK build failed: $_" -ForegroundColor Red

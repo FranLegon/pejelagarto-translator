@@ -8,9 +8,16 @@ package config
 //   Frontend server: go build -tags "frontendserver,ngrok_default,downloadable" .
 //   WASM module:     GOOS=js GOARCH=wasm go build -tags frontend .
 //
+// Changelog v1.2.6:
+//   - FIXED: APK signing with debug key for Android installation compatibility
+//   - FIXED: AndroidManifest.xml (removed manual uses-sdk, let gomobile handle it)
+//   - ENHANCED: APK now properly signed with v1, v2, and v3 signature schemes
+//   - IMPROVED: Auto-creates debug keystore if not present for APK signing
+//   - VERIFIED: APK installable on Android devices (API 21+ / Android 5.0+)
+//
 // Changelog v1.2.5:
 //   - ADDED: Android APK download button (🤖 Android) to website
-//   - AUTOMATED: Android APK build with gomobile (multi-arch: ARMv7, ARM64, x86, x86_64)
+//   - AUTOMATED: Android APK build with gomobile (multi-arch: ARM64, ARMv7)
 //   - AUTOMATED: Java JDK download (Microsoft OpenJDK 17) if not present
 //   - AUTOMATED: Android SDK/NDK download and installation if not present
 //   - ENHANCED: build-android-apk.ps1 now auto-downloads all prerequisites
@@ -46,4 +53,4 @@ package config
 //   - FIXED: ngrok domain configuration (empty for random URLs)
 //   - DOCUMENTED: Garble+ngrok incompatibility (definitively proven)
 //   - DEPRECATED: Garble production build for ngrok use
-const Version = "v1.2.5"
+const Version = "v1.2.6"
