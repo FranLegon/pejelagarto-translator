@@ -61,6 +61,14 @@ package config
 //   - DOCUMENTED: Garble+ngrok incompatibility (definitively proven)
 //   - DEPRECATED: Garble production build for ngrok use
 //
+// Changelog v1.3.1:
+//   - REORGANIZED: Consolidated android-app/ into android/ directory
+//   - CLEANED: Removed test artifacts and redundant files from root
+//   - OPTIMIZED: WASM files now only stored in bin/ (removed root duplicates)
+//   - FIXED: Android WebView build script path calculations
+//   - ENHANCED: Updated .gitignore to exclude Android build artifacts
+//   - VERIFIED: All 13 build combinations pass tests successfully
+//
 // Changelog v1.3.0:
 //   - ADDED: Custom Pejelagarto icon as Android app launcher icon
 //   - ENHANCED: Icon created in all densities (mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi)
@@ -75,4 +83,4 @@ package config
 //   - VERIFIED: JavaScript bridge successfully calls Go translation functions
 
 // Version is the current version of the application
-const Version = "1.3.0"
+const Version = "1.3.1"
