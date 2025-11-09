@@ -463,6 +463,9 @@ const htmlUI = `<!DOCTYPE html>
             <a href="/download/linux" download="pejelagarto-translator" class="download-btn">
                 🐧 Linux/Mac
             </a>
+            <a href="/download/android" download="pejelagarto-translator.apk" class="download-btn">
+                📱 Android
+            </a>
         </div>
     </div>
     

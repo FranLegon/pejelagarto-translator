@@ -479,6 +479,28 @@ func handleDownloadLinux(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
+// handleDownloadAndroid serves the embedded Android APK
+func handleDownloadAndroid(w http.ResponseWriter, r *http.Request) {
+	if !config.IsDownloadable {
+		http.Error(w, "Downloads not available in this build", http.StatusNotFound)
+		return
+	}
+
+	data, err := embeddedBinaries.ReadFile("bin/pejelagarto-translator.apk")
+	if err != nil {
+		http.Error(w, "Android APK not found", http.StatusNotFound)
+		if !config.Obfuscated() {
+			log.Printf("Error reading Android APK: %v", err)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/vnd.android.package-archive")
+	w.Header().Set("Content-Disposition", "attachment; filename=pejelagarto-translator.apk")
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(data)))
+	w.Write(data)
+}
+
 // HTTP handler for the main UI
 func main() {
 	// Disable -help flag for obfuscated builds
@@ -565,6 +587,7 @@ func main() {
 	http.HandleFunc("/api/is-downloadable", handleIsDownloadable)
 	http.HandleFunc("/download/windows", handleDownloadWindows)
 	http.HandleFunc("/download/linux", handleDownloadLinux)
+	http.HandleFunc("/download/android", handleDownloadAndroid)
 
 	if *ngrokToken != "" {
 		// Use ngrok to expose server publicly
