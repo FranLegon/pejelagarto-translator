@@ -1810,11 +1810,11 @@ Garble's code obfuscation corrupts critical ngrok-go SDK functionality:
 ### Error Observed
 
 ```
-2025/11/09 09:18:51 Using random ngrok domain
-2025/11/09 09:18:51 Establishing tunnel (this may take a few seconds)...
-2025/11/09 09:18:51 Attempt 1 failed: failed to start tunnel: remote gone away
-2025/11/09 09:18:54 Attempt 2 failed: failed to start tunnel: remote gone away
-2025/11/09 09:18:58 Attempt 3 failed: failed to start tunnel: remote gone away
+Using random ngrok domain
+Establishing tunnel (this may take a few seconds)...
+Attempt 1 failed: failed to start tunnel: remote gone away
+Attempt 2 failed: failed to start tunnel: remote gone away
+Attempt 3 failed: failed to start tunnel: remote gone away
 ```
 
 ### Production Recommendation
