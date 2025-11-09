@@ -2243,8 +2243,17 @@ const htmlUI = `<!DOCTYPE html>
             opacity: 0.7;
             font-family: 'Courier New', monospace;
             z-index: 1000;
-            user-select: none;
-            pointer-events: none;
+        }
+        
+        .version-display a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: opacity 0.2s ease;
+        }
+        
+        .version-display a:hover {
+            opacity: 1;
+            text-decoration: underline;
         }
         
         @media (max-width: 768px) {
@@ -2669,7 +2678,7 @@ const htmlUI = `<!DOCTYPE html>
         }
     </script>
     
-    <div class="version-display">{{VERSION}}</div>
+    <div class="version-display"><a href="https://github.com/FranLegon/pejelagarto-translator" target="_blank">{{VERSION}}</a></div>
 </body>
 </html>`
 
