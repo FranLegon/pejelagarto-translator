@@ -51,10 +51,6 @@ if ($LASTEXITCODE -ne 0) {
 
 $wasmSize = (Get-Item $wasmOutput).Length / 1MB
 Write-Host "✓ WASM built successfully ($([math]::Round($wasmSize, 2)) MB)" -ForegroundColor Green
-
-# Also copy WASM to project root for easier serving
-Copy-Item $wasmOutput "translator.wasm" -Force
-Write-Host "✓ WASM copied to project root" -ForegroundColor Green
 Write-Host ""
 
 # Copy wasm_exec.js
@@ -65,9 +61,7 @@ $wasmExecDest = "bin\wasm_exec.js"
 
 if (Test-Path $wasmExecSrc) {
     Copy-Item $wasmExecSrc $wasmExecDest -Force
-    # Also copy to project root for easier serving
-    Copy-Item $wasmExecSrc "wasm_exec.js" -Force
-    Write-Host "✓ wasm_exec.js copied to bin/ and project root" -ForegroundColor Green
+    Write-Host "✓ wasm_exec.js copied to bin/" -ForegroundColor Green
 } else {
     Write-Host "WARNING: wasm_exec.js not found at $wasmExecSrc" -ForegroundColor Yellow
 }

@@ -38,8 +38,6 @@ tts/requirements/
 
 # Coverage output
 coverage
-translator.wasm
-wasm_exec.js
 
 # Android build artifacts
 android/.gradle/
