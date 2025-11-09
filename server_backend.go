@@ -25,6 +25,7 @@ import (
 	ngrokconfig "golang.ngrok.com/ngrok/config"
 
 	"pejelagarto-translator/config"
+	"pejelagarto-translator/internal/translator"
 )
 
 // Global TTS configuration variables are now declared in tts.go
@@ -78,7 +79,7 @@ func handleTranslateTo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	input := string(body)
-	result := TranslateToPejelagarto(input)
+	result := translator.TranslateToPejelagarto(input)
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	fmt.Fprint(w, result)
@@ -98,7 +99,7 @@ func handleTranslateFrom(w http.ResponseWriter, r *http.Request) {
 	}
 
 	input := string(body)
-	result := TranslateFromPejelagarto(input)
+	result := translator.TranslateFromPejelagarto(input)
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	fmt.Fprint(w, result)
@@ -126,32 +127,32 @@ func openBrowser(url string) error {
 // validateConstants performs comprehensive validation of all translation constants
 // This function should be called before starting the server to ensure data integrity
 func validateConstants() error {
-	// 1. Validate conjunctionMap: len(key) == len(value) for every pair
-	for key, value := range conjunctionMap {
+	// 1. Validate translator.ConjunctionMap: len(key) == len(value) for every pair
+	for key, value := range translator.ConjunctionMap {
 		keyLen := utf8.RuneCountInString(key)
 		valueLen := utf8.RuneCountInString(value)
 		if keyLen != valueLen {
-			return fmt.Errorf("conjunctionMap: key %q (len=%d) and value %q (len=%d) must have equal rune lengths",
+			return fmt.Errorf("translator.ConjunctionMap: key %q (len=%d) and value %q (len=%d) must have equal rune lengths",
 				key, keyLen, value, valueLen)
 		}
 	}
 
-	// 2. Validate letterMap: len(key) == 1 && len(value) == 1
-	for key, value := range letterMap {
+	// 2. Validate translator.LetterMap: len(key) == 1 && len(value) == 1
+	for key, value := range translator.LetterMap {
 		keyLen := utf8.RuneCountInString(key)
 		valueLen := utf8.RuneCountInString(value)
 		if keyLen != 1 {
-			return fmt.Errorf("letterMap: key %q must be exactly 1 rune, got %d", key, keyLen)
+			return fmt.Errorf("translator.LetterMap: key %q must be exactly 1 rune, got %d", key, keyLen)
 		}
 		if valueLen != 1 {
-			return fmt.Errorf("letterMap: value %q for key %q must be exactly 1 rune, got %d", value, key, valueLen)
+			return fmt.Errorf("translator.LetterMap: value %q for key %q must be exactly 1 rune, got %d", value, key, valueLen)
 		}
 	}
 
-	// 3. Validate escape characters are not in punctuationMap
-	// Build a set of all characters in punctuationMap (keys and values)
+	// 3. Validate escape characters are not in translator.PunctuationMap
+	// Build a set of all characters in translator.PunctuationMap (keys and values)
 	punctuationChars := make(map[rune]bool)
-	for key, value := range punctuationMap {
+	for key, value := range translator.PunctuationMap {
 		for _, r := range key {
 			punctuationChars[r] = true
 		}
@@ -160,16 +161,16 @@ func validateConstants() error {
 		}
 	}
 
-	if punctuationChars[internalEscapeChar] {
-		return fmt.Errorf("internalEscapeChar %q found in punctuationMap (not allowed)", internalEscapeChar)
+	if punctuationChars[translator.InternalEscapeChar] {
+		return fmt.Errorf("translator.InternalEscapeChar %q found in translator.PunctuationMap (not allowed)", translator.InternalEscapeChar)
 	}
-	if punctuationChars[outputEscapeChar] {
-		return fmt.Errorf("outputEscapeChar %q found in punctuationMap (not allowed)", outputEscapeChar)
+	if punctuationChars[translator.OutputEscapeChar] {
+		return fmt.Errorf("translator.OutputEscapeChar %q found in translator.PunctuationMap (not allowed)", translator.OutputEscapeChar)
 	}
 
 	// 4. Validate special char indices: no repeated characters
 	// Collect all special characters into a single map to check for duplicates
-	allSpecialChars := make(map[string]string) // map[character]source (e.g., "daySpecialCharIndex[3]")
+	allSpecialChars := make(map[string]string) // map[character]source (e.g., "translator.DaySpecialCharIndex[3]")
 
 	// Helper function to check for duplicates in an array
 	checkDuplicates := func(arr []string, arrayName string) error {
@@ -183,28 +184,28 @@ func validateConstants() error {
 		return nil
 	}
 
-	if err := checkDuplicates(daySpecialCharIndex, "daySpecialCharIndex"); err != nil {
+	if err := checkDuplicates(translator.DaySpecialCharIndex, "translator.DaySpecialCharIndex"); err != nil {
 		return err
 	}
-	if err := checkDuplicates(monthSpecialCharIndex, "monthSpecialCharIndex"); err != nil {
+	if err := checkDuplicates(translator.MonthSpecialCharIndex, "translator.MonthSpecialCharIndex"); err != nil {
 		return err
 	}
-	if err := checkDuplicates(yearSpecialCharIndex, "yearSpecialCharIndex"); err != nil {
+	if err := checkDuplicates(translator.YearSpecialCharIndex, "translator.YearSpecialCharIndex"); err != nil {
 		return err
 	}
-	if err := checkDuplicates(hourSpecialCharIndex, "hourSpecialCharIndex"); err != nil {
+	if err := checkDuplicates(translator.HourSpecialCharIndex, "translator.HourSpecialCharIndex"); err != nil {
 		return err
 	}
-	if err := checkDuplicates(minuteSpecialCharIndex, "minuteSpecialCharIndex"); err != nil {
+	if err := checkDuplicates(translator.MinuteSpecialCharIndex, "translator.MinuteSpecialCharIndex"); err != nil {
 		return err
 	}
 
 	// 5. Validate escape characters are not in special char indices
-	if _, exists := allSpecialChars[string(internalEscapeChar)]; exists {
-		return fmt.Errorf("internalEscapeChar %q found in special char indices (not allowed)", internalEscapeChar)
+	if _, exists := allSpecialChars[string(translator.InternalEscapeChar)]; exists {
+		return fmt.Errorf("translator.InternalEscapeChar %q found in special char indices (not allowed)", translator.InternalEscapeChar)
 	}
-	if _, exists := allSpecialChars[string(outputEscapeChar)]; exists {
-		return fmt.Errorf("outputEscapeChar %q found in special char indices (not allowed)", outputEscapeChar)
+	if _, exists := allSpecialChars[string(translator.OutputEscapeChar)]; exists {
+		return fmt.Errorf("translator.OutputEscapeChar %q found in special char indices (not allowed)", translator.OutputEscapeChar)
 	}
 
 	// 6. Validate languages are correctly mapped to their labels in HTML dropdown
@@ -278,48 +279,48 @@ func validateConstants() error {
 		}
 	}
 
-	// 7. Validate letterMap bijectivity (no duplicate values, and reverse mapping exists)
+	// 7. Validate translator.LetterMap bijectivity (no duplicate values, and reverse mapping exists)
 	letterMapValues := make(map[string]string) // map[value]key
-	for key, value := range letterMap {
+	for key, value := range translator.LetterMap {
 		if existingKey, exists := letterMapValues[value]; exists {
-			return fmt.Errorf("letterMap: duplicate value %q for keys %q and %q (not bijective)", value, existingKey, key)
+			return fmt.Errorf("translator.LetterMap: duplicate value %q for keys %q and %q (not bijective)", value, existingKey, key)
 		}
 		letterMapValues[value] = key
 	}
 	// Check that every value has a corresponding reverse mapping
 	for value, originalKey := range letterMapValues {
-		reverseValue, exists := letterMap[value]
+		reverseValue, exists := translator.LetterMap[value]
 		if !exists {
-			return fmt.Errorf("letterMap: value %q (from key %q) has no reverse mapping (not bijective)", value, originalKey)
+			return fmt.Errorf("translator.LetterMap: value %q (from key %q) has no reverse mapping (not bijective)", value, originalKey)
 		}
 		if reverseValue != originalKey {
-			return fmt.Errorf("letterMap: reverse mapping broken: %q -> %q -> %q, expected %q -> %q -> %q",
+			return fmt.Errorf("translator.LetterMap: reverse mapping broken: %q -> %q -> %q, expected %q -> %q -> %q",
 				originalKey, value, reverseValue, originalKey, value, originalKey)
 		}
 	}
 
 	// 8. Validate special character array lengths
-	if len(daySpecialCharIndex) != 31 {
-		return fmt.Errorf("daySpecialCharIndex must have exactly 31 elements, got %d", len(daySpecialCharIndex))
+	if len(translator.DaySpecialCharIndex) != 31 {
+		return fmt.Errorf("translator.DaySpecialCharIndex must have exactly 31 elements, got %d", len(translator.DaySpecialCharIndex))
 	}
-	if len(monthSpecialCharIndex) != 12 {
-		return fmt.Errorf("monthSpecialCharIndex must have exactly 12 elements, got %d", len(monthSpecialCharIndex))
+	if len(translator.MonthSpecialCharIndex) != 12 {
+		return fmt.Errorf("translator.MonthSpecialCharIndex must have exactly 12 elements, got %d", len(translator.MonthSpecialCharIndex))
 	}
-	if len(yearSpecialCharIndex) != 100 {
-		return fmt.Errorf("yearSpecialCharIndex must have exactly 100 elements, got %d", len(yearSpecialCharIndex))
+	if len(translator.YearSpecialCharIndex) != 100 {
+		return fmt.Errorf("translator.YearSpecialCharIndex must have exactly 100 elements, got %d", len(translator.YearSpecialCharIndex))
 	}
-	if len(hourSpecialCharIndex) != 24 {
-		return fmt.Errorf("hourSpecialCharIndex must have exactly 24 elements, got %d", len(hourSpecialCharIndex))
+	if len(translator.HourSpecialCharIndex) != 24 {
+		return fmt.Errorf("translator.HourSpecialCharIndex must have exactly 24 elements, got %d", len(translator.HourSpecialCharIndex))
 	}
-	if len(minuteSpecialCharIndex) != 60 {
-		return fmt.Errorf("minuteSpecialCharIndex must have exactly 60 elements, got %d", len(minuteSpecialCharIndex))
+	if len(translator.MinuteSpecialCharIndex) != 60 {
+		return fmt.Errorf("translator.MinuteSpecialCharIndex must have exactly 60 elements, got %d", len(translator.MinuteSpecialCharIndex))
 	}
 
-	// 9. Validate punctuationMap bijectivity (no duplicate values)
+	// 9. Validate translator.PunctuationMap bijectivity (no duplicate values)
 	punctuationMapValues := make(map[string]string) // map[value]key
-	for key, value := range punctuationMap {
+	for key, value := range translator.PunctuationMap {
 		if existingKey, exists := punctuationMapValues[value]; exists {
-			return fmt.Errorf("punctuationMap: duplicate value %q for keys %q and %q (not bijective)", value, existingKey, key)
+			return fmt.Errorf("translator.PunctuationMap: duplicate value %q for keys %q and %q (not bijective)", value, existingKey, key)
 		}
 		punctuationMapValues[value] = key
 	}
@@ -327,43 +328,43 @@ func validateConstants() error {
 	// 10. Validate accent wheels completeness (all base vowels present)
 	baseVowels := []rune{'a', 'e', 'i', 'o', 'u', 'y', 'w'}
 	for _, vowel := range baseVowels {
-		if _, exists := oneRuneAccentsWheel[vowel]; !exists {
-			return fmt.Errorf("oneRuneAccentsWheel: missing base vowel %q", vowel)
+		if _, exists := translator.OneRuneAccentsWheel[vowel]; !exists {
+			return fmt.Errorf("translator.OneRuneAccentsWheel: missing base vowel %q", vowel)
 		}
-		if _, exists := twoRunesAccentsWheel[vowel]; !exists {
-			return fmt.Errorf("twoRunesAccentsWheel: missing base vowel %q", vowel)
+		if _, exists := translator.TwoRunesAccentsWheel[vowel]; !exists {
+			return fmt.Errorf("translator.TwoRunesAccentsWheel: missing base vowel %q", vowel)
 		}
 	}
 
 	// 11. Validate rune count for each value in accent wheels
-	for baseVowel, accents := range oneRuneAccentsWheel {
+	for baseVowel, accents := range translator.OneRuneAccentsWheel {
 		for idx, accentedForm := range accents {
 			runeCount := utf8.RuneCountInString(accentedForm)
 			if runeCount != 1 {
-				return fmt.Errorf("oneRuneAccentsWheel[%q][%d] = %q has %d runes, expected 1",
+				return fmt.Errorf("translator.OneRuneAccentsWheel[%q][%d] = %q has %d runes, expected 1",
 					baseVowel, idx, accentedForm, runeCount)
 			}
 		}
 	}
-	for baseVowel, accents := range twoRunesAccentsWheel {
+	for baseVowel, accents := range translator.TwoRunesAccentsWheel {
 		for idx, accentedForm := range accents {
 			runeCount := utf8.RuneCountInString(accentedForm)
 			if runeCount != 2 {
-				return fmt.Errorf("twoRunesAccentsWheel[%q][%d] = %q has %d runes, expected 2",
+				return fmt.Errorf("translator.TwoRunesAccentsWheel[%q][%d] = %q has %d runes, expected 2",
 					baseVowel, idx, accentedForm, runeCount)
 			}
 		}
 	}
 
 	// 12. Validate escape characters are unique
-	if internalEscapeChar == outputEscapeChar {
-		return fmt.Errorf("internalEscapeChar and outputEscapeChar must be different, both are %q", internalEscapeChar)
+	if translator.InternalEscapeChar == translator.OutputEscapeChar {
+		return fmt.Errorf("translator.InternalEscapeChar and translator.OutputEscapeChar must be different, both are %q", translator.InternalEscapeChar)
 	}
 
-	// 13. Validate special chars don't overlap with letterMap or conjunctionMap
-	// Build set of all letters used in letterMap (keys and values)
+	// 13. Validate special chars don't overlap with translator.LetterMap or translator.ConjunctionMap
+	// Build set of all letters used in translator.LetterMap (keys and values)
 	letterMapChars := make(map[rune]bool)
-	for key, value := range letterMap {
+	for key, value := range translator.LetterMap {
 		for _, r := range key {
 			letterMapChars[r] = true
 		}
@@ -371,9 +372,9 @@ func validateConstants() error {
 			letterMapChars[r] = true
 		}
 	}
-	// Build set of all characters used in conjunctionMap (keys and values)
+	// Build set of all characters used in translator.ConjunctionMap (keys and values)
 	conjunctionMapChars := make(map[rune]bool)
-	for key, value := range conjunctionMap {
+	for key, value := range translator.ConjunctionMap {
 		for _, r := range key {
 			conjunctionMapChars[r] = true
 		}
@@ -381,14 +382,14 @@ func validateConstants() error {
 			conjunctionMapChars[r] = true
 		}
 	}
-	// Check special char indices don't contain letterMap or conjunctionMap characters
+	// Check special char indices don't contain translator.LetterMap or translator.ConjunctionMap characters
 	for char, source := range allSpecialChars {
 		for _, r := range char {
 			if letterMapChars[r] {
-				return fmt.Errorf("special character %q in %s conflicts with letterMap character %q", char, source, r)
+				return fmt.Errorf("special character %q in %s conflicts with translator.LetterMap character %q", char, source, r)
 			}
 			if conjunctionMapChars[r] {
-				return fmt.Errorf("special character %q in %s conflicts with conjunctionMap character %q", char, source, r)
+				return fmt.Errorf("special character %q in %s conflicts with translator.ConjunctionMap character %q", char, source, r)
 			}
 		}
 	}

@@ -16,6 +16,7 @@ import (
 	"unicode"
 
 	"pejelagarto-translator/config"
+	"pejelagarto-translator/internal/translator"
 )
 
 // Global TTS configuration variables
@@ -304,7 +305,7 @@ func getBaseVowelForTTS(r rune) rune {
 // 4. Limiting consonant clusters to max 2 adjacent consonants
 func preprocessTextForTTS(input string, pronunciationLanguage string) string {
 	// Step 1: Apply number conversion from Pejelagarto format
-	input = applyNumbersLogicFromPejelagarto(input)
+	input = translator.ApplyNumbersLogicFromPejelagarto(input)
 
 	// Define language-specific vowels and consonants
 	var vowels, consonants, allowed string

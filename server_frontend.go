@@ -23,6 +23,7 @@ import (
 	ngrokconfig "golang.ngrok.com/ngrok/config"
 
 	"pejelagarto-translator/config"
+	"pejelagarto-translator/internal/translator"
 )
 
 // Downloadable feature - constants come from downloadable.go or not_downloadable.go based on build tags

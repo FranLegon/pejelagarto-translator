@@ -1,4 +1,4 @@
-package main
+package translator
 
 import (
 	"testing"
@@ -38,7 +38,7 @@ func FuzzApplyNumbersLogic(f *testing.F) {
 	f.Fuzz(func(t *testing.T, input string) {
 		// Test: ToPejelagarto -> FromPejelagarto
 		pejelagarto := applyNumbersLogicToPejelagarto(input)
-		reversed := applyNumbersLogicFromPejelagarto(pejelagarto)
+		reversed := ApplyNumbersLogicFromPejelagarto(pejelagarto)
 
 		if reversed != input {
 			t.Errorf("ToPejelagarto->FromPejelagarto failed\nInput:       %q\nPejelagarto: %q\nReversed:    %q", input, pejelagarto, reversed)

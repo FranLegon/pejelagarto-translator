@@ -5,6 +5,8 @@ package main
 import (
 	"syscall/js"
 	"testing"
+	
+	"pejelagarto-translator/internal/translator"
 )
 
 // TestWASMBuild verifies that the WASM build compiles correctly
@@ -43,9 +45,9 @@ func TestTranslateToPejalagartoWASM(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := TranslateToPejelagarto(tc.input)
+			result := translator.TranslateToPejelagarto(tc.input)
 			if result != tc.expected {
-				t.Errorf("TranslateToPejelagarto(%q) = %q, want %q", tc.input, result, tc.expected)
+				t.Errorf("translator.TranslateToPejelagarto(%q) = %q, want %q", tc.input, result, tc.expected)
 			}
 		})
 	}
@@ -77,9 +79,9 @@ func TestTranslateFromPejalagartoWASM(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := TranslateFromPejelagarto(tc.input)
+			result := translator.TranslateFromPejelagarto(tc.input)
 			if result != tc.expected {
-				t.Errorf("TranslateFromPejelagarto(%q) = %q, want %q", tc.input, result, tc.expected)
+				t.Errorf("translator.TranslateFromPejelagarto(%q) = %q, want %q", tc.input, result, tc.expected)
 			}
 		})
 	}
@@ -100,8 +102,8 @@ func TestTranslationReversibilityWASM(t *testing.T) {
 	for _, input := range testInputs {
 		t.Run(input, func(t *testing.T) {
 			// Test: ToPejelagarto -> FromPejelagarto
-			translated := TranslateToPejelagarto(input)
-			reversed := TranslateFromPejelagarto(translated)
+			translated := translator.TranslateToPejelagarto(input)
+			reversed := translator.TranslateFromPejelagarto(translated)
 
 			if reversed != input {
 				t.Errorf("Round-trip failed:\nInput:      %q\nTranslated: %q\nReversed:   %q",
@@ -174,10 +176,10 @@ func TestWASMTranslationLogicConsistency(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.input, func(t *testing.T) {
 			// Translate to Pejelagarto
-			pejelagarto := TranslateToPejelagarto(tc.input)
+			pejelagarto := translator.TranslateToPejelagarto(tc.input)
 
 			// Translate back
-			reversed := TranslateFromPejelagarto(pejelagarto)
+			reversed := translator.TranslateFromPejelagarto(pejelagarto)
 
 			// Should be reversible
 			if reversed != tc.input {
@@ -195,17 +197,17 @@ func BenchmarkWASMTranslateToPejelagarto(b *testing.B) {
 	input := "The quick brown fox jumps over the lazy dog 12345"
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = TranslateToPejelagarto(input)
+		_ = translator.TranslateToPejelagarto(input)
 	}
 }
 
 // BenchmarkWASMTranslateFromPejelagarto benchmarks the reverse translation in WASM mode
 func BenchmarkWASMTranslateFromPejelagarto(b *testing.B) {
 	// First translate to get Pejelagarto text
-	input := TranslateToPejelagarto("The quick brown fox jumps over the lazy dog 12345")
+	input := translator.TranslateToPejelagarto("The quick brown fox jumps over the lazy dog 12345")
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = TranslateFromPejelagarto(input)
+		_ = translator.TranslateFromPejelagarto(input)
 	}
 }
 

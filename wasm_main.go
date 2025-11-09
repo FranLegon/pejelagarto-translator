@@ -4,6 +4,8 @@ package main
 
 import (
 	"syscall/js"
+	
+	"pejelagarto-translator/internal/translator"
 )
 
 // This file contains the main() function for WASM builds (when -tags frontend is used)
@@ -28,7 +30,7 @@ func goTranslateToPejalagartoJS(this js.Value, args []js.Value) interface{} {
 	}
 	
 	input := args[0].String()
-	result := TranslateToPejelagarto(input)
+	result := translator.TranslateToPejelagarto(input)
 	return js.ValueOf(result)
 }
 
@@ -39,6 +41,6 @@ func goTranslateFromPejalagartoJS(this js.Value, args []js.Value) interface{} {
 	}
 	
 	input := args[0].String()
-	result := TranslateFromPejelagarto(input)
+	result := translator.TranslateFromPejelagarto(input)
 	return js.ValueOf(result)
 }
