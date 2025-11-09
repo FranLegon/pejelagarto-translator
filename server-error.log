@@ -1,0 +1,7 @@
+2025/11/08 19:03:50 Starting Pejelagarto Translator server
+2025/11/08 19:03:50 Translation: Client-side (WebAssembly)
+2025/11/08 19:03:50 TTS Audio: Server-side
+2025/11/08 19:03:50 TTS Language: russian
+2025/11/08 19:03:50 Initializing TTS requirements...
+2025/11/08 19:03:50 Using cached TTS requirements at: C:\Users\FRANCI~1.LEG\AppData\Local\Temp\pejelagarto-translator\requirements
+2025/11/08 19:03:50 Server starting on http://localhost:8080

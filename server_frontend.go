@@ -1101,13 +1101,13 @@ func main() {
 				resultChan <- result{listener: l, err: e}
 			}()
 
-			// Wait for completion or timeout
+			// Wait for completion or timeout (increased to 45 seconds for slower connections)
 			select {
 			case res := <-resultChan:
 				listener = res.listener
 				err = res.err
-			case <-time.After(30 * time.Second):
-				log.Fatalf("Failed to start ngrok listener: connection timeout after 30 seconds")
+			case <-time.After(45 * time.Second):
+				log.Fatalf("Failed to start ngrok listener: connection timeout after 45 seconds.\n\nPossible causes:\n  - Slow internet connection\n  - ngrok service unavailable\n  - Domain '%s' may be in use\n\nTry:\n  - Check internet connectivity\n  - Run without -ngrok_domain to use random URL\n  - Wait a few minutes and retry", domain)
 			}
 		} else {
 			if !obfuscation.Obfuscated() {
@@ -1140,7 +1140,15 @@ func main() {
 		}
 
 		if err != nil {
-			log.Fatalf("Failed to start ngrok listener: %v", err)
+			// Check for specific error types and provide helpful messages
+			errStr := err.Error()
+			if strings.Contains(errStr, "already online") || strings.Contains(errStr, "ERR_NGROK_334") {
+				log.Fatalf("Failed to start ngrok listener: The domain '%s' is already in use.\nThis could mean:\n  1. Another instance is using this domain\n  2. A previous tunnel wasn't properly closed\n\nPlease either:\n  - Stop the other instance using this domain\n  - Wait a few minutes for the old tunnel to expire\n  - Use a different domain\n\nError: %v", *ngrokDomain, err)
+			} else if strings.Contains(errStr, "authentication failed") || strings.Contains(errStr, "invalid authtoken") {
+				log.Fatalf("Failed to start ngrok listener: Invalid authentication token.\nPlease check your ngrok auth token.\n\nError: %v", err)
+			} else {
+				log.Fatalf("Failed to start ngrok listener: %v\n\nTroubleshooting:\n  - Check your internet connection\n  - Verify ngrok service is available\n  - Try running without a fixed domain", err)
+			}
 		}
 
 		url := listener.URL()
