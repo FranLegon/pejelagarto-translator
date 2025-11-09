@@ -112,7 +112,7 @@ go run server_frontend.go version.go
 
 For production server deployment with client-side WASM translation and hardcoded ngrok credentials:
 
-**⚠️ Important:** Garble obfuscation breaks the ngrok SDK. Use the **unobfuscated** production build for reliable ngrok connectivity.
+**⚠️ Important:** Garble-obfuscated executables may be blocked by Windows Defender. Use the **unobfuscated** production build to avoid antivirus false positives.
 
 **Recommended Build (Unobfuscated + Optimized):**
 
@@ -131,9 +131,9 @@ Linux/macOS:
 - Build tags: `obfuscated`, `frontend`, `ngrok_default`
 - Uses standard Go optimization (`-ldflags="-s -w"`) instead of garble
 
-**Alternative: Garble-Obfuscated Build (Not Recommended for ngrok):**
+**Alternative: Garble-Obfuscated Build (May Trigger Antivirus):**
 
-⚠️ **Warning:** Garble obfuscation causes ngrok SDK failures ("remote gone away" errors). Only use this for local deployments or testing without ngrok.
+⚠️ **Warning:** Garble-obfuscated binaries may trigger Windows Defender false positives, requiring antivirus exclusions.
 
 Installation:
 ```bash
@@ -866,15 +866,14 @@ All transformations verified for reversibility with random inputs:
 
 ### Windows Defender Blocking Builds
 
-**Problem:** Garble-obfuscated binaries may be blocked by Windows Defender or cause ngrok connection failures
+**Problem:** Garble-obfuscated binaries may be blocked by Windows Defender
 
 **Why This Happens:**
 - Garble heavily obfuscates code structure, control flow, and strings
 - Windows Defender's heuristics flag unknown obfuscation patterns as suspicious
-- **Critical:** Garble obfuscation breaks the ngrok SDK, causing "remote gone away" errors
 - This affects the `build-prod.ps1` and `build-obfuscated.ps1` scripts
 
-**Recommended Solution:** Use the unobfuscated production build for deployments requiring ngrok:
+**Recommended Solution:** Use the unobfuscated production build to avoid antivirus false positives:
 
 Windows:
 ```powershell
@@ -887,12 +886,13 @@ Linux/macOS:
 ```
 
 This build includes all production features (WASM, hardcoded ngrok, embedded binaries) but uses standard Go compiler optimization (`-ldflags="-s -w"`) instead of garble, which:
-- ✅ Works reliably with ngrok
 - ✅ Bypasses Windows Defender false positives
 - ✅ Strips debug symbols and symbol table (still optimized)
 - ❌ Does not obfuscate code structure or strings
 
-**Solution - Add Exclusions (Run PowerShell as Administrator):**
+**Alternative Solution - Add Exclusions (If Using Garble, Run PowerShell as Administrator):**
+
+If you must use garble obfuscation, add Windows Defender exclusions:
 
 ```powershell
 # Exclude temp directory where garble works
