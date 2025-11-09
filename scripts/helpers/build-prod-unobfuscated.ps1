@@ -58,7 +58,7 @@ Write-Host "✓ WASM copied to project root" -ForegroundColor Green
 Write-Host ""
 
 # Copy wasm_exec.js
-Write-Host "[2/5] Copying wasm_exec.js..." -ForegroundColor Green
+Write-Host "[2/6] Copying wasm_exec.js..." -ForegroundColor Green
 $goroot = go env GOROOT
 $wasmExecSrc = Join-Path $goroot "lib\wasm\wasm_exec.js"
 $wasmExecDest = "bin\wasm_exec.js"
@@ -73,6 +73,27 @@ if (Test-Path $wasmExecSrc) {
 }
 Write-Host ""
 
+# Build Android APK
+Write-Host "[3/6] Building Android APK..." -ForegroundColor Green
+if (Test-Path ".\scripts\helpers\build-android-apk.ps1") {
+    try {
+        & ".\scripts\helpers\build-android-apk.ps1" 2>&1 | ForEach-Object {
+            if ($_ -match "✓|✗|⚠️|❌") {
+                Write-Host "  $_"
+            }
+        }
+        if (Test-Path "bin\pejelagarto-translator.apk") {
+            $apkSize = (Get-Item "bin\pejelagarto-translator.apk").Length
+            Write-Host "  ✓ APK ready ($([math]::Round($apkSize / 1MB, 2)) MB)" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "  ⚠️  APK build failed, continuing..." -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "  ⊘ APK build script not found, skipping..." -ForegroundColor Gray
+}
+Write-Host ""
+
 # Determine output filename
 $outputName = "pejelagarto-server"
 if ($OS -eq "windows") {
@@ -81,7 +102,7 @@ if ($OS -eq "windows") {
 $outputPath = "bin\$outputName"
 
 # Build server (frontend server for WASM mode)
-Write-Host "[3/5] Building optimized frontend server..." -ForegroundColor Green
+Write-Host "[4/6] Building optimized frontend server..." -ForegroundColor Green
 
 Write-Host "  Tags: frontendserver,obfuscated,ngrok_default,downloadable" -ForegroundColor White
 Write-Host "  Flags: -ldflags='-s -w' (strip symbols)" -ForegroundColor White
@@ -110,7 +131,7 @@ Write-Host "✓ Server built successfully ($([math]::Round($serverSize, 2)) MB)"
 Write-Host ""
 
 # Generate checksums
-Write-Host "[4/5] Generating checksums..." -ForegroundColor Green
+Write-Host "[5/6] Generating checksums..." -ForegroundColor Green
 $checksumFile = "bin\checksums-prod.txt"
 $serverHash = (Get-FileHash $outputPath -Algorithm SHA256).Hash
 $wasmHash = (Get-FileHash $wasmOutput -Algorithm SHA256).Hash
@@ -135,7 +156,7 @@ Write-Host "✓ Checksums saved to $checksumFile" -ForegroundColor Green
 Write-Host ""
 
 # Summary
-Write-Host "[5/5] Build Summary" -ForegroundColor Green
+Write-Host "[6/6] Build Summary" -ForegroundColor Green
 Write-Host "======================================" -ForegroundColor Cyan
 Write-Host "Build Type: Production (Unobfuscated)" -ForegroundColor White
 Write-Host "Features:" -ForegroundColor White

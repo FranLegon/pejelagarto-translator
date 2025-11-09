@@ -8,6 +8,15 @@ package config
 //   Frontend server: go build -tags "frontendserver,ngrok_default,downloadable" .
 //   WASM module:     GOOS=js GOARCH=wasm go build -tags frontend .
 //
+// Changelog v1.2.5:
+//   - ADDED: Android APK download button (🤖 Android) to website
+//   - AUTOMATED: Android APK build with gomobile (multi-arch: ARMv7, ARM64, x86, x86_64)
+//   - AUTOMATED: Java JDK download (Microsoft OpenJDK 17) if not present
+//   - AUTOMATED: Android SDK/NDK download and installation if not present
+//   - ENHANCED: build-android-apk.ps1 now auto-downloads all prerequisites
+//   - INTEGRATED: Android APK build into production build pipeline (step 3/6)
+//   - REMOVED: Placeholder APK files - now builds real 13.57 MB functional APK
+//
 // Changelog v1.2.4:
 //   - FIXED: Mobile download section layout (now appears below translator instead of to the right)
 //   - ENHANCED: Body uses flex-direction: column for proper vertical stacking
@@ -37,4 +46,4 @@ package config
 //   - FIXED: ngrok domain configuration (empty for random URLs)
 //   - DOCUMENTED: Garble+ngrok incompatibility (definitively proven)
 //   - DEPRECATED: Garble production build for ngrok use
-const Version = "v1.2.4"
+const Version = "v1.2.5"
