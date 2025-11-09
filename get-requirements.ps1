@@ -226,6 +226,26 @@ $LanguagesToDownload = if ($Language -eq "all") {
     }
 }
 
+# Check if we need to download any missing language models
+$MissingLanguages = @()
+foreach ($LangName in $LanguagesToDownload) {
+    $LangDir = Join-Path $LanguagesDir $LangName
+    $ModelFile = Join-Path $LangDir "model.onnx"
+    $ModelJsonFile = Join-Path $LangDir "model.onnx.json"
+    
+    if (-not (Test-Path $ModelFile) -or -not (Test-Path $ModelJsonFile)) {
+        $MissingLanguages += $LangName
+    }
+}
+
+# Report status of language models
+if ($MissingLanguages.Count -eq 0) {
+    Write-Host "✓ All required language models are already present" -ForegroundColor Green
+} else {
+    Write-Host "Missing language models: $($MissingLanguages -join ', ')" -ForegroundColor Yellow
+    Write-Host "Will download $($MissingLanguages.Count) language model(s)..." -ForegroundColor Yellow
+}
+
 foreach ($LangName in $LanguagesToDownload) {
     $LangInfo = $Languages[$LangName]
     $LangDir = Join-Path $LanguagesDir $LangName

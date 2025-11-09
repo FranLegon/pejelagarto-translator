@@ -67,8 +67,46 @@ func extractEmbeddedRequirements(singleLanguage string) error {
 		piperDirExists = true
 	}
 
+	// Define all available languages
+	allLanguages := []string{
+		"russian", "portuguese", "french", "german", "hindi", "romanian",
+		"swahili", "czech", "icelandic", "kazakh", "norwegian", "swedish",
+		"turkish", "vietnamese", "hungarian", "chinese",
+	}
+
+	// Determine which languages need to be checked
+	var languagesToCheck []string
+	if singleLanguage != "" {
+		// Only check the single specified language
+		languagesToCheck = []string{singleLanguage}
+	} else {
+		// Check all languages (dropdown enabled or default)
+		languagesToCheck = allLanguages
+	}
+
+	// Check if all required language models exist
+	allLanguagesExist := true
+	var missingLanguages []string
+	for _, lang := range languagesToCheck {
+		langDir := filepath.Join(piperDir, "languages", lang)
+		modelFile := filepath.Join(langDir, "model.onnx")
+		modelJsonFile := filepath.Join(langDir, "model.onnx.json")
+
+		if _, err := os.Stat(modelFile); os.IsNotExist(err) {
+			allLanguagesExist = false
+			missingLanguages = append(missingLanguages, lang)
+			continue
+		}
+		if _, err := os.Stat(modelJsonFile); os.IsNotExist(err) {
+			allLanguagesExist = false
+			if len(missingLanguages) == 0 || missingLanguages[len(missingLanguages)-1] != lang {
+				missingLanguages = append(missingLanguages, lang)
+			}
+		}
+	}
+
 	// If all dependencies exist, no need to download
-	if piperExists && espeakExists && piperDirExists {
+	if piperExists && espeakExists && piperDirExists && allLanguagesExist {
 		if !obfuscation.Obfuscated() {
 			log.Printf("Using cached TTS requirements at: %s", tempRequirementsDir)
 		}
@@ -85,6 +123,9 @@ func extractEmbeddedRequirements(singleLanguage string) error {
 		}
 		if !piperDirExists {
 			log.Printf("  - Missing: piper directory (language models)")
+		}
+		if !allLanguagesExist && len(missingLanguages) > 0 {
+			log.Printf("  - Missing language models: %v", missingLanguages)
 		}
 	}
 

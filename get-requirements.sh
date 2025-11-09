@@ -186,6 +186,26 @@ else
     LANGUAGES_TO_DOWNLOAD=("${!LANGUAGES[@]}")
 fi
 
+# Check if we need to download any missing language models
+MISSING_LANGUAGES=()
+for lang_name in "${LANGUAGES_TO_DOWNLOAD[@]}"; do
+    lang_dir="${LANGUAGES_DIR}/${lang_name}"
+    model_file="${lang_dir}/model.onnx"
+    config_file="${lang_dir}/model.onnx.json"
+    
+    if [ ! -f "$model_file" ] || [ ! -f "$config_file" ]; then
+        MISSING_LANGUAGES+=("$lang_name")
+    fi
+done
+
+# Report status of language models
+if [ ${#MISSING_LANGUAGES[@]} -eq 0 ]; then
+    echo "✓ All required language models are already present"
+else
+    echo "Missing language models: ${MISSING_LANGUAGES[*]}"
+    echo "Will download ${#MISSING_LANGUAGES[@]} language model(s)..."
+fi
+
 for lang_name in "${LANGUAGES_TO_DOWNLOAD[@]}"; do
     model_name="${LANGUAGES[$lang_name]}"
     lang_dir="${LANGUAGES_DIR}/${lang_name}"
