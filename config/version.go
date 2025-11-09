@@ -81,6 +81,14 @@ package config
 //   - ENHANCED: Added WebChromeClient for better console logging and debugging
 //   - IMPROVED: Android app now fully functional with bidirectional translation
 //   - VERIFIED: JavaScript bridge successfully calls Go translation functions
+//
+// Changelog v1.3.2:
+//   - CLEANUP: Removed all test builds and temporary files from bin/ directory
+//   - CLEANUP: Removed old APK files (pejelagarto-translator-webview.apk, .idsig)
+//   - OPTIMIZED: bin/ now contains only production release files
+//   - MAINTAINED: Release packages (zip files) for Windows, Linux, macOS
+//   - MAINTAINED: Production APK (pejelagarto-translator.apk)
+//   - MAINTAINED: WASM module (translator.wasm) and runtime (wasm_exec.js)
 
 // Version is the current version of the application
-const Version = "1.3.1"
+const Version = "1.3.2"
