@@ -14,7 +14,9 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -61,6 +63,8 @@ const htmlUIFrontend = `<!DOCTYPE html>
             --textarea-focus-border: #53a8e2;
             --theme-btn-bg: #53a8e2;
             --theme-btn-hover: #3d7ea6;
+            --version-link-color: #7fb3d5;
+            --version-link-hover: #a8d0e6;
         }
 
         [data-theme="light"] {
@@ -84,6 +88,8 @@ const htmlUIFrontend = `<!DOCTYPE html>
             --textarea-focus-border: #667eea;
             --theme-btn-bg: #ffd700;
             --theme-btn-hover: #ffed4e;
+            --version-link-color: #5a4fcf;
+            --version-link-hover: #764ba2;
         }
 
         * {
@@ -97,6 +103,7 @@ const htmlUIFrontend = `<!DOCTYPE html>
             background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
             min-height: 100vh;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             padding: 20px;
@@ -284,7 +291,8 @@ const htmlUIFrontend = `<!DOCTYPE html>
         @media (max-width: 768px) {
             body {
                 padding: 10px;
-                align-items: flex-start;
+                justify-content: flex-start;
+                align-items: stretch;
             }
             
             .container {
@@ -370,11 +378,14 @@ const htmlUIFrontend = `<!DOCTYPE html>
         }
         
         .download-section {
-            margin-top: 30px;
             padding: 15px;
             background: var(--textarea-bg);
             border-radius: 8px;
             border: 1px solid var(--border-color);
+            box-sizing: border-box;
+            margin: 20px auto 80px auto;
+            max-width: 900px;
+            width: 100%;
         }
         
         .download-buttons {
@@ -415,9 +426,10 @@ const htmlUIFrontend = `<!DOCTYPE html>
                 position: fixed;
                 bottom: 20px;
                 left: 20px;
-                margin-top: 0;
+                margin: 0;
                 max-width: 280px;
                 z-index: 100;
+                width: auto;
             }
             
             .download-buttons {
@@ -431,33 +443,37 @@ const htmlUIFrontend = `<!DOCTYPE html>
             }
         }
         
-        .config.Version-display {
+        .version-display {
             position: fixed;
-            bottom: 10px;
-            right: 10px;
-            font-size: 12px;
-            color: var(--text-secondary);
-            opacity: 0.7;
+            bottom: 15px;
+            right: 15px;
+            font-size: 13px;
             font-family: 'Courier New', monospace;
-            z-index: 1000;
+            z-index: 10000;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 6px 12px;
+            border-radius: 6px;
+            backdrop-filter: blur(5px);
         }
         
-        .config.Version-display a {
-            color: var(--text-secondary);
+        .version-display a {
+            color: var(--version-link-color);
             text-decoration: none;
-            transition: opacity 0.2s ease;
+            transition: all 0.2s ease;
+            font-weight: 500;
         }
         
-        .config.Version-display a:hover {
-            opacity: 1;
+        .version-display a:hover {
+            color: var(--version-link-hover);
             text-decoration: underline;
         }
         
         @media (max-width: 768px) {
-            .config.Version-display {
-                font-size: 10px;
-                bottom: 5px;
-                right: 5px;
+            .version-display {
+                font-size: 11px;
+                bottom: 10px;
+                right: 10px;
+                padding: 4px 8px;
             }
         }
     </style>
@@ -601,7 +617,10 @@ const htmlUIFrontend = `<!DOCTYPE html>
             resetToSingleButton();
             
             // Update pronunciation after inversion
-            if (outputText.value) {
+            // Always pass Pejelagarto text: if inverted, input has Pejelagarto; if not, output has Pejelagarto
+            if (isInverted && inputText.value) {
+                updatePronunciation(inputText.value);
+            } else if (!isInverted && outputText.value) {
                 updatePronunciation(outputText.value);
             }
         }
@@ -638,24 +657,25 @@ const htmlUIFrontend = `<!DOCTYPE html>
                 if (!isInverted) {
                     // Human to Pejelagarto
                     outputText.value = GoTranslateToPejelagarto(inputText.value);
+                    // Update pronunciation with Pejelagarto text
+                    updatePronunciation(outputText.value);
                 } else {
                     // Pejelagarto to Human
                     outputText.value = GoTranslateFromPejelagarto(inputText.value);
+                    // Update pronunciation with Pejelagarto text (input, not output)
+                    updatePronunciation(inputText.value);
                 }
-                
-                // Update pronunciation
-                updatePronunciation(outputText.value);
             } catch (error) {
                 console.error('Translation error:', error);
             }
         }
         
-        function updatePronunciation(text) {
+        function updatePronunciation(pejelagartoText) {
             const pronunciationText = document.getElementById('pronunciation-text');
             const languageDropdown = document.getElementById('tts-language');
             const lang = languageDropdown ? languageDropdown.value : '';
             
-            if (!text) {
+            if (!pejelagartoText) {
                 pronunciationText.value = '';
                 return;
             }
@@ -665,7 +685,7 @@ const htmlUIFrontend = `<!DOCTYPE html>
                 headers: {
                     'Content-Type': 'text/plain; charset=utf-8'
                 },
-                body: text
+                body: pejelagartoText
             })
             .then(response => response.text())
             .then(pronunciation => {
@@ -684,6 +704,7 @@ const htmlUIFrontend = `<!DOCTYPE html>
         let slowAudioReady = {};
         
         function watchOutputChanges() {
+            const inputText = document.getElementById('input-text');
             const outputText = document.getElementById('output-text');
             const languageDropdown = document.getElementById('tts-language');
             const selectedLanguage = languageDropdown ? languageDropdown.value : '';
@@ -701,8 +722,11 @@ const htmlUIFrontend = `<!DOCTYPE html>
                     splitButton(source, container);
                 }
                 
-                // Update pronunciation when language changes
-                if (outputText.value) {
+                // Update pronunciation with Pejelagarto text
+                // If inverted, input has Pejelagarto; if not inverted, output has Pejelagarto
+                if (isInverted && inputText.value) {
+                    updatePronunciation(inputText.value);
+                } else if (!isInverted && outputText.value) {
                     updatePronunciation(outputText.value);
                 }
             }
@@ -888,7 +912,7 @@ const htmlUIFrontend = `<!DOCTYPE html>
         }
     </script>
     
-    <div class="config.Version-display"><a href="https://github.com/FranLegon/pejelagarto-translator" target="_blank">{{config.Version}}</a></div>
+    <div class="version-display"><a href="https://github.com/FranLegon/pejelagarto-translator" target="_blank">{{config.Version}}</a></div>
 </body>
 </html>`
 
@@ -1080,11 +1104,62 @@ func main() {
 	http.HandleFunc("/", handleFrontendIndex)
 	http.HandleFunc("/translator.wasm", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/wasm")
-		http.ServeFile(w, r, "bin/translator.wasm")
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		w.Header().Set("Pragma", "no-cache")
+		w.Header().Set("Expires", "0")
+		// Try multiple possible locations for WASM file
+		wasmPaths := []string{
+			"translator.wasm",
+			"bin/translator.wasm",
+			"../bin/translator.wasm",
+			"../translator.wasm",
+		}
+
+		// Also try relative to executable directory
+		if exePath, err := os.Executable(); err == nil {
+			exeDir := filepath.Dir(exePath)
+			wasmPaths = append(wasmPaths,
+				filepath.Join(exeDir, "translator.wasm"),
+				filepath.Join(exeDir, "..", "translator.wasm"),
+				filepath.Join(exeDir, "..", "bin", "translator.wasm"),
+			)
+		}
+
+		for _, path := range wasmPaths {
+			if _, err := os.Stat(path); err == nil {
+				http.ServeFile(w, r, path)
+				return
+			}
+		}
+		http.Error(w, "translator.wasm not found", http.StatusNotFound)
 	})
 	http.HandleFunc("/wasm_exec.js", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/javascript")
-		http.ServeFile(w, r, "bin/wasm_exec.js")
+		// Try multiple possible locations for wasm_exec.js
+		jsPaths := []string{
+			"wasm_exec.js",
+			"bin/wasm_exec.js",
+			"../bin/wasm_exec.js",
+			"../wasm_exec.js",
+		}
+
+		// Also try relative to executable directory
+		if exePath, err := os.Executable(); err == nil {
+			exeDir := filepath.Dir(exePath)
+			jsPaths = append(jsPaths,
+				filepath.Join(exeDir, "wasm_exec.js"),
+				filepath.Join(exeDir, "..", "wasm_exec.js"),
+				filepath.Join(exeDir, "..", "bin", "wasm_exec.js"),
+			)
+		}
+
+		for _, path := range jsPaths {
+			if _, err := os.Stat(path); err == nil {
+				http.ServeFile(w, r, path)
+				return
+			}
+		}
+		http.Error(w, "wasm_exec.js not found", http.StatusNotFound)
 	})
 
 	// TTS endpoints

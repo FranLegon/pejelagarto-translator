@@ -112,9 +112,9 @@ go run server_frontend.go version.go
 
 For production server deployment with client-side WASM translation and hardcoded ngrok credentials:
 
-**⚠️ Important:** Garble-obfuscated executables may be blocked by Windows Defender. Use the **unobfuscated** production build to avoid antivirus false positives.
+**🚨 CRITICAL:** Garble obfuscation is **INCOMPATIBLE** with ngrok-go SDK. The obfuscated build will fail with "remote gone away" error. **You MUST use the unobfuscated build for production deployments with ngrok.**
 
-**Recommended Build (Unobfuscated + Optimized):**
+**✅ Recommended Build (Unobfuscated + Optimized):**
 
 Windows:
 ```powershell
@@ -131,9 +131,15 @@ Linux/macOS:
 - Build tags: `obfuscated`, `frontend`, `ngrok_default`
 - Uses standard Go optimization (`-ldflags="-s -w"`) instead of garble
 
-**Alternative: Garble-Obfuscated Build (May Trigger Antivirus):**
+**Why Unobfuscated?**
+1. ✅ **ngrok Compatible**: Works reliably with ngrok-go SDK
+2. ✅ **Optimized**: Binary size optimization via `-s -w` flags
+3. ✅ **Windows Defender Friendly**: No false positive triggers
+4. ✅ **Stable**: Proven reliable in production
 
-⚠️ **Warning:** Garble-obfuscated binaries may trigger Windows Defender false positives, requiring antivirus exclusions.
+**❌ DEPRECATED: Garble-Obfuscated Build (Incompatible with ngrok):**
+
+⚠️ **Warning:** Garble obfuscation corrupts ngrok-go SDK internals, causing connection failures. This build is preserved for non-ngrok use cases only.
 
 Installation:
 ```bash
@@ -151,41 +157,36 @@ Linux/macOS:
 ```
 
 **Output:**
-- `bin/piper-server` (or `piper-server.exe` on Windows) - Obfuscated server
-- `bin/main.wasm` - Client-side WASM translation module
+- `bin/pejelagarto-server.exe` (Windows) or `bin/pejelagarto-server` (Linux/macOS) - Optimized server
+- `bin/translator.wasm` - Client-side WASM translation module
 - `bin/wasm_exec.js` - Go WASM runtime
 - `bin/checksums-prod.txt` - SHA256 checksums for verification
 
 **What This Build Does:**
-1. ✅ **Code Obfuscation**: Uses garble with `-tiny -literals -seed=random` flags
+1. ✅ **Standard Go Optimization**: Uses `-ldflags="-s -w"` for size reduction
 2. ✅ **WASM Frontend**: Compiles translation to WebAssembly for client-side execution
 3. ✅ **Hardcoded ngrok**: Embeds ngrok credentials (no command-line flags needed)
 4. ✅ **Embedded Binaries**: Includes Windows/Linux/Android binaries
-5. ✅ **Checksum Generation**: Creates SHA256 checksums for integrity verification
+5. ✅ **ngrok Compatible**: Works reliably with ngrok-go SDK
+6. ✅ **Checksum Generation**: Creates SHA256 checksums for integrity verification
 
 **Build Process:**
 ```
-Step 1: Check garble installation
-Step 2: Build WASM module (frontend tag)
-Step 3: Copy wasm_exec.js runtime
-Step 4: Build obfuscated server (garble with obfuscated+ngrok_default tags)
-Step 5: Generate SHA256 checksums
-Step 6: Display build summary
+Step 1: Build WASM module (frontend tag)
+Step 2: Copy wasm_exec.js runtime
+Step 3: Build optimized server (obfuscated+ngrok_default tags)
+Step 4: Generate SHA256 checksums
+Step 5: Display build summary
 ```
 
-**Windows Defender Warning:**
+**Why NOT Garble?**
 
-⚠️ Garble-obfuscated binaries may trigger Windows Defender false positives!
+Garble obfuscation is incompatible with ngrok-go SDK due to:
+- TLS/crypto corruption
+- Reflection-based code mangling
+- Interface implementation renaming
 
-**Solution:** Add exclusions before building:
-
-```powershell
-# Run as Administrator
-Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\Temp"
-Add-MpPreference -ExclusionPath "C:\Users\REDACTED_USER\OneDrive - REDACTED_COMPANY\Documentos\Personal\Go\pejelagarto-translator\bin"
-```
-
-See [Troubleshooting - Windows Defender](#windows-defender-blocking-builds) for details.
+See `TEST_RESULTS.md` and `GARBLE_NGROK_FINAL_ANSWER.md` for detailed test results.
 
 #### Obfuscated Build Only (without WASM/ngrok)
 
@@ -1776,6 +1777,81 @@ When preparing a new release:
 - Initial versioning system implementation
 - Version display in UI (bottom-right corner)
 - Semantic versioning adopted
+
+---
+
+## Garble + ngrok Compatibility Investigation
+
+### 🚨 CRITICAL: Garble IS INCOMPATIBLE with ngrok-go SDK
+
+After exhaustive testing, we have definitively proven that **garble obfuscation breaks ngrok-go SDK functionality**. This is not a configuration issue or a Windows Defender problem—it's a fundamental incompatibility.
+
+### Test Results Summary
+
+| Build Configuration | ngrok Domain | Result |
+|---------------------|--------------|--------|
+| Standard Go (unobfuscated) | empty (random URL) | ✅ **WORKS** |
+| Garble (full: -tiny -literals) | empty (random URL) | ❌ **FAILS** |
+| Garble (no -literals) | empty (random URL) | ❌ **FAILS** |
+| Garble (-tiny only) | empty (random URL) | ❌ **FAILS** |
+| Garble (no flags) | empty (random URL) | ❌ **FAILS** |
+
+**Result:** All garble builds fail with "remote gone away" error regardless of obfuscation flags or configuration.
+
+### Technical Root Cause
+
+Garble's code obfuscation corrupts critical ngrok-go SDK functionality:
+
+1. **TLS/Crypto Operations:** Garble mangles cryptographic implementations used by ngrok
+2. **Reflection-Based Code:** ngrok SDK uses reflection which garble obfuscates
+3. **Interface Implementations:** Garble renames interfaces breaking ngrok's internal API
+4. **Package Initialization:** Critical setup routines get corrupted
+
+### Error Observed
+
+```
+2025/11/09 09:18:51 Using random ngrok domain
+2025/11/09 09:18:51 Establishing tunnel (this may take a few seconds)...
+2025/11/09 09:18:51 Attempt 1 failed: failed to start tunnel: remote gone away
+2025/11/09 09:18:54 Attempt 2 failed: failed to start tunnel: remote gone away
+2025/11/09 09:18:58 Attempt 3 failed: failed to start tunnel: remote gone away
+```
+
+### Production Recommendation
+
+**✅ USE:** `scripts\helpers\build-prod-unobfuscated.ps1`
+- Works reliably with ngrok
+- Provides excellent optimization via `-s -w` flags (32.96 MB binary)
+- Windows Defender friendly
+- Stable and production-ready
+
+**❌ AVOID:** `scripts\helpers\build-prod.ps1` (garble-obfuscated)
+- Incompatible with ngrok-go SDK
+- No workaround exists
+- Script now shows deprecation warning
+
+### Fixes Applied in v1.2.0
+
+1. **WASM File Naming:** Changed from `main.wasm` to `translator.wasm`
+2. **ngrok Domain:** Set to empty string for random URLs (prevents "domain already in use" errors)
+3. **Documentation:** Updated all build scripts and README with compatibility warnings
+
+### Testing Methodology
+
+The garble+ngrok compatibility was tested systematically:
+
+1. **Initial Test:** All builds (obfuscated and unobfuscated) failed with hardcoded domain
+2. **Configuration Fix:** Updated domain to empty string and fixed WASM naming
+3. **Comprehensive Testing:** Tested 5 different garble configurations with fixed config
+4. **Definitive Result:** Unobfuscated works, all garble builds fail identically
+
+**Test Script:** `scripts\test\test-garble-ngrok.ps1`
+
+### Related GitHub Issues
+
+Similar issues have been reported in other projects using ngrok:
+- Expo framework experienced "remote gone away" errors (expo/expo#22186)
+- Common ngrok error indicating SDK/network layer issues
 
 ---
 

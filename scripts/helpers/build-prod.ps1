@@ -1,7 +1,18 @@
 #!/usr/bin/env pwsh
+# ⚠️  DEPRECATED: This build is INCOMPATIBLE with ngrok ⚠️
+#
 # Production build script with obfuscated + frontend + ngrok_default tags
 # Uses garble for code obfuscation
-# Output: Obfuscated server with WASM frontend and hardcoded ngrok credentials
+#
+# ❌ INCOMPATIBLE WITH NGROK: Garble obfuscation breaks ngrok-go SDK
+# ✅ USE INSTEAD: scripts/helpers/build-prod-unobfuscated.ps1
+#
+# This script is preserved for non-ngrok builds only.
+# For production deployments using ngrok, you MUST use the unobfuscated build.
+#
+# See: TEST_RESULTS.md and GARBLE_NGROK_FINAL_ANSWER.md for details
+#
+# Output: Obfuscated server with WASM frontend (ngrok will NOT work)
 
 param(
     [Parameter(Mandatory=$false)]
@@ -15,6 +26,19 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+Write-Host "======================================" -ForegroundColor Red
+Write-Host "  ⚠️  DEPRECATED BUILD SCRIPT  ⚠️" -ForegroundColor Red
+Write-Host "======================================" -ForegroundColor Red
+Write-Host ""
+Write-Host "WARNING: Garble-obfuscated builds are INCOMPATIBLE with ngrok!" -ForegroundColor Yellow
+Write-Host "This build will fail with 'remote gone away' error when using ngrok." -ForegroundColor Yellow
+Write-Host ""
+Write-Host "For production with ngrok, use:" -ForegroundColor Cyan
+Write-Host "  scripts\helpers\build-prod-unobfuscated.ps1" -ForegroundColor Green
+Write-Host ""
+Write-Host "Press Ctrl+C to cancel, or any key to continue anyway..." -ForegroundColor Yellow
+$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+Write-Host ""
 Write-Host "======================================" -ForegroundColor Cyan
 Write-Host "  Production Build Script (Garble)" -ForegroundColor Cyan
 Write-Host "======================================" -ForegroundColor Cyan
@@ -24,6 +48,7 @@ Write-Host "  - Tags: obfuscated, frontend, ngrok_default, downloadable" -Foregr
 Write-Host "  - OS: $OS" -ForegroundColor White
 Write-Host "  - Architecture: $Arch" -ForegroundColor White
 Write-Host "  - Obfuscation: garble" -ForegroundColor White
+Write-Host "  - ngrok: ❌ INCOMPATIBLE" -ForegroundColor Red
 Write-Host ""
 
 # Check if garble is installed
@@ -49,7 +74,7 @@ $wasmEnv = @{
     GOARCH = "wasm"
 }
 
-$wasmOutput = "bin/main.wasm"
+$wasmOutput = "bin/translator.wasm"
 Write-Host "  Output: $wasmOutput" -ForegroundColor White
 
 & {

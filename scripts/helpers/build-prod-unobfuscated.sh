@@ -75,7 +75,7 @@ fi
 echo ""
 
 # Determine output filename
-OUTPUT_NAME="piper-server"
+OUTPUT_NAME="pejelagarto-server"
 if [ "$OS" = "windows" ]; then
     OUTPUT_NAME="${OUTPUT_NAME}.exe"
 fi

@@ -1570,8 +1570,8 @@ func addISO8601timestamp(input string, timestamp string) string {
 	return input + "\n" + timestamp
 }
 
-// removeTimestampSpecialCharacters removes all special characters used for timestamp encoding
-func removeTimestampSpecialCharacters(input string) string {
+// RemoveTimestampSpecialCharacters removes all special characters used for timestamp encoding
+func RemoveTimestampSpecialCharacters(input string) string {
 	// Build a map of all special characters used for timestamp encoding
 	specialCharsMap := make(map[string]bool)
 	for _, char := range DaySpecialCharIndex {
@@ -1822,7 +1822,7 @@ func unsanitizeInvalidUTF8(input string) string {
 // TranslateToPejelagarto translates Human text to Pejelagarto
 func TranslateToPejelagarto(input string) string {
 	input = sanitizeInvalidUTF8(input)
-	input = removeTimestampSpecialCharacters(input)
+	input = RemoveTimestampSpecialCharacters(input)
 	input, timestamp := removeISO8601timestamp(input)
 	input = applyNumbersLogicToPejelagarto(input)
 	input = applyPunctuationReplacementsToPejelagarto(input)
@@ -1836,7 +1836,7 @@ func TranslateToPejelagarto(input string) string {
 // TranslateFromPejelagarto translates Pejelagarto text back to Human
 func TranslateFromPejelagarto(input string) string {
 	timestamp := readTimestampUsingSpecialCharEncoding(input)
-	input = removeTimestampSpecialCharacters(input)
+	input = RemoveTimestampSpecialCharacters(input)
 	input = applyCaseReplacementLogic(input)
 	input = applyAccentReplacementLogicFromPejelagarto(input)
 	input = applyMapReplacementsFromPejelagarto(input)
