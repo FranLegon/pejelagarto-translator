@@ -61,6 +61,12 @@ package config
 //   - DOCUMENTED: Garble+ngrok incompatibility (definitively proven)
 //   - DEPRECATED: Garble production build for ngrok use
 //
+// Changelog v1.3.0:
+//   - ADDED: Custom Pejelagarto icon as Android app launcher icon
+//   - ENHANCED: Icon created in all densities (mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi)
+//   - IMPROVED: Professional branded app appearance on Android home screen
+//   - VERIFIED: App fully functional with custom branding
+//
 // Changelog v1.2.9:
 //   - FIXED: Android WebView translation functionality (renamed translate() to doTranslate())
 //   - FIXED: WebView JavaScript caching (added cache clearing on load)
@@ -69,4 +75,4 @@ package config
 //   - VERIFIED: JavaScript bridge successfully calls Go translation functions
 
 // Version is the current version of the application
-const Version = "1.2.9"
+const Version = "1.3.0"
