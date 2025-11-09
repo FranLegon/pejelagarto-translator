@@ -1221,13 +1221,15 @@ frontend
 | `translation_test.go` | None (all builds) | Shared translation tests |
 | `wasm_test.go` | `//go:build frontend` | WASM-specific tests |
 | `tts_test.go` | `//go:build !frontend` | Server-only TTS tests |
-| `version.go` | None (all builds) | Version constant |
-| `downloadable.go` | `//go:build downloadable \|\| ngrok_default` | Embeds binaries for download |
-| `not_downloadable.go` | `//go:build !downloadable && !ngrok_default` | No embedded binaries |
-| `ngrok_default.go` | `//go:build ngrok_default` | Hardcoded ngrok credentials |
-| `ngrok_not_default.go` | `//go:build !ngrok_default` | No hardcoded credentials |
-| `obfuscation/constants_backend.go` | `//go:build !obfuscated` | Normal build constants |
-| `obfuscation/constants_obfuscated.go` | `//go:build obfuscated` | Obfuscated build constants |
+| `embedded_binaries.go` | `//go:build downloadable \|\| ngrok_default` | Embeds binaries for download |
+| `embedded_binaries_not_downloadable.go` | `//go:build !downloadable && !ngrok_default` | Empty binary embed |
+| `config/version.go` | None (all builds) | Version constant (v1.0.8) |
+| `config/downloadable.go` | `//go:build downloadable \|\| ngrok_default` | IsDownloadable constant (true) |
+| `config/not_downloadable.go` | `//go:build !downloadable && !ngrok_default` | IsDownloadable constant (false) |
+| `config/ngrok_default.go` | `//go:build ngrok_default` | Hardcoded ngrok credentials |
+| `config/ngrok_not_default.go` | `//go:build !ngrok_default` | No hardcoded credentials |
+| `config/constants_backend.go` | `//go:build !obfuscated` | Normal build constants |
+| `config/constants_obfuscated.go` | `//go:build obfuscated` | Obfuscated build constants |
 
 #### Build Process Flow
 
@@ -1280,27 +1282,44 @@ pejelagarto-translator/
 ├── translation_test.go      # Comprehensive test suite with fuzz testing
 ├── wasm_test.go             # WASM-specific tests
 ├── tts_test.go              # TTS-specific tests (server-only)
+├── tts.go                   # Text-to-speech functionality
+├── embedded_binaries.go     # Embed binaries for downloadable builds (main package)
+├── embedded_binaries_not_downloadable.go  # Empty embed for non-downloadable builds
 ├── README.md                # This documentation
 ├── USAGE_EXAMPLES.md        # Usage examples and workflow (legacy - merged into README)
 ├── ARCHITECTURE.md          # Build system details (legacy - merged into README)
 ├── go.mod                   # Go module definition
 ├── go.sum                   # Go module checksums
-├── get-requirements.ps1     # Embedded in binary - downloads TTS dependencies (Windows)
-├── get-requirements.sh      # Embedded in binary - downloads TTS dependencies (Linux/macOS)
 ├── build-frontend.sh        # WASM build helper script
 ├── .gitignore               # Git ignore patterns
 ├── coverage/                # Test coverage reports
+├── config/                  # Configuration files and build-tag-controlled constants
+│   ├── version.go           # Version constant (v1.0.8)
+│   ├── constants_backend.go         # Constants for normal build
+│   ├── constants_obfuscated.go      # Constants for obfuscated build
+│   ├── downloadable.go              # IsDownloadable constant (true)
+│   ├── not_downloadable.go          # IsDownloadable constant (false)
+│   ├── ngrok_default.go             # Hardcoded ngrok credentials
+│   └── ngrok_not_default.go         # No hardcoded ngrok credentials
 ├── scripts/
-│   └── helpers/
-│       ├── build-prod.ps1   # Production build script (Windows)
-│       ├── build-prod.sh    # Production build script (Linux/macOS)
-│       └── README.md        # Production build documentation (legacy - merged into README)
-├── obfuscation/             # Obfuscation and service deployment scripts
-│   ├── constants_normal.go             # Constants for normal build
-│   ├── constants_obfuscated.go         # Constants for obfuscated build
-│   ├── build-obfuscated.ps1            # Build script with garble
-│   ├── build-obfuscated.sh             # Build script with garble (Linux/macOS)
-│   └── create-obfuscated-server-service.ps1  # Service creation script
+│   ├── requirements/
+│   │   ├── get-requirements.ps1     # Embedded in binary - downloads TTS dependencies (Windows)
+│   │   └── get-requirements.sh      # Embedded in binary - downloads TTS dependencies (Linux/macOS)
+│   ├── helpers/
+│   │   ├── build-prod.ps1           # Production build script (Windows)
+│   │   ├── build-prod.sh            # Production build script (Linux/macOS)
+│   │   ├── build-prod-unobfuscated.ps1  # Unobfuscated production build (Windows)
+│   │   ├── build-prod-unobfuscated.sh   # Unobfuscated production build (Linux/macOS)
+│   │   ├── build-obfuscated.ps1     # Build script with garble
+│   │   ├── build-obfuscated.sh      # Build script with garble (Linux/macOS)
+│   │   ├── create-obfuscated-server-service.ps1  # Service creation script
+│   │   ├── Run-Server.ps1           # Helper script for Windows
+│   │   └── Run-Server.sh            # Helper script for Linux/macOS
+│   └── test/
+│       ├── test-build-combinations.ps1  # Test all build tag combinations (Windows)
+│       ├── test-build-combinations.sh   # Test all build tag combinations (Linux/macOS)
+│       ├── run-fuzz-tests.ps1       # Run fuzz tests (Windows)
+│       └── run-fuzz-tests.sh        # Run fuzz tests (Linux/macOS)
 ├── bin/                     # Built executables and scripts
 │   ├── pejelagarto-translator       # Main executable (~12MB, Linux/macOS)
 │   ├── pejelagarto-translator.exe   # Main executable (~12MB, Windows)
@@ -1615,7 +1634,7 @@ The MIT License below applies to all uses **except** AI training, which requires
 ## Versioning
 
 ### Current Version
-**v1.0.0**
+**v1.0.8**
 
 ### Versioning System
 This project follows [Semantic Versioning](https://semver.org/) (SemVer):
@@ -1682,6 +1701,18 @@ When preparing a new release:
 10. [ ] Push with tags: `git push && git push --tags`
 
 ### Version History
+
+#### v1.0.8 (Current - Project Reorganization)
+- **Major restructuring**: Moved configuration files to `config/` package
+- **Requirements organization**: Moved scripts to `scripts/requirements/`
+- **Build tag improvements**: Cleaner separation of concerns
+- **Fixed embed paths**: Binary embeds now in main package (embed constraint)
+- **Tested all builds**: 12 build tag combinations verified working
+- **Updated documentation**: Comprehensive project structure documentation
+
+#### v1.0.7 (Documentation Corrections)
+- Corrected README about garble/ngrok/Windows Defender relationship
+- Updated GitHub release notes
 
 #### v1.0.0 (Initial Release)
 - Initial versioning system implementation
