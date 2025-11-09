@@ -14,7 +14,7 @@ Write-Host ""
 
 $failed = 0
 $passed = 0
-$total = 12
+$total = 13
 
 function Test-Build {
     param($Tags, $Output, $TestNum, $Description)
@@ -103,6 +103,9 @@ if (Test-WasmBuild -Tags "downloadable,obfuscated,frontend" -Output "bin/test-al
 
 # Test 12: Ngrok default + Obfuscated + Frontend (WASM)
 if (Test-WasmBuild -Tags "ngrok_default,obfuscated,frontend" -Output "bin/test-ngrok-all.wasm" -TestNum 12 -Description "Ngrok default + Obfuscated + Frontend build (WASM)") { $passed++ } else { $failed++ }
+
+# Test 13: Ngrok default + Downloadable + Obfuscated + Frontend (WASM) - All tags explicit
+if (Test-WasmBuild -Tags "ngrok_default,downloadable,obfuscated,frontend" -Output "bin/test-all-explicit.wasm" -TestNum 13 -Description "Ngrok default + Downloadable + Obfuscated + Frontend build (WASM)") { $passed++ } else { $failed++ }
 
 # Summary
 Write-Host ""

@@ -244,7 +244,7 @@ All combinations of build tags work together seamlessly:
 - All tags can be combined with `obfuscated` and `frontend`
 - TTS language downloads can be optimized using `-pronunciation_language` flag (downloads only specified language when dropdown is disabled)
 
-**Verify all combinations:** Run `./test-build-combinations.sh` to test all 12 build tag combinations
+**Verify all combinations:** Run `./test-build-combinations.sh` to test all 13 build tag combinations
 
 **Build Notes**: 
 - Backend build creates **~12-13MB executable** 
@@ -1716,8 +1716,8 @@ When preparing a new release:
 - **Test migration**: Moved translation_test.go and tts_test.go to respective packages
 - **Import updates**: Updated 9 files to use new package structure
 - **Architecture decisions**: Server files, WASM files, and embed files remain at root (build tag constraints)
-- **Code organization**: ~2630 lines moved to internal packages while preserving all 12 build configurations
-- **Validated builds**: All 12 build tag combinations tested and passing after each refactoring step
+- **Code organization**: ~2630 lines moved to internal packages while preserving all 13 build configurations
+- **Validated builds**: All 13 build tag combinations tested and passing after each refactoring step
 - **Gradual approach**: Incremental refactoring strategy with continuous testing between changes
 
 #### v1.0.8 (Project Reorganization)
@@ -1725,7 +1725,7 @@ When preparing a new release:
 - **Requirements organization**: Moved scripts to `scripts/requirements/`
 - **Build tag improvements**: Cleaner separation of concerns
 - **Fixed embed paths**: Binary embeds now in main package (embed constraint)
-- **Tested all builds**: 12 build tag combinations verified working
+- **Tested all builds**: 13 build tag combinations verified working
 - **Updated documentation**: Comprehensive project structure documentation
 
 #### v1.0.7 (Documentation Corrections)

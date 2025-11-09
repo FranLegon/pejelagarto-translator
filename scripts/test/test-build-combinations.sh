@@ -16,7 +16,7 @@ echo ""
 
 failed=0
 passed=0
-total=12
+total=13
 
 # Test 1: Backend build (no tags)
 echo "Test 1/$total: Backend build (no tags)"
@@ -137,6 +137,17 @@ fi
 echo "Test 12/$total: Ngrok default + Obfuscated + Frontend build (WASM)"
 if GOOS=js GOARCH=wasm go build -tags "ngrok_default,obfuscated,frontend" -o /tmp/test-ngrok-all.wasm > /dev/null 2>&1 && \
    GOOS=js GOARCH=wasm go test -tags "ngrok_default,obfuscated,frontend" -c -o /tmp/test-ngrok-all-tests.wasm > /dev/null 2>&1; then
+    echo "  ✓ Build and tests compile successfully"
+    ((passed++))
+else
+    echo "  ✗ Failed"
+    ((failed++))
+fi
+
+# Test 13: Ngrok default + Downloadable + Obfuscated + Frontend (WASM) - All tags explicit
+echo "Test 13/$total: Ngrok default + Downloadable + Obfuscated + Frontend build (WASM)"
+if GOOS=js GOARCH=wasm go build -tags "ngrok_default,downloadable,obfuscated,frontend" -o /tmp/test-all-explicit.wasm > /dev/null 2>&1 && \
+   GOOS=js GOARCH=wasm go test -tags "ngrok_default,downloadable,obfuscated,frontend" -c -o /tmp/test-all-explicit-tests.wasm > /dev/null 2>&1; then
     echo "  ✓ Build and tests compile successfully"
     ((passed++))
 else
