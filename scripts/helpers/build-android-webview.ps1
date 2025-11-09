@@ -12,7 +12,7 @@ Write-Host ""
 
 # Get paths
 $rootDir = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
-$androidDir = Join-Path $rootDir "android-app"
+$androidDir = Join-Path $rootDir "android"
 $libsDir = Join-Path $androidDir "app\libs"
 $pkgDir = Join-Path $rootDir "pkg\translator"
 
