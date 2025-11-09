@@ -89,6 +89,15 @@ package config
 //   - MAINTAINED: Release packages (zip files) for Windows, Linux, macOS
 //   - MAINTAINED: Production APK (pejelagarto-translator.apk)
 //   - MAINTAINED: WASM module (translator.wasm) and runtime (wasm_exec.js)
+//
+// Changelog v1.3.3:
+//   - ADDED: Windows Scheduled Task script for persistent server execution
+//   - ADDED: Windows Service creation script (NSSM and sc.exe support)
+//   - ENHANCED: Server now runs even when computer is locked
+//   - IMPROVED: Automatic restart on crash (up to 3 retries)
+//   - IMPROVED: Battery-friendly settings (continues on battery power)
+//   - TOOLING: create-scheduled-task.ps1 for easy task management
+//   - TOOLING: create-windows-service.ps1 for production deployments
 
 // Version is the current version of the application
-const Version = "1.3.2"
+const Version = "1.3.3"
