@@ -10,7 +10,7 @@ Pejelagarto is a fictional constructed language designed as a challenging transl
 - Prime factorization-based accent placement
 - Fibonacci/Tribonacci capitalization patterns
 - Custom character and punctuation mappings
-- Special Unicode character-based timestamp encoding (U+2300-U+23FB)
+- Special Unicode character-based timestamp encoding using specific character sets
 - Multi-language text-to-speech with 18 languages
 
 The project demonstrates advanced string manipulation, bijective mappings, and cryptographic-style transformations while maintaining perfect reversibility.
@@ -23,7 +23,7 @@ The project demonstrates advanced string manipulation, bijective mappings, and c
 - 🔤 **Character Mapping**: Bijective word/conjunction/letter replacements with case preservation
 - ✏️ **Accent Transformations**: Prime-factorization-based vowel accent cycling
 - 📝 **Case Logic**: Fibonacci/Tribonacci sequence-based capitalization patterns
-- ⏰ **Special Character Datetime Encoding**: UTC time encoded as special Unicode characters (U+2300-U+23FB)
+- ⏰ **Special Character Datetime Encoding**: UTC time encoded as special Unicode characters from defined character sets
 - ❗ **Punctuation Mapping**: Custom punctuation character replacements
 - 🛡️ **UTF-8 Sanitization**: Handles invalid UTF-8 bytes with invisible soft-hyphen encoding
 
@@ -742,7 +742,7 @@ The translator embeds a UTC timestamp using special Unicode characters from the 
   - Special characters are randomly placed each time
   - Reconstruction depends on finding these characters in the text
   - If special characters are removed or modified, timestamp cannot be recovered
-  - Characters from range U+2300-U+23FB in the original text will be removed during encoding
+  - Characters from the special datetime encoding character sets in the original text will be removed during encoding
 - **Fuzz Test Special Handling:** 
   - Unlike other transformations, special character encoding is tested differently in fuzzing
   - Test verifies correctness by **removing special characters and timestamps** before comparison
@@ -753,7 +753,7 @@ The translator embeds a UTC timestamp using special Unicode characters from the 
 - Input doesn't contain day, month, or year special characters (required)
 - Special characters were removed or modified after translation
 - Text was not previously translated to Pejelagarto
-- Original text contained characters in the U+2300-U+23FB range (these get removed)
+- Original text contained characters from the special datetime encoding character sets (these get removed)
 - In these cases, an empty timestamp is returned and no timestamp line is added back
 
 ## Testing
@@ -839,7 +839,7 @@ All transformations verified for reversibility with random inputs:
 
 ## Known Limitations
 
-- **Special Character Timestamp Not Fully Reversible**: The datetime encoding using Unicode characters U+2300-U+23FB is **not 100% reversible** because:
+- **Special Character Timestamp Not Fully Reversible**: The datetime encoding using special Unicode characters is **not 100% reversible** because:
   - Special characters are randomly placed and cannot be exactly restored
   - Original text containing these Unicode characters will have them removed
   - Timestamp reconstruction relies on finding these characters (may fail if modified)
@@ -1224,7 +1224,7 @@ frontend
 | `tts_test.go` | `//go:build !frontend` | Server-only TTS tests |
 | `embedded_binaries.go` | `//go:build downloadable \|\| ngrok_default` | Embeds binaries for download |
 | `embedded_binaries_not_downloadable.go` | `//go:build !downloadable && !ngrok_default` | Empty binary embed |
-| `config/version.go` | None (all builds) | Version constant (v1.3.6) |
+| `config/version.go` | None (all builds) | Version constant |
 | `config/downloadable.go` | `//go:build downloadable \|\| ngrok_default` | IsDownloadable constant (true) |
 | `config/not_downloadable.go` | `//go:build !downloadable && !ngrok_default` | IsDownloadable constant (false) |
 | `config/ngrok_default.go` | `//go:build ngrok_default` | Hardcoded ngrok credentials |
@@ -1386,7 +1386,7 @@ pejelagarto-translator/
 // Simple translation
 input := "hello world"
 result := TranslateToPejelagarto(input)
-// Output: "'jhtxz 'zcthx" (with random special characters U+2300-U+23FB inserted)
+// Output: "'jhtxz 'zcthx" (with random special characters from datetime encoding sets inserted)
 
 // With numbers
 input := "I have 42 apples"
