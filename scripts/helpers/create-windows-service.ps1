@@ -7,20 +7,12 @@ param(
     [string]$Description = "Pejelagarto bidirectional translator server with TTS support"
 )
 
-# Get the current directory and executable path
-$ScriptDir = Split-Path -Parent $PSCommandLineArgs[0]
+# Get the current directory and project root
+$ScriptDir = Split-Path -Parent $PSCommandPath
 if (-not $ScriptDir) {
     $ScriptDir = $PWD.Path
 }
 $RootDir = Split-Path -Parent (Split-Path -Parent $ScriptDir)
-$ExePath = Join-Path $RootDir "bin\pejelagarto-server.exe"
-
-# Verify executable exists
-if (-not (Test-Path $ExePath)) {
-    Write-Host "ERROR: Executable not found at: $ExePath" -ForegroundColor Red
-    Write-Host "Please build the server first using: .\scripts\helpers\build-prod-unobfuscated.ps1" -ForegroundColor Yellow
-    exit 1
-}
 
 # Check if running as Administrator
 $IsAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -30,44 +22,37 @@ if (-not $IsAdmin) {
     exit 1
 }
 
-# Check if service already exists
-$ExistingService = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
-if ($ExistingService) {
-    Write-Host "Service '$ServiceName' already exists. Stopping and removing..." -ForegroundColor Yellow
-    Stop-Service -Name $ServiceName -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Seconds 2
-    
-    # Remove using sc.exe (more reliable than Remove-Service for some versions)
-    sc.exe delete $ServiceName
+# Define the PowerShell command to run
+$TaskCommand = "Set-Location '$RootDir' ; Get-Process -Name 'pejelagarto-server' -ErrorAction SilentlyContinue | Stop-Process -Force; .\scripts\helpers\build-prod-unobfuscated.ps1 ; Start-Process -FilePath '.\bin\pejelagarto-server.exe' -WorkingDirectory `$PWD -WindowStyle Hidden"
+
+# Check if scheduled task already exists
+$ExistingTask = Get-ScheduledTask -TaskName $ServiceName -ErrorAction SilentlyContinue
+if ($ExistingTask) {
+    Write-Host "Scheduled Task '$ServiceName' already exists. Stopping and removing..." -ForegroundColor Yellow
+    Stop-ScheduledTask -TaskName $ServiceName -ErrorAction SilentlyContinue
+    Unregister-ScheduledTask -TaskName $ServiceName -Confirm:$false -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 2
 }
 
-# Create the service using NSSM (Non-Sucking Service Manager) if available
-$NssmPath = Get-Command nssm.exe -ErrorAction SilentlyContinue
-if ($NssmPath) {
-    Write-Host "Using NSSM to create service..." -ForegroundColor Green
-    
-    nssm install $ServiceName "$ExePath"
-    nssm set $ServiceName AppDirectory "$RootDir"
-    nssm set $ServiceName DisplayName "$DisplayName"
-    nssm set $ServiceName Description "$Description"
-    nssm set $ServiceName Start SERVICE_AUTO_START
-    nssm set $ServiceName AppStdout "$RootDir\logs\service-output.log"
-    nssm set $ServiceName AppStderr "$RootDir\logs\service-error.log"
-    nssm set $ServiceName AppRotateFiles 1
-    nssm set $ServiceName AppRotateBytes 1048576
-    
-    Write-Host "Service created successfully using NSSM!" -ForegroundColor Green
-} else {
-    # Fallback: Use sc.exe (Windows built-in)
-    Write-Host "NSSM not found, using sc.exe..." -ForegroundColor Yellow
-    Write-Host "Note: For better service management, consider installing NSSM from https://nssm.cc/" -ForegroundColor Cyan
-    
-    sc.exe create $ServiceName binPath= "`"$ExePath`"" start= auto DisplayName= "$DisplayName"
-    sc.exe description $ServiceName "$Description"
-    sc.exe failure $ServiceName reset= 86400 actions= restart/60000/restart/60000/restart/60000
-    
-    Write-Host "Service created successfully using sc.exe!" -ForegroundColor Green
+# Create the scheduled task action
+$Action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-WindowStyle Hidden -ExecutionPolicy Bypass -Command `"$TaskCommand`""
+
+# Create the scheduled task trigger (at startup)
+$Trigger = New-ScheduledTaskTrigger -AtStartup
+
+# Create the scheduled task principal (run as SYSTEM with highest privileges)
+$Principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+
+# Create the scheduled task settings
+$Settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+
+# Register the scheduled task
+try {
+    Register-ScheduledTask -TaskName $ServiceName -Description $Description -Action $Action -Trigger $Trigger -Principal $Principal -Settings $Settings -Force
+    Write-Host "Scheduled Task created successfully!" -ForegroundColor Green
+} catch {
+    Write-Host "ERROR: Failed to create scheduled task: $($_.Exception.Message)" -ForegroundColor Red
+    exit 1
 }
 
 # Create logs directory
@@ -77,32 +62,35 @@ if (-not (Test-Path $LogsDir)) {
     Write-Host "Created logs directory: $LogsDir" -ForegroundColor Green
 }
 
-# Start the service
-Write-Host "Starting service..." -ForegroundColor Green
-Start-Service -Name $ServiceName
+# Start the scheduled task
+Write-Host "Starting scheduled task..." -ForegroundColor Green
+Start-ScheduledTask -TaskName $ServiceName
 
-# Check service status
+# Check task status
 Start-Sleep -Seconds 3
-$Service = Get-Service -Name $ServiceName
-if ($Service.Status -eq 'Running') {
-    Write-Host "`nSERVICE CREATED AND STARTED SUCCESSFULLY!" -ForegroundColor Green
-    Write-Host "Service Name: $ServiceName" -ForegroundColor Cyan
-    Write-Host "Status: $($Service.Status)" -ForegroundColor Cyan
-    Write-Host "Startup Type: Automatic" -ForegroundColor Cyan
-    Write-Host "`nThe server will now:" -ForegroundColor Yellow
-    Write-Host "  ✓ Start automatically when Windows boots" -ForegroundColor Green
-    Write-Host "  ✓ Keep running when you lock the computer" -ForegroundColor Green
-    Write-Host "  ✓ Restart automatically if it crashes" -ForegroundColor Green
-    Write-Host "  ✓ Run in the background (no visible window)" -ForegroundColor Green
-    
-    Write-Host "`nService Management Commands:" -ForegroundColor Yellow
-    Write-Host "  Stop:    Stop-Service -Name $ServiceName" -ForegroundColor Cyan
-    Write-Host "  Start:   Start-Service -Name $ServiceName" -ForegroundColor Cyan
-    Write-Host "  Restart: Restart-Service -Name $ServiceName" -ForegroundColor Cyan
-    Write-Host "  Status:  Get-Service -Name $ServiceName" -ForegroundColor Cyan
-    Write-Host "  Remove:  sc.exe delete $ServiceName" -ForegroundColor Cyan
-} else {
-    Write-Host "`nWARNING: Service created but not running!" -ForegroundColor Yellow
-    Write-Host "Status: $($Service.Status)" -ForegroundColor Red
-    Write-Host "Check Event Viewer for error details" -ForegroundColor Yellow
-}
+$Task = Get-ScheduledTask -TaskName $ServiceName
+$TaskInfo = Get-ScheduledTaskInfo -TaskName $ServiceName
+
+Write-Host "`nSCHEDULED TASK CREATED AND STARTED SUCCESSFULLY!" -ForegroundColor Green
+Write-Host "Task Name: $ServiceName" -ForegroundColor Cyan
+Write-Host "Status: $($Task.State)" -ForegroundColor Cyan
+Write-Host "Last Run: $($TaskInfo.LastRunTime)" -ForegroundColor Cyan
+Write-Host "Next Run: At system startup" -ForegroundColor Cyan
+
+Write-Host "`nThe task will:" -ForegroundColor Yellow
+Write-Host "  ✓ Run automatically when Windows boots" -ForegroundColor Green
+Write-Host "  ✓ Stop any existing pejelagarto-server process" -ForegroundColor Green
+Write-Host "  ✓ Build the latest unobfuscated production version" -ForegroundColor Green
+Write-Host "  ✓ Start the server in hidden window mode" -ForegroundColor Green
+Write-Host "  ✓ Restart automatically if it fails (up to 3 times)" -ForegroundColor Green
+Write-Host "  ✓ Run even on battery power" -ForegroundColor Green
+
+Write-Host "`nTask Management Commands:" -ForegroundColor Yellow
+Write-Host "  Start:   Start-ScheduledTask -TaskName $ServiceName" -ForegroundColor Cyan
+Write-Host "  Stop:    Stop-ScheduledTask -TaskName $ServiceName" -ForegroundColor Cyan
+Write-Host "  Status:  Get-ScheduledTask -TaskName $ServiceName" -ForegroundColor Cyan
+Write-Host "  Info:    Get-ScheduledTaskInfo -TaskName $ServiceName" -ForegroundColor Cyan
+Write-Host "  Remove:  Unregister-ScheduledTask -TaskName $ServiceName -Confirm:`$false" -ForegroundColor Cyan
+
+Write-Host "`nCommand being executed:" -ForegroundColor Yellow
+Write-Host "  $TaskCommand" -ForegroundColor Gray

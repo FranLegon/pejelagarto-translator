@@ -105,6 +105,13 @@ package config
 //   - OPTIMIZED: More natural-sounding text-to-speech output
 //   - FIXED: TTS test file function name references (PronunciationLanguage, HandleTextToSpeech)
 //
+// Changelog v1.3.8:
+//   - ENHANCED: Windows service script now creates scheduled task instead of traditional service
+//   - IMPROVED: Task executes full build-and-start command (stop process → build → start hidden)
+//   - AUTOMATED: Task automatically drops and recreates if it already exists
+//   - OPTIMIZED: Runs as SYSTEM with highest privileges and auto-restart capability
+//   - CONFIGURED: Battery-friendly settings and startup trigger for reliable operation
+//
 // Changelog v1.3.7:
 //   - DOCUMENTATION: Reduced README.md size by 21% (1,471 → 1,167 lines)
 //   - REMOVED: Examples, Contributing, Distribution, Future Enhancements sections
@@ -128,4 +135,4 @@ package config
 //   - VERIFIED: all production builds now complete successfully
 
 // Version is the current version of the application
-const Version = "1.3.7"
+const Version = "1.3.8"
