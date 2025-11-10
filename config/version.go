@@ -105,6 +105,14 @@ package config
 //   - OPTIMIZED: More natural-sounding text-to-speech output
 //   - FIXED: TTS test file function name references (PronunciationLanguage, HandleTextToSpeech)
 //
+// Changelog v1.3.7:
+//   - DOCUMENTATION: Reduced README.md size by 21% (1,471 → 1,167 lines)
+//   - REMOVED: Examples, Contributing, Distribution, Future Enhancements sections
+//   - REMOVED: Project Status, Versioning sections (made README timeless)
+//   - REMOVED: Architecture subsections (Unicode Markers, Bijective Map, Case Preservation)
+//   - FOCUSED: README now emphasizes core usage and technical details
+//   - STREAMLINED: Documentation is more concise while preserving essential information
+//
 // Changelog v1.3.6:
 //   - FIXED: Download buttons now serve proper embedded binaries instead of broken 0.02MB files
 //   - CORRECTED: embedded_binaries.go file patterns to match actual executable names
@@ -120,4 +128,4 @@ package config
 //   - VERIFIED: all production builds now complete successfully
 
 // Version is the current version of the application
-const Version = "1.3.6"
+const Version = "1.3.7"
