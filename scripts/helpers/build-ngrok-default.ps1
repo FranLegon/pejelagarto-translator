@@ -37,10 +37,40 @@ Write-Host "✅ Linux/Mac binary created: bin/pejelagarto-translator" -Foregroun
 Remove-Item Env:\GOOS
 Remove-Item Env:\GOARCH
 
+# Build Android APK if possible
+Write-Host "📦 Building Android APK..." -ForegroundColor Yellow
+if (Test-Path ".\scripts\helpers\build-android-apk.ps1") {
+    try {
+        & ".\scripts\helpers\build-android-apk.ps1" 2>&1 | Out-Null
+        if (Test-Path "bin\pejelagarto-translator.apk") {
+            Write-Host "✅ Android APK created: bin/pejelagarto-translator.apk" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "⚠️  Android APK build failed, continuing without it..." -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "⚠️  Android APK build script not found, skipping..." -ForegroundColor Yellow
+}
+
+# Build Android WebView APK if possible
+Write-Host "📦 Building Android WebView APK..." -ForegroundColor Yellow
+if (Test-Path ".\scripts\helpers\build-android-webview.ps1") {
+    try {
+        & ".\scripts\helpers\build-android-webview.ps1" 2>&1 | Out-Null
+        if (Test-Path "bin\pejelagarto-translator-webview.apk") {
+            Write-Host "✅ Android WebView APK created: bin/pejelagarto-translator-webview.apk" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "⚠️  Android WebView APK build failed, continuing without it..." -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "⚠️  Android WebView APK build script not found, skipping..." -ForegroundColor Yellow
+}
+
 # Build ngrok_default version with embedded binaries and hardcoded ngrok
 Write-Host ""
-Write-Host "📦 Building ngrok_default version..." -ForegroundColor Yellow
-go build -tags ngrok_default -o bin/pejelagarto-translator-ngrok.exe .
+Write-Host "📦 Building ngrok_default version with embedded binaries..." -ForegroundColor Yellow
+go build -tags "ngrok_default,downloadable" -o bin/pejelagarto-translator-ngrok.exe .
 if ($LASTEXITCODE -ne 0) {
     Write-Host "❌ Ngrok default build failed!" -ForegroundColor Red
     exit 1
@@ -56,4 +86,5 @@ Write-Host ""
 Write-Host "This version includes:" -ForegroundColor Yellow
 Write-Host "  • Hardcoded ngrok token and domain" -ForegroundColor White
 Write-Host "  • Download buttons for embedded binaries" -ForegroundColor White
+Write-Host "  • Embedded Windows/Linux binaries and Android APKs" -ForegroundColor White
 Write-Host "  • No need to pass ngrok flags" -ForegroundColor White

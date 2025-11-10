@@ -320,39 +320,48 @@ try {
         
         # Sign the APK
         if (Test-Path $apksigner) {
-            # Patch the APK to set targetSdkVersion using apktool
-            Write-Host "  Patching targetSdkVersion to 34..." -ForegroundColor Cyan
-            
-            # Decompile APK
-            & "$env:JAVA_HOME\bin\java.exe" -jar bin/apktool.jar d bin/pejelagarto-translator-unsigned.apk -o bin/apk-decoded -f 2>&1 | Out-Null
-            
-            # Modify AndroidManifest.xml
-            $manifestPath = "bin/apk-decoded/AndroidManifest.xml"
-            if (Test-Path $manifestPath) {
-                $manifestContent = Get-Content $manifestPath -Raw
-                # Add targetSdkVersion to uses-sdk element
-                $manifestContent = $manifestContent -replace '(<uses-sdk[^>]*android:minSdkVersion="\d+")', '$1 android:targetSdkVersion="34"'
-                # If no uses-sdk, add it
-                if ($manifestContent -notmatch '<uses-sdk') {
-                    $manifestContent = $manifestContent -replace '(<manifest[^>]*>)', "`$1`n    <uses-sdk android:minSdkVersion=`"24`" android:targetSdkVersion=`"34`" />"
+            # Check if apktool.jar exists for manifest patching
+            $apktoolPath = "bin/apktool.jar"
+            if (Test-Path $apktoolPath) {
+                # Patch the APK to set targetSdkVersion using apktool
+                Write-Host "  Patching targetSdkVersion to 34..." -ForegroundColor Cyan
+                
+                # Decompile APK
+                & "$env:JAVA_HOME\bin\java.exe" -jar $apktoolPath d bin/pejelagarto-translator-unsigned.apk -o bin/apk-decoded -f 2>&1 | Out-Null
+                
+                # Modify AndroidManifest.xml
+                $manifestPath = "bin/apk-decoded/AndroidManifest.xml"
+                if (Test-Path $manifestPath) {
+                    $manifestContent = Get-Content $manifestPath -Raw
+                    # Add targetSdkVersion to uses-sdk element
+                    $manifestContent = $manifestContent -replace '(<uses-sdk[^>]*android:minSdkVersion="\d+")', '$1 android:targetSdkVersion="34"'
+                    # If no uses-sdk, add it
+                    if ($manifestContent -notmatch '<uses-sdk') {
+                        $manifestContent = $manifestContent -replace '(<manifest[^>]*>)', "`$1`n    <uses-sdk android:minSdkVersion=`"24`" android:targetSdkVersion=`"34`" />"
+                    }
+                    $manifestContent | Set-Content $manifestPath -NoNewline
+                    Write-Host "  ✓ Manifest patched" -ForegroundColor Green
                 }
-                $manifestContent | Set-Content $manifestPath -NoNewline
-                Write-Host "  ✓ Manifest patched" -ForegroundColor Green
+                
+                # Recompile APK
+                & "$env:JAVA_HOME\bin\java.exe" -jar $apktoolPath b bin/apk-decoded -o bin/pejelagarto-translator-patched.apk 2>&1 | Out-Null
+                
+                # Clean up
+                if (Test-Path "bin/apk-decoded") {
+                    Remove-Item "bin/apk-decoded" -Recurse -Force
+                }
+                Remove-Item "bin/pejelagarto-translator-unsigned.apk" -Force
+                
+                # Sign the patched APK
+                Write-Host "  Signing patched APK..." -ForegroundColor Cyan
+                & $apksigner sign --ks $debugKeystore --ks-pass pass:android --key-pass pass:android --out bin/pejelagarto-translator.apk bin/pejelagarto-translator-patched.apk 2>&1 | Out-Null
+                Remove-Item "bin/pejelagarto-translator-patched.apk" -Force
+            } else {
+                # Skip patching if apktool.jar is not available - sign the unsigned APK directly
+                Write-Host "  Signing APK (apktool.jar not found, skipping manifest patching)..." -ForegroundColor Cyan
+                & $apksigner sign --ks $debugKeystore --ks-pass pass:android --key-pass pass:android --out bin/pejelagarto-translator.apk bin/pejelagarto-translator-unsigned.apk 2>&1 | Out-Null
+                Remove-Item "bin/pejelagarto-translator-unsigned.apk" -Force
             }
-            
-            # Recompile APK
-            & "$env:JAVA_HOME\bin\java.exe" -jar bin/apktool.jar b bin/apk-decoded -o bin/pejelagarto-translator-patched.apk 2>&1 | Out-Null
-            
-            # Clean up
-            if (Test-Path "bin/apk-decoded") {
-                Remove-Item "bin/apk-decoded" -Recurse -Force
-            }
-            Remove-Item "bin/pejelagarto-translator-unsigned.apk" -Force
-            
-            # Sign the patched APK
-            Write-Host "  Signing patched APK..." -ForegroundColor Cyan
-            & $apksigner sign --ks $debugKeystore --ks-pass pass:android --key-pass pass:android --out bin/pejelagarto-translator.apk bin/pejelagarto-translator-patched.apk 2>&1 | Out-Null
-            Remove-Item "bin/pejelagarto-translator-patched.apk" -Force
             
             if (Test-Path "bin/pejelagarto-translator.apk") {
                 $apkSize = (Get-Item "bin/pejelagarto-translator.apk").Length / 1MB
@@ -384,5 +393,21 @@ try {
     Write-Host "  1. Ensure Android SDK/NDK are properly installed" -ForegroundColor Yellow
     Write-Host "  2. Try running: gomobile init" -ForegroundColor Yellow
     Write-Host "  3. Check ANDROID_HOME and ANDROID_NDK_HOME environment variables" -ForegroundColor Yellow
+    Write-Host "  4. For manifest patching, download apktool.jar to bin/ directory" -ForegroundColor Yellow
+    
+    # Check if we at least have an unsigned APK we can use
+    if (Test-Path "bin/pejelagarto-translator-unsigned.apk") {
+        Write-Host "`n  ⚠️  Attempting to use unsigned APK as fallback..." -ForegroundColor Yellow
+        try {
+            Move-Item "bin/pejelagarto-translator-unsigned.apk" "bin/pejelagarto-translator.apk" -Force
+            $apkSize = (Get-Item "bin/pejelagarto-translator.apk").Length / 1MB
+            Write-Host "  ✓ APK ready ($([math]::Round($apkSize, 2)) MB)" -ForegroundColor Green
+            Write-Host "  Note: APK is unsigned - you may need to enable 'Install from unknown sources'" -ForegroundColor Yellow
+            return
+        } catch {
+            Write-Host "  ❌ Could not use unsigned APK: $_" -ForegroundColor Red
+        }
+    }
+    
     exit 1
 }

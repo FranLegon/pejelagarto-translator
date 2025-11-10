@@ -44,8 +44,27 @@ echo "  - Optimization: Standard Go (-ldflags='-s -w')"
 echo "  - ngrok: Compatible ✓"
 echo ""
 
+# Build embedded binaries first (required for downloadable tag)
+echo "[1/6] Building embedded binaries for downloads..."
+echo "  Building Windows binary for embedding..."
+GOOS=windows GOARCH=amd64 go build -o bin/pejelagarto-translator.exe .
+if [ $? -ne 0 ]; then
+    echo "Failed to build Windows embedded binary"
+    exit 1
+fi
+
+echo "  Building Linux binary for embedding..."
+GOOS=linux GOARCH=amd64 go build -o bin/pejelagarto-translator .
+if [ $? -ne 0 ]; then
+    echo "Failed to build Linux embedded binary"
+    exit 1
+fi
+
+echo "  ✓ Embedded binaries ready for downloads"
+echo ""
+
 # Build WASM first
-echo "[1/5] Building WASM module..."
+echo "[2/6] Building WASM module..."
 WASM_OUTPUT="bin/main.wasm"
 echo "  Output: $WASM_OUTPUT"
 
@@ -61,7 +80,7 @@ echo "✓ WASM built successfully ($WASM_SIZE)"
 echo ""
 
 # Copy wasm_exec.js
-echo "[2/5] Copying wasm_exec.js..."
+echo "[3/6] Copying wasm_exec.js..."
 GOROOT=$(go env GOROOT)
 WASM_EXEC_SRC="$GOROOT/lib/wasm/wasm_exec.js"
 WASM_EXEC_DEST="bin/wasm_exec.js"
@@ -82,7 +101,7 @@ fi
 OUTPUT_PATH="bin/$OUTPUT_NAME"
 
 # Build server (frontend server for WASM mode)
-echo "[3/5] Building optimized frontend server..."
+echo "[4/6] Building optimized frontend server..."
 echo "  Tags: frontendserver,obfuscated,ngrok_default,downloadable"
 echo "  Flags: -ldflags='-s -w' (strip symbols)"
 echo "  Output: $OUTPUT_PATH"
@@ -104,7 +123,7 @@ echo "✓ Server built successfully ($SERVER_SIZE)"
 echo ""
 
 # Generate checksums
-echo "[4/5] Generating checksums..."
+echo "[5/6] Generating checksums..."
 CHECKSUM_FILE="bin/checksums-prod.txt"
 SERVER_HASH=$(sha256sum "$OUTPUT_PATH" | awk '{print $1}')
 WASM_HASH=$(sha256sum "$WASM_OUTPUT" | awk '{print $1}')
@@ -128,7 +147,7 @@ echo "✓ Checksums saved to $CHECKSUM_FILE"
 echo ""
 
 # Summary
-echo "[5/5] Build Summary"
+echo "[6/6] Build Summary"
 echo "======================================"
 echo "Build Type: Production (Unobfuscated)"
 echo "Features:"

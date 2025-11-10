@@ -1224,7 +1224,7 @@ frontend
 | `tts_test.go` | `//go:build !frontend` | Server-only TTS tests |
 | `embedded_binaries.go` | `//go:build downloadable \|\| ngrok_default` | Embeds binaries for download |
 | `embedded_binaries_not_downloadable.go` | `//go:build !downloadable && !ngrok_default` | Empty binary embed |
-| `config/version.go` | None (all builds) | Version constant (v1.0.8) |
+| `config/version.go` | None (all builds) | Version constant (v1.3.6) |
 | `config/downloadable.go` | `//go:build downloadable \|\| ngrok_default` | IsDownloadable constant (true) |
 | `config/not_downloadable.go` | `//go:build !downloadable && !ngrok_default` | IsDownloadable constant (false) |
 | `config/ngrok_default.go` | `//go:build ngrok_default` | Hardcoded ngrok credentials |

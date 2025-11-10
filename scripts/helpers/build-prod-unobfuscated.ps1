@@ -28,8 +28,35 @@ Write-Host "  - Optimization: Standard Go (-ldflags='-s -w')" -ForegroundColor W
 Write-Host "  - ngrok: Compatible ✓" -ForegroundColor Green
 Write-Host ""
 
+# Build embedded binaries first (required for downloadable tag)
+Write-Host "[1/6] Building embedded binaries for downloads..." -ForegroundColor Green
+Write-Host "  Building Windows binary for embedding..." -ForegroundColor White
+$env:GOOS = "windows"
+$env:GOARCH = "amd64"
+go build -o bin/pejelagarto-translator.exe .
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Failed to build Windows embedded binary" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "  Building Linux binary for embedding..." -ForegroundColor White
+$env:GOOS = "linux"
+$env:GOARCH = "amd64"
+go build -o bin/pejelagarto-translator .
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Failed to build Linux embedded binary" -ForegroundColor Red
+    exit 1
+}
+
+# Reset environment variables
+Remove-Item Env:\GOOS -ErrorAction SilentlyContinue
+Remove-Item Env:\GOARCH -ErrorAction SilentlyContinue
+
+Write-Host "  ✓ Embedded binaries ready for downloads" -ForegroundColor Green
+Write-Host ""
+
 # Build WASM first
-Write-Host "[1/5] Building WASM module..." -ForegroundColor Green
+Write-Host "[2/6] Building WASM module..." -ForegroundColor Green
 $wasmEnv = @{
     GOOS = "js"
     GOARCH = "wasm"
@@ -54,7 +81,7 @@ Write-Host "✓ WASM built successfully ($([math]::Round($wasmSize, 2)) MB)" -Fo
 Write-Host ""
 
 # Copy wasm_exec.js
-Write-Host "[2/6] Copying wasm_exec.js..." -ForegroundColor Green
+Write-Host "[3/6] Copying wasm_exec.js..." -ForegroundColor Green
 $goroot = go env GOROOT
 $wasmExecSrc = Join-Path $goroot "lib\wasm\wasm_exec.js"
 $wasmExecDest = "bin\wasm_exec.js"
@@ -68,7 +95,7 @@ if (Test-Path $wasmExecSrc) {
 Write-Host ""
 
 # Build Android APK
-Write-Host "[3/6] Building Android APK..." -ForegroundColor Green
+Write-Host "[4/6] Building Android APK..." -ForegroundColor Green
 if (Test-Path ".\scripts\helpers\build-android-apk.ps1") {
     try {
         & ".\scripts\helpers\build-android-apk.ps1" 2>&1 | ForEach-Object {
@@ -96,7 +123,7 @@ if ($OS -eq "windows") {
 $outputPath = "bin\$outputName"
 
 # Build server (frontend server for WASM mode)
-Write-Host "[4/6] Building optimized frontend server..." -ForegroundColor Green
+Write-Host "[5/6] Building optimized frontend server..." -ForegroundColor Green
 
 Write-Host "  Tags: frontendserver,obfuscated,ngrok_default,downloadable" -ForegroundColor White
 Write-Host "  Flags: -ldflags='-s -w' (strip symbols)" -ForegroundColor White
@@ -125,7 +152,7 @@ Write-Host "✓ Server built successfully ($([math]::Round($serverSize, 2)) MB)"
 Write-Host ""
 
 # Generate checksums
-Write-Host "[5/6] Generating checksums..." -ForegroundColor Green
+Write-Host "[6/6] Generating checksums..." -ForegroundColor Green
 $checksumFile = "bin\checksums-prod.txt"
 $serverHash = (Get-FileHash $outputPath -Algorithm SHA256).Hash
 $wasmHash = (Get-FileHash $wasmOutput -Algorithm SHA256).Hash

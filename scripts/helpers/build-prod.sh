@@ -20,8 +20,27 @@ echo "  - Architecture: $ARCH"
 echo "  - Obfuscation: garble"
 echo ""
 
+# Build embedded binaries first (required for downloadable tag)
+echo "[1/7] Building embedded binaries for downloads..."
+echo "  Building Windows binary for embedding..."
+GOOS=windows GOARCH=amd64 go build -o bin/pejelagarto-translator.exe .
+if [ $? -ne 0 ]; then
+    echo "Failed to build Windows embedded binary"
+    exit 1
+fi
+
+echo "  Building Linux binary for embedding..."
+GOOS=linux GOARCH=amd64 go build -o bin/pejelagarto-translator .
+if [ $? -ne 0 ]; then
+    echo "Failed to build Linux embedded binary"
+    exit 1
+fi
+
+echo "  ✓ Embedded binaries ready for downloads"
+echo ""
+
 # Check if garble is installed
-echo "[1/6] Checking for garble..."
+echo "[2/7] Checking for garble..."
 if ! command -v garble &> /dev/null; then
     echo "ERROR: garble not found. Installing..."
     go install mvdan.cc/garble@latest
@@ -36,7 +55,7 @@ fi
 echo ""
 
 # Build WASM first
-echo "[2/6] Building WASM module..."
+echo "[3/7] Building WASM module..."
 export GOOS=js
 export GOARCH=wasm
 
@@ -54,7 +73,7 @@ echo "✓ WASM built successfully ($WASM_SIZE)"
 echo ""
 
 # Copy wasm_exec.js
-echo "[3/6] Copying wasm_exec.js..."
+echo "[4/7] Copying wasm_exec.js..."
 GOROOT=$(go env GOROOT)
 WASM_EXEC_SRC="$GOROOT/misc/wasm/wasm_exec.js"
 WASM_EXEC_DEST="bin/wasm_exec.js"
@@ -75,7 +94,7 @@ fi
 OUTPUT_PATH="bin/$OUTPUT_NAME"
 
 # Build server (frontend server for WASM mode)
-echo "[4/6] Building obfuscated frontend server..."
+echo "[5/7] Building obfuscated frontend server..."
 export GOOS="$OS"
 export GOARCH="$ARCH"
 export CGO_ENABLED=0
@@ -101,7 +120,7 @@ echo "✓ Server built successfully ($SERVER_SIZE)"
 echo ""
 
 # Generate checksums
-echo "[5/6] Generating checksums..."
+echo "[6/7] Generating checksums..."
 CHECKSUM_FILE="bin/checksums-prod.txt"
 SERVER_HASH=$(sha256sum "$OUTPUT_PATH" | cut -d' ' -f1)
 WASM_HASH=$(sha256sum "$WASM_OUTPUT" | cut -d' ' -f1)
@@ -124,7 +143,7 @@ echo "✓ Checksums saved to $CHECKSUM_FILE"
 echo ""
 
 # Summary
-echo "[6/6] Build Summary"
+echo "[7/7] Build Summary"
 echo "======================================"
 echo "Build Type: Production (Obfuscated)"
 echo "Features:"
