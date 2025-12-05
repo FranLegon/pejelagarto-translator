@@ -39,22 +39,31 @@ func SetEmbeddedRequirements(fs embed.FS) {
 // extractEmbeddedRequirements extracts and runs the get-requirements script to download TTS dependencies
 // If singleLanguage is not empty, only that language will be downloaded
 func ExtractEmbeddedRequirements(singleLanguage string) error {
-	// Determine temp directory based on OS
+	// Determine base directory - prefer location next to executable for service compatibility
 	var baseDir string
-	if runtime.GOOS == "windows" {
-		baseDir = os.Getenv("TEMP")
-		if baseDir == "" {
-			baseDir = os.Getenv("TMP")
-		}
-		if baseDir == "" {
-			baseDir = "C:\\Windows\\Temp"
-		}
+	
+	// First try to get executable directory (works reliably for services)
+	if exePath, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exePath)
+		baseDir = filepath.Join(exeDir, "data")
 	} else {
-		baseDir = "/tmp"
+		// Fallback to temp directory
+		if runtime.GOOS == "windows" {
+			baseDir = os.Getenv("TEMP")
+			if baseDir == "" {
+				baseDir = os.Getenv("TMP")
+			}
+			if baseDir == "" {
+				baseDir = "C:\\Windows\\Temp"
+			}
+		} else {
+			baseDir = "/tmp"
+		}
+		baseDir = filepath.Join(baseDir, config.ProjectName())
 	}
 
-	// Create a unique directory for this application
-	TempRequirementsDir = filepath.Join(baseDir, config.ProjectName(), "requirements")
+	// Create requirements directory
+	TempRequirementsDir = filepath.Join(baseDir, "requirements")
 
 	// Check what dependencies are missing
 	piperExe := filepath.Join(TempRequirementsDir, "piper")

