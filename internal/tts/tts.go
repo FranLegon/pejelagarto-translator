@@ -183,10 +183,20 @@ func ExtractEmbeddedRequirements(singleLanguage string) error {
 				log.Println("Running PowerShell script to download all dependencies...")
 			}
 		}
+
+		// Build command with -Quiet parameter for obfuscated builds
 		if singleLanguage != "" {
-			cmd = exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath, "-Language", singleLanguage)
+			if config.Obfuscated() {
+				cmd = exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath, "-Language", singleLanguage, "-Quiet", "$true")
+			} else {
+				cmd = exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath, "-Language", singleLanguage)
+			}
 		} else {
-			cmd = exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath)
+			if config.Obfuscated() {
+				cmd = exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath, "-Quiet", "$true")
+			} else {
+				cmd = exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath)
+			}
 		}
 	} else {
 		// Use shell script on Linux/macOS

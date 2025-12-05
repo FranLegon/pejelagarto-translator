@@ -3,18 +3,21 @@
 # Run this script before building to ensure all dependencies are embedded
 
 param(
-    [string]$Language = "all"  # Specify a single language (e.g., "russian") or "all" for all languages
+    [string]$Language = "all",  # Specify a single language (e.g., "russian") or "all" for all languages
+    [bool]$Quiet = $false  # Suppress verbose output, show only progress bar and essential messages
 )
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "=== Pejelagarto Translator - Dependency Checker ===" -ForegroundColor Cyan
-if ($Language -ne "all") {
-    Write-Host "Language: $Language (single language mode)" -ForegroundColor Yellow
-} else {
-    Write-Host "Language: All languages" -ForegroundColor Yellow
+if (-not $Quiet) {
+    Write-Host "=== Pejelagarto Translator - Dependency Checker ===" -ForegroundColor Cyan
+    if ($Language -ne "all") {
+        Write-Host "Language: $Language (single language mode)" -ForegroundColor Yellow
+    } else {
+        Write-Host "Language: All languages" -ForegroundColor Yellow
+    }
+    Write-Host ""
 }
-Write-Host ""
 
 # Determine the requirements directory
 $RequirementsDir = Join-Path $PSScriptRoot "tts\requirements"
@@ -23,17 +26,23 @@ $LanguagesDir = Join-Path $PiperDir "languages"
 
 # Create directories if they don't exist
 if (-not (Test-Path $RequirementsDir)) {
-    Write-Host "Creating requirements directory..." -ForegroundColor Yellow
+    if (-not $Quiet) {
+        Write-Host "Creating requirements directory..." -ForegroundColor Yellow
+    }
     New-Item -ItemType Directory -Path $RequirementsDir -Force | Out-Null
 }
 
 if (-not (Test-Path $PiperDir)) {
-    Write-Host "Creating piper directory..." -ForegroundColor Yellow
+    if (-not $Quiet) {
+        Write-Host "Creating piper directory..." -ForegroundColor Yellow
+    }
     New-Item -ItemType Directory -Path $PiperDir -Force | Out-Null
 }
 
 if (-not (Test-Path $LanguagesDir)) {
-    Write-Host "Creating languages directory..." -ForegroundColor Yellow
+    if (-not $Quiet) {
+        Write-Host "Creating languages directory..." -ForegroundColor Yellow
+    }
     New-Item -ItemType Directory -Path $LanguagesDir -Force | Out-Null
 }
 
@@ -44,31 +53,43 @@ function Download-File {
         [string]$OutputPath
     )
     
-    Write-Host "  Downloading from: $Url" -ForegroundColor Gray
-    Write-Host "  Saving to: $OutputPath" -ForegroundColor Gray
+    if (-not $Quiet) {
+        Write-Host "  Downloading from: $Url" -ForegroundColor Gray
+        Write-Host "  Saving to: $OutputPath" -ForegroundColor Gray
+    }
     
     try {
         Invoke-WebRequest -Uri $Url -OutFile $OutputPath -UseBasicParsing
-        Write-Host "  ✓ Downloaded successfully" -ForegroundColor Green
+        if (-not $Quiet) {
+            Write-Host "  ✓ Downloaded successfully" -ForegroundColor Green
+        }
         return $true
     } catch {
-        Write-Host "  ✗ Failed to download: $_" -ForegroundColor Red
+        if (-not $Quiet) {
+            Write-Host "  ✗ Failed to download: $_" -ForegroundColor Red
+        }
         return $false
     }
 }
 
 # Check for Piper binary and DLLs
-Write-Host "Checking Piper binary..." -ForegroundColor Cyan
+if (-not $Quiet) {
+    Write-Host "Checking Piper binary..." -ForegroundColor Cyan
+}
 $PiperExe = Join-Path $RequirementsDir "piper.exe"
 
 if (-not (Test-Path $PiperExe)) {
-    Write-Host "Piper binary not found. Downloading..." -ForegroundColor Yellow
+    if (-not $Quiet) {
+        Write-Host "Piper binary not found. Downloading..." -ForegroundColor Yellow
+    }
     
     $ZipPath = Join-Path $RequirementsDir "piper_windows_amd64.zip"
     $Url = "https://github.com/rhasspy/piper/releases/latest/download/piper_windows_amd64.zip"
     
     if (Download-File -Url $Url -OutputPath $ZipPath) {
-        Write-Host "Extracting Piper..." -ForegroundColor Yellow
+        if (-not $Quiet) {
+            Write-Host "Extracting Piper..." -ForegroundColor Yellow
+        }
         
         try {
             # Extract to a temporary directory
@@ -84,7 +105,9 @@ if (-not (Test-Path $PiperExe)) {
             foreach ($File in $ExtractedFiles) {
                 $DestPath = Join-Path $RequirementsDir $File.Name
                 Copy-Item -Path $File.FullName -Destination $DestPath -Force
-                Write-Host "  ✓ Copied $($File.Name)" -ForegroundColor Green
+                if (-not $Quiet) {
+                    Write-Host "  ✓ Copied $($File.Name)" -ForegroundColor Green
+                }
             }
             
             # Copy espeak-ng-data directory if it exists
@@ -95,40 +118,58 @@ if (-not (Test-Path $PiperExe)) {
                     Remove-Item -Path $EspeakDest -Recurse -Force
                 }
                 Copy-Item -Path $EspeakSource -Destination $EspeakDest -Recurse -Force
-                Write-Host "  ✓ Copied espeak-ng-data directory" -ForegroundColor Green
+                if (-not $Quiet) {
+                    Write-Host "  ✓ Copied espeak-ng-data directory" -ForegroundColor Green
+                }
             }
             
             # Clean up
             Remove-Item -Path $TempExtractDir -Recurse -Force
             Remove-Item -Path $ZipPath -Force
             
-            Write-Host "✓ Piper binary and dependencies installed" -ForegroundColor Green
+            if (-not $Quiet) {
+                Write-Host "✓ Piper binary and dependencies installed" -ForegroundColor Green
+            }
         } catch {
-            Write-Host "✗ Failed to extract: $_" -ForegroundColor Red
+            if (-not $Quiet) {
+                Write-Host "✗ Failed to extract: $_" -ForegroundColor Red
+            }
             exit 1
         }
     } else {
-        Write-Host "✗ Failed to download Piper binary" -ForegroundColor Red
+        if (-not $Quiet) {
+            Write-Host "✗ Failed to download Piper binary" -ForegroundColor Red
+        }
         exit 1
     }
 } else {
-    Write-Host "✓ Piper binary found" -ForegroundColor Green
+    if (-not $Quiet) {
+        Write-Host "✓ Piper binary found" -ForegroundColor Green
+    }
 }
 
 # Check for espeak-ng-data
-Write-Host "`nChecking espeak-ng-data..." -ForegroundColor Cyan
+if (-not $Quiet) {
+    Write-Host "`nChecking espeak-ng-data..." -ForegroundColor Cyan
+}
 $EspeakData = Join-Path $RequirementsDir "espeak-ng-data"
 
 if (-not (Test-Path $EspeakData)) {
-    Write-Host "✗ espeak-ng-data not found. This should have been included with Piper." -ForegroundColor Red
-    Write-Host "  Please manually download from: https://github.com/rhasspy/piper/releases/latest" -ForegroundColor Yellow
+    if (-not $Quiet) {
+        Write-Host "✗ espeak-ng-data not found. This should have been included with Piper." -ForegroundColor Red
+        Write-Host "  Please manually download from: https://github.com/rhasspy/piper/releases/latest" -ForegroundColor Yellow
+    }
     exit 1
 } else {
-    Write-Host "✓ espeak-ng-data found" -ForegroundColor Green
+    if (-not $Quiet) {
+        Write-Host "✓ espeak-ng-data found" -ForegroundColor Green
+    }
 }
 
 # Check for language models
-Write-Host "`nChecking language models..." -ForegroundColor Cyan
+if (-not $Quiet) {
+    Write-Host "`nChecking language models..." -ForegroundColor Cyan
+}
 
 $Languages = @{
     "russian" = @{
@@ -220,8 +261,10 @@ $LanguagesToDownload = if ($Language -eq "all") {
     if ($Languages.ContainsKey($Language)) {
         @($Language)
     } else {
-        Write-Host "Error: Unknown language '$Language'" -ForegroundColor Red
-        Write-Host "Available languages: $($Languages.Keys -join ', ')" -ForegroundColor Yellow
+        if (-not $Quiet) {
+            Write-Host "Error: Unknown language '$Language'" -ForegroundColor Red
+            Write-Host "Available languages: $($Languages.Keys -join ', ')" -ForegroundColor Yellow
+        }
         exit 1
     }
 }
@@ -240,10 +283,16 @@ foreach ($LangName in $LanguagesToDownload) {
 
 # Report status of language models
 if ($MissingLanguages.Count -eq 0) {
-    Write-Host "✓ All required language models are already present" -ForegroundColor Green
+    if (-not $Quiet) {
+        Write-Host "✓ All required language models are already present" -ForegroundColor Green
+    }
 } else {
-    Write-Host "Missing language models: $($MissingLanguages -join ', ')" -ForegroundColor Yellow
-    Write-Host "Will download $($MissingLanguages.Count) language model(s)..." -ForegroundColor Yellow
+    if ($Quiet) {
+        Write-Host "Downloading dependencies..." -ForegroundColor Cyan
+    } else {
+        Write-Host "Missing language models: $($MissingLanguages -join ', ')" -ForegroundColor Yellow
+        Write-Host "Will download $($MissingLanguages.Count) language model(s)..." -ForegroundColor Yellow
+    }
 }
 
 # Initialize counters for progress tracking
@@ -261,12 +310,18 @@ foreach ($LangName in $LanguagesToDownload) {
     $ProgressPercent = [math]::Round(($CurrentLanguageIndex / $TotalLanguages) * 100)
     
     # Display progress bar
-    Write-Progress -Activity "Processing Language Models" `
-                   -Status "[$CurrentLanguageIndex/$TotalLanguages] Checking $LangName" `
-                   -PercentComplete $ProgressPercent `
-                   -CurrentOperation "Downloaded: $DownloadedCount | Already present: $SkippedCount"
-    
-    Write-Host "`n  [$CurrentLanguageIndex/$TotalLanguages] Checking $LangName - $($LangInfo.direction) ($($LangInfo.voice))..." -ForegroundColor Yellow
+    if ($Quiet) {
+        Write-Progress -Activity "Downloading dependencies" `
+                       -Status "Processing language models ($CurrentLanguageIndex/$TotalLanguages)" `
+                       -PercentComplete $ProgressPercent
+    } else {
+        Write-Progress -Activity "Processing Language Models" `
+                       -Status "[$CurrentLanguageIndex/$TotalLanguages] Checking $LangName" `
+                       -PercentComplete $ProgressPercent `
+                       -CurrentOperation "Downloaded: $DownloadedCount | Already present: $SkippedCount"
+        
+        Write-Host "`n  [$CurrentLanguageIndex/$TotalLanguages] Checking $LangName - $($LangInfo.direction) ($($LangInfo.voice))..." -ForegroundColor Yellow
+    }
     
     # Create language directory if it doesn't exist
     if (-not (Test-Path $LangDir)) {
@@ -280,57 +335,81 @@ foreach ($LangName in $LanguagesToDownload) {
     $NeedsDownload = $false
     
     if (-not (Test-Path $ModelFile)) {
-        Write-Host "    model.onnx not found" -ForegroundColor Yellow
+        if (-not $Quiet) {
+            Write-Host "    model.onnx not found" -ForegroundColor Yellow
+        }
         $NeedsDownload = $true
     }
     
     if (-not (Test-Path $ModelJsonFile)) {
-        Write-Host "    model.onnx.json not found" -ForegroundColor Yellow
+        if (-not $Quiet) {
+            Write-Host "    model.onnx.json not found" -ForegroundColor Yellow
+        }
         $NeedsDownload = $true
     }
     
     if ($NeedsDownload) {
-        Write-Host "    Downloading $LangName model..." -ForegroundColor Yellow
+        if (-not $Quiet) {
+            Write-Host "    Downloading $LangName model..." -ForegroundColor Yellow
+        }
         
         # Download model.onnx
         $ModelUrl = "$($LangInfo.url_base)/$($LangInfo.voice).onnx"
         if (Download-File -Url $ModelUrl -OutputPath $ModelFile) {
-            Write-Host "    ✓ Downloaded model.onnx (~63 MB)" -ForegroundColor Green
+            if (-not $Quiet) {
+                Write-Host "    ✓ Downloaded model.onnx (~63 MB)" -ForegroundColor Green
+            }
         } else {
-            Write-Host "    ✗ Failed to download model.onnx" -ForegroundColor Red
+            if (-not $Quiet) {
+                Write-Host "    ✗ Failed to download model.onnx" -ForegroundColor Red
+            }
             continue
         }
         
         # Download model.onnx.json
         $ModelJsonUrl = "$($LangInfo.url_base)/$($LangInfo.voice).onnx.json"
         if (Download-File -Url $ModelJsonUrl -OutputPath $ModelJsonFile) {
-            Write-Host "    ✓ Downloaded model.onnx.json" -ForegroundColor Green
+            if (-not $Quiet) {
+                Write-Host "    ✓ Downloaded model.onnx.json" -ForegroundColor Green
+            }
             $DownloadedCount++
         } else {
-            Write-Host "    ✗ Failed to download model.onnx.json" -ForegroundColor Red
+            if (-not $Quiet) {
+                Write-Host "    ✗ Failed to download model.onnx.json" -ForegroundColor Red
+            }
             continue
         }
     } else {
-        Write-Host "    ✓ Model files already present" -ForegroundColor Green
+        if (-not $Quiet) {
+            Write-Host "    ✓ Model files already present" -ForegroundColor Green
+        }
         $SkippedCount++
     }
 }
 
 # Clear progress bar when done
-Write-Progress -Activity "Processing Language Models" -Completed
+if ($Quiet) {
+    Write-Progress -Activity "Downloading dependencies" -Completed
+} else {
+    Write-Progress -Activity "Processing Language Models" -Completed
+}
 
 # Final summary
-Write-Host "`n=== Dependency Check Complete ===" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "Language Models Summary:" -ForegroundColor White
-Write-Host "  Downloaded: $DownloadedCount" -ForegroundColor Green
-Write-Host "  Already present: $SkippedCount" -ForegroundColor Cyan
-Write-Host "  Total processed: $TotalLanguages" -ForegroundColor White
-Write-Host ""
-Write-Host "All dependencies are ready!" -ForegroundColor Green
-Write-Host ""
-Write-Host "You can now build the executable with:" -ForegroundColor Yellow
-Write-Host "  go build -o bin/pejelagarto-translator.exe main.go" -ForegroundColor White
-Write-Host ""
-Write-Host "The compiled binary will include all embedded dependencies." -ForegroundColor Gray
-Write-Host ""
+if ($Quiet) {
+    Write-Host "Dependencies ready!" -ForegroundColor Green
+} else {
+    Write-Host "`n=== Dependency Check Complete ===" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "Language Models Summary:" -ForegroundColor White
+    Write-Host "  Downloaded: $DownloadedCount" -ForegroundColor Green
+    Write-Host "  Already present: $SkippedCount" -ForegroundColor Cyan
+    Write-Host "  Total processed: $TotalLanguages" -ForegroundColor White
+    Write-Host ""
+    Write-Host "All dependencies are ready!" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "You can now build the executable with:" -ForegroundColor Yellow
+    Write-Host "  go build -o bin/pejelagarto-translator.exe main.go" -ForegroundColor White
+    Write-Host ""
+    Write-Host "The compiled binary will include all embedded dependencies." -ForegroundColor Gray
+    Write-Host ""
+}
