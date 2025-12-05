@@ -78,10 +78,7 @@ if ($IsWindows) {
     Write-Host "  To start now: Start-ScheduledTask -TaskName '$ServiceName'"
     Write-Host "  To stop: Stop-ScheduledTask -TaskName '$ServiceName'"
     Write-Host "  To remove: Unregister-ScheduledTask -TaskName '$ServiceName'"
-}
-
-# Linux: Create systemd service
-elseif ($IsLinux) {
+} <# Linux: Create systemd service #> elseif ($IsLinux) {
     Write-Host "Creating systemd service..."
     
     $serviceFileName = "$ServiceName.service"
@@ -137,10 +134,7 @@ WantedBy=multi-user.target
     Write-Host "  Stop: sudo systemctl stop $serviceFileName"
     Write-Host "  Restart: sudo systemctl restart $serviceFileName"
     Write-Host "  Logs: journalctl -u $serviceFileName -f"
-}
-
-# macOS: Create LaunchDaemon
-elseif ($IsMacOS) {
+} <# macOS: Create LaunchDaemon #> elseif ($IsMacOS) {
     Write-Host "Creating macOS LaunchDaemon..."
     
     $plistFileName = "com.$ServiceName.plist"
@@ -198,9 +192,7 @@ elseif ($IsMacOS) {
     Write-Host "  Status: sudo launchctl list | grep $ServiceName"
     Write-Host "  Stop: sudo launchctl unload $plistPath"
     Write-Host "  Logs: tail -f /var/log/$ServiceName.log"
-}
-
-else {
+} else {
     Write-Error "Unsupported operating system"
     exit 1
 }
