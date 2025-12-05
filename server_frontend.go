@@ -9,6 +9,7 @@ package main
 
 import (
 	"context"
+	"embed"
 	"flag"
 	"fmt"
 	"log"
@@ -27,6 +28,11 @@ import (
 	"pejelagarto-translator/config"
 	"pejelagarto-translator/internal/tts"
 )
+
+// Embed WASM files for frontend server
+//
+//go:embed bin/translator.wasm bin/wasm_exec.js
+var embeddedWASM embed.FS
 
 // Downloadable feature - constants come from downloadable.go or not_downloadable.go based on build tags
 // var embeddedBinaries embed.FS and const config.IsDownloadable are defined in those files
@@ -1110,7 +1116,14 @@ func main() {
 		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 		w.Header().Set("Pragma", "no-cache")
 		w.Header().Set("Expires", "0")
-		// Try multiple possible locations for WASM file
+
+		// Try to serve from embedded filesystem first
+		if wasmData, err := embeddedWASM.ReadFile("bin/translator.wasm"); err == nil {
+			w.Write(wasmData)
+			return
+		}
+
+		// Fallback to filesystem for development
 		wasmPaths := []string{
 			"translator.wasm",
 			"bin/translator.wasm",
@@ -1138,7 +1151,14 @@ func main() {
 	})
 	http.HandleFunc("/wasm_exec.js", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/javascript")
-		// Try multiple possible locations for wasm_exec.js
+
+		// Try to serve from embedded filesystem first
+		if jsData, err := embeddedWASM.ReadFile("bin/wasm_exec.js"); err == nil {
+			w.Write(jsData)
+			return
+		}
+
+		// Fallback to filesystem for development
 		jsPaths := []string{
 			"wasm_exec.js",
 			"bin/wasm_exec.js",

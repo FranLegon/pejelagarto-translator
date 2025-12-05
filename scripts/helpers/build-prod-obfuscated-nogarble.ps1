@@ -116,7 +116,7 @@ if (Test-Path ".\scripts\helpers\build-android-apk.ps1") {
 Write-Host ""
 
 # Determine output filename
-$outputName = "pejelagarto-server"
+$outputName = "piper-server" #"pejelagarto-server"
 if ($OS -eq "windows") {
     $outputName += ".exe"
 }
