@@ -4,7 +4,7 @@
 
 param(
     [string]$Language = "all",  # Specify a single language (e.g., "russian") or "all" for all languages
-    [bool]$Quiet = $false  # Suppress verbose output, show only progress bar and essential messages
+    [switch]$Quiet  # Suppress verbose output, show only progress bar and essential messages
 )
 
 $ErrorActionPreference = "Stop"

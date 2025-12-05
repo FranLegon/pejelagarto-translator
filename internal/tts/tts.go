@@ -187,13 +187,13 @@ func ExtractEmbeddedRequirements(singleLanguage string) error {
 		// Build command with -Quiet parameter for obfuscated builds
 		if singleLanguage != "" {
 			if config.Obfuscated() {
-				cmd = exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath, "-Language", singleLanguage, "-Quiet", "$true")
+				cmd = exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath, "-Language", singleLanguage, "-Quiet")
 			} else {
 				cmd = exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath, "-Language", singleLanguage)
 			}
 		} else {
 			if config.Obfuscated() {
-				cmd = exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath, "-Quiet", "$true")
+				cmd = exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath, "-Quiet")
 			} else {
 				cmd = exec.Command("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", scriptPath)
 			}
