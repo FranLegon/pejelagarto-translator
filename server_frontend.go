@@ -294,9 +294,11 @@ const htmlUIFrontend = `<!DOCTYPE html>
             background: linear-gradient(135deg, #ff9800 0%, #ff6f00 100%);
             padding: 4px 10px;
             font-size: 14px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             box-shadow: 0 2px 8px rgba(255, 152, 0, 0.4);
             min-width: auto;
             margin-left: 4px;
+            border: none;
             border-radius: 6px;
             text-decoration: none;
             display: inline-block;
@@ -953,14 +955,14 @@ const htmlUIFrontend = `<!DOCTYPE html>
             addDownloadButtons();
         }
         
-        function addDownloadButtons() {
+        function getPejelagartoText() {
             const inputText = document.getElementById('input-text');
             const outputText = document.getElementById('output-text');
-            const languageDropdown = document.getElementById('tts-language');
-            const selectedLang = languageDropdown ? languageDropdown.value : 'russian';
-            
-            // Get the Pejelagarto text based on current state
-            const textToSpeak = isInverted ? inputText.value : outputText.value;
+            return isInverted ? inputText.value : outputText.value;
+        }
+        
+        function addDownloadButtons() {
+            const textToSpeak = getPejelagartoText();
             
             if (!textToSpeak || textToSpeak.trim() === '') {
                 return;
@@ -971,21 +973,36 @@ const htmlUIFrontend = `<!DOCTYPE html>
                 return;
             }
             
-            // Create download buttons
-            const fastUrl = '/tts?lang=' + encodeURIComponent(selectedLang);
-            const slowUrl = '/tts?lang=' + encodeURIComponent(selectedLang) + '&slow=true';
+            const languageDropdown = document.getElementById('tts-language');
+            const selectedLang = languageDropdown ? languageDropdown.value : 'russian';
             
-            downloadsContainer.innerHTML = 
-                '<a class="pronunciation-download-btn" onclick="downloadAudio(&quot;' + fastUrl + '&quot;, &quot;pejelagarto-fast.wav&quot;)" style="cursor: pointer;">⬇️🐇</a>' +
-                '<a class="pronunciation-download-btn" onclick="downloadAudio(&quot;' + slowUrl + '&quot;, &quot;pejelagarto-slow.wav&quot;)" style="cursor: pointer;">⬇️🐌</a>';
+            // Clear existing buttons
+            downloadsContainer.innerHTML = '';
+            
+            // Create fast download button
+            const fastBtn = document.createElement('a');
+            fastBtn.className = 'pronunciation-download-btn';
+            fastBtn.textContent = '⬇️🐇';
+            fastBtn.onclick = function() {
+                const url = '/tts?lang=' + encodeURIComponent(selectedLang);
+                downloadAudio(url, 'pejelagarto-fast.wav');
+            };
+            
+            // Create slow download button
+            const slowBtn = document.createElement('a');
+            slowBtn.className = 'pronunciation-download-btn';
+            slowBtn.textContent = '⬇️🐌';
+            slowBtn.onclick = function() {
+                const url = '/tts?lang=' + encodeURIComponent(selectedLang) + '&slow=true';
+                downloadAudio(url, 'pejelagarto-slow.wav');
+            };
+            
+            downloadsContainer.appendChild(fastBtn);
+            downloadsContainer.appendChild(slowBtn);
         }
         
         function downloadAudio(url, filename) {
-            const inputText = document.getElementById('input-text');
-            const outputText = document.getElementById('output-text');
-            
-            // Get the Pejelagarto text based on current state
-            const textToSpeak = isInverted ? inputText.value : outputText.value;
+            const textToSpeak = getPejelagartoText();
             
             if (!textToSpeak || textToSpeak.trim() === '') {
                 alert('No text to convert to speech!');
