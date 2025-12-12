@@ -290,6 +290,30 @@ const htmlUIFrontend = `<!DOCTYPE html>
             cursor: not-allowed;
         }
         
+        .pronunciation-download-btn {
+            background: linear-gradient(135deg, #ff9800 0%, #ff6f00 100%);
+            padding: 4px 10px;
+            font-size: 14px;
+            box-shadow: 0 2px 8px rgba(255, 152, 0, 0.4);
+            min-width: auto;
+            margin-left: 4px;
+            border-radius: 6px;
+            text-decoration: none;
+            display: inline-block;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .pronunciation-download-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(255, 152, 0, 0.6);
+        }
+        
+        .pronunciation-download-btn:active {
+            transform: translateY(0);
+        }
+        
         .hidden {
             display: none !important;
         }
@@ -521,7 +545,7 @@ const htmlUIFrontend = `<!DOCTYPE html>
         </div>
         
         <div class="pronunciation-container">
-            <label>Pronunciation:</label>
+            <label>Pronunciation: <span id="pronunciation-downloads"></span></label>
             <textarea id="pronunciation-text" readonly placeholder="Pronunciation will appear here..."></textarea>
         </div>
     </div>
@@ -763,6 +787,12 @@ const htmlUIFrontend = `<!DOCTYPE html>
             if (newDropdown) {
                 newDropdown.value = selectedLang;
             }
+            
+            // Clear download buttons from pronunciation section
+            const downloadsContainer = document.getElementById('pronunciation-downloads');
+            if (downloadsContainer) {
+                downloadsContainer.innerHTML = '';
+            }
         }
         
         setInterval(watchOutputChanges, 500);
@@ -918,6 +948,80 @@ const htmlUIFrontend = `<!DOCTYPE html>
             if (newDropdown) {
                 newDropdown.value = selectedLang;
             }
+            
+            // Add download buttons to pronunciation section
+            addDownloadButtons();
+        }
+        
+        function addDownloadButtons() {
+            const inputText = document.getElementById('input-text');
+            const outputText = document.getElementById('output-text');
+            const languageDropdown = document.getElementById('tts-language');
+            const selectedLang = languageDropdown ? languageDropdown.value : 'russian';
+            
+            // Get the Pejelagarto text based on current state
+            const textToSpeak = isInverted ? inputText.value : outputText.value;
+            
+            if (!textToSpeak || textToSpeak.trim() === '') {
+                return;
+            }
+            
+            const downloadsContainer = document.getElementById('pronunciation-downloads');
+            if (!downloadsContainer) {
+                return;
+            }
+            
+            // Create download buttons
+            const fastUrl = '/tts?lang=' + encodeURIComponent(selectedLang);
+            const slowUrl = '/tts?lang=' + encodeURIComponent(selectedLang) + '&slow=true';
+            
+            downloadsContainer.innerHTML = 
+                '<a class="pronunciation-download-btn" onclick="downloadAudio(&quot;' + fastUrl + '&quot;, &quot;pejelagarto-fast.wav&quot;)" style="cursor: pointer;">⬇️🐇</a>' +
+                '<a class="pronunciation-download-btn" onclick="downloadAudio(&quot;' + slowUrl + '&quot;, &quot;pejelagarto-slow.wav&quot;)" style="cursor: pointer;">⬇️🐌</a>';
+        }
+        
+        function downloadAudio(url, filename) {
+            const inputText = document.getElementById('input-text');
+            const outputText = document.getElementById('output-text');
+            
+            // Get the Pejelagarto text based on current state
+            const textToSpeak = isInverted ? inputText.value : outputText.value;
+            
+            if (!textToSpeak || textToSpeak.trim() === '') {
+                alert('No text to convert to speech!');
+                return;
+            }
+            
+            // Fetch the audio and trigger download
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain'
+                },
+                body: textToSpeak
+            })
+            .then(async response => {
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText || 'TTS request failed: ' + response.statusText);
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                // Create a download link
+                const downloadUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(downloadUrl);
+            })
+            .catch(error => {
+                console.error('Download error:', error);
+                alert('Error downloading audio:\\n\\n' + error.message);
+            });
         }
     </script>
     
