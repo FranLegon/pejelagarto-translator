@@ -985,7 +985,7 @@ const htmlUIFrontend = `<!DOCTYPE html>
             fastBtn.textContent = '⬇️🐇';
             fastBtn.onclick = function() {
                 const url = '/tts?lang=' + encodeURIComponent(selectedLang);
-                downloadAudio(url, 'pejelagarto-fast.wav');
+                downloadAudio(url, 'Pejelagarto_fast.wav');
             };
             
             // Create slow download button
@@ -994,7 +994,7 @@ const htmlUIFrontend = `<!DOCTYPE html>
             slowBtn.textContent = '⬇️🐌';
             slowBtn.onclick = function() {
                 const url = '/tts?lang=' + encodeURIComponent(selectedLang) + '&slow=true';
-                downloadAudio(url, 'pejelagarto-slow.wav');
+                downloadAudio(url, 'Pejelagarto_slow.wav');
             };
             
             downloadsContainer.appendChild(fastBtn);
