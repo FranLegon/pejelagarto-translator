@@ -1471,7 +1471,7 @@ The garble+ngrok compatibility was tested systematically:
 3. **Comprehensive Testing:** Tested 5 different garble configurations with fixed config
 4. **Definitive Result:** Unobfuscated works, all garble builds fail identically
 
-**Test Script:** `scripts\test\test-garble-ngrok.ps1`
+**Test Script:** `scripts\test\test-garble-ngrok.ps1` 
 
 ### Related GitHub Issues
 
